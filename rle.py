@@ -1,6 +1,6 @@
 ### Run Length Encoding
 # Python-Implementation der einfachen Komprimierung
-# Kein rekursive Komprimierung von Sub-Elementen!
+# Keine rekursive Komprimierung von Sub-Elementen!
 
 
 from itertools import groupby, chain, repeat
