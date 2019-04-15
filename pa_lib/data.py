@@ -216,7 +216,7 @@ def make_isoweek(df, dt_col, kw_col='KW'):
     return df
 
 def make_isoweek_rd(df, kw_col, round_by=()):
-    """Round a KW column to {round_by}-week periods. New columns are named {kw_col}_{rd}"""
+    """Round a KW column to {round_by}-week periods. New columns are named {kw_col}_{round_by}"""
     kw = df.loc[df[kw_col].notna(), kw_col].astype('int8')
     roundings = [(rd, f'{kw_col}_{rd}') for rd in flatten(round_by)]
     for (rd, rd_col) in roundings:
