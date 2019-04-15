@@ -8,8 +8,6 @@ Central constants for PA code
 
 import sys
 
-if '/home/pa/python/' not in sys.path:
-    sys.path.insert(0, '/home/pa/python/')
 from pa_lib.types import ConnectPar, Record
 
 # Directories
