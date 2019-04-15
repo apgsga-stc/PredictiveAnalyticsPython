@@ -8,12 +8,12 @@ from typing import Iterable
 
 def encode(seq: Iterable) -> list:
     """Encodes sequence into a list of runs (RLE)"""
-    return [(elm, len(tuple(grp))) for elm, grp in groupby(seq)]
+    return [(element, len(tuple(grp))) for element, grp in groupby(seq)]
 
 
 def decode(rle: list) -> Iterable:
     """Decodes RLE-encoded sequence, returns iterator"""
-    return chain.from_iterable(repeat(elm, cnt) for elm, cnt in rle)
+    return chain.from_iterable(repeat(element, cnt) for element, cnt in rle)
 
 
 def decode_str(rle: list, sep='') -> str:
