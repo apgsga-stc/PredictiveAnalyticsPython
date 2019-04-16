@@ -11,6 +11,7 @@ import os
 import sys
 from datetime import datetime as dtt
 from fnmatch import fnmatch
+from itertools import cycle
 
 from pa_lib.const import PA_DATA_DIR
 from pa_lib.log   import time_log, info
@@ -179,10 +180,16 @@ def clean_up_categoricals(df, **selectors):
     return df
     
 def replace_col(df, col, with_col, where):
-    """Replace values of column 'col' with 'with_col' where 'where' is True"""
+    """Replace values of columns 'col' with values from columns 'with_col' where 'where' is True"""
+    res = df.copy()
     row_mask = df.eval(where)
-    df.loc[row_mask, col] = df.loc[row_mask, with_col]
-    return df
+    res.loc[row_mask, col] = res.loc[row_mask, with_col]
+    return res
+
+def fillna_col(df, col, with_col):
+    """Replace values of columns 'col' with values from columns 'with_col' where col is NA"""
+    res = df.copy().fillna({col: df[with_col]})
+    return res
 
 def cond_col(df, col, cond, true_col, else_col=None):
     """Make new column 'col' out of 'true_col' or 'else_col', depending on 'cond'"""
