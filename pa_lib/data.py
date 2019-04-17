@@ -48,10 +48,27 @@ def file_list(path='.', pattern='*.*', sort='name', desc=False, format=True):
 def data_files(pattern='[!.]*.*', sort='name', **kwargs):
     return file_list(PA_DATA_DIR, pattern, sort, **kwargs).set_index(sort)
 
+@time_log('storing Excel')
+def store_excel(df, file_name, **params):
+    file_path = PA_DATA_DIR + file_name
+    info('Writing to file ' + file_path)
+    # if we have a default index, trash it. If it's more sophisticated, store it as data
+    if type(df.index) == pd.RangeIndex:
+        df = df.reset_index(drop=True)
+    else:
+        df = df.reset_index()
+    df.to_excel(file_path, index=False, freeze_panes=(1, 0), **params)
+    info(f'Written {file_size(file_path)}')
+        
 @time_log('storing CSV')
 def store_csv(df, file_name, zip=True, index=False, **params):
     file_path = PA_DATA_DIR + file_name + ('.zip' if zip else '')
     info('Writing to file ' + file_path)
+    # if we have a default index, trash it. If it's more sophisticated, store it as data
+    if type(df.index) == pd.RangeIndex:
+        df = df.reset_index(drop=True)
+    else:
+        df = df.reset_index()
     if zip:
         df.to_csv(file_path, compression='zip', index=index, **params)
     else:

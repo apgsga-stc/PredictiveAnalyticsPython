@@ -106,21 +106,26 @@ desc_col(pv_bd, det=True)
 ## Vertragsinformationen extrahieren
 
 ```python
-pv_idx = pv_bd.groupby('PvNr', as_index=True)
+pv_idx = pv_bd.sort_values(['PvNr', 'ResDatum']).groupby('PvNr', as_index=True)
 ```
 
 ```python
-pv_info = pv_idx.agg({'PvTitel': 'first', 'optNettoNetto': 'sum', 'PartnerNr': 'nunique', 'PartnerName': 'first', 'PvPosNr': 'nunique',
+pv_info = pv_idx.agg({'PvTitel': 'first', 'optNettoNetto': 'sum', 'PartnerNr': 'nunique', 'PartnerName': 'last', 'PvPosNr': 'nunique',
                       'ResDatum': ['min', 'max'], 'AushangBeginn': ['min', 'max']})
 pv_info.columns = 'Titel totalNetto nPartner Partner nPos firstRes lastRes firstAus lastAus'.split()
+```
+
+```python
+desc_col(pv_info, det=True)
 ```
 
 #### Mehrfach-Partner: Namen zusammenfügen (Reihenfolge wie in Daten)
 
 ```python
+pv_info.assign(allPartner = pv_info.Partner, inplace=True)
 multi_partner = pv_info.nPartner > 1
 pv_multi_prtn = pv_info.loc[multi_partner].index.values
-pv_info.loc[multi_partner, 'Partner'] = (pv_bd[pv_bd.PvNr.isin(pv_multi_prtn)].groupby('PvNr')['PartnerName']
+pv_info.loc[multi_partner, 'allPartner'] = (pv_bd[pv_bd.PvNr.isin(pv_multi_prtn)].groupby('PvNr')['PartnerName']
                                                 .apply(lambda x: ' | '.join(x.unique())))
 ```
 

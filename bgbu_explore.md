@@ -18,12 +18,15 @@ jupyter:
 <!-- #endregion -->
 
 ```python
+%load_ext autoreload
+%autoreload
+
 import pandas as pd
 import qgrid
 from datetime import datetime as dtt
 
-from pa_lib.data import data_files, load_bin, store_bin
-from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col
+from pa_lib.data import data_files, load_bin, store_bin, store_excel
+from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
 from pa_lib.util import obj_size
 from pa_lib.log import time_log
 
@@ -36,7 +39,6 @@ data_files()
 ```
 
 ```python
-pv_bd = load_bin('pv_bd_raw.feather')
 pv_data = load_bin('pv_data.feather')
 pv_info = load_bin('pv_info.feather').set_index('PvNr')
 ```
@@ -48,14 +50,12 @@ Nur Verträge, die seit 2017 jedes Jahr Umsatz generieren, sortiert nach Gesamtu
 <!-- #endregion -->
 
 ```python
-pv_liste = tuple(pv_info.query('Netto_Aus_2017 > 0 and Netto_Aus_2018 > 0 and Netto_Aus_2019 > 0')
+pv_liste = tuple(pv_info.loc[(pv_info.firstRes.dt.year < 2017) & (pv_info.lastAus.dt.year > 2018),:]
+                        .query('Netto_Aus_2017 > 0 and Netto_Aus_2018 > 0 and Netto_Aus_2019 > 0')
+                        .query('Netto_Res_2017 > 0 and Netto_Res_2018 > 0 and Netto_Res_2019 > 0')
                         .eval('SortNetto = Netto_Aus_2017 + Netto_Aus_2018 + Netto_Aus_2019')
                         .sort_values('SortNetto', ascending=False).index.values)
 pv_liste[:20]
-```
-
-```python
-qgrid.show_grid(pv_info)
 ```
 
 ### Check: Buchungen zu Top-20 Verträgen ansehen
@@ -63,6 +63,14 @@ qgrid.show_grid(pv_info)
 ```python
 pv_top20 = pv_data.loc[pv_data['PvNr'].isin(pv_liste[:20])]
 qgrid.show_grid(pv_top20)
+```
+
+## Daten filtern und bereinigen
+
+```python
+pv_data = (pv_data.loc[pv_data['PvNr'].isin(pv_liste)]
+           .reset_index(drop=True)
+           .pipe(clean_up_categoricals))
 ```
 
 ## Aushang und Reservation zusammen per Vertrag und Woche
@@ -92,53 +100,6 @@ with time_log('calculating sums'):
 store_bin(pv_by_week, 'pv_by_week.feather')
 ```
 
-## Auswahl der Partnerverträge für Analyse
-Um genügend Daten zu haben, werden nur Verträge betrachtet, für die wir die ganzen Jahre 2017 und 2018 Daten haben.
-
-```python
-pvListe = pv_info.loc[(pv_info.firstRes.dt.year < 2017) & (pv_info.lastAus.dt.year > 2018),:].index.values
-```
-
-Daten filtern und bereinigen
-
-```python
-pv_data = (pv_data.loc[pv_data['PvNr'].isin(pvListe)]
-           .reset_index(drop=True)
-           .pipe(clean_up_categoricals))
-```
-
-# Nach Vertrag, Jahr und Woche ausmultipliziert
-Werte von 2016 werden verworfen, da dieses Jahr nicht komplett vorhanden ist
-
-```python
-pv_data_a = pv_data.query('AJahr > 2016').pipe(clean_up_categoricals)
-pv_data_r = pv_data.query('RJahr > 2016').pipe(clean_up_categoricals)
-
-pv_akw = pv_data_a.groupby(['PvNr', 'AJahr', 'AKw'], observed=False, as_index=False)
-pv_rkw = pv_data_r.groupby(['PvNr', 'RJahr', 'RKw'], observed=False, as_index=False)
-```
-
-Nettoumsatz pro Vertrag und Jahr/Woche
-
-```python
-with time_log('calculating sums'):
-    pv_akw_netto = pv_akw[['optNettoNetto']].agg('sum')
-    pv_rkw_netto = pv_rkw[['optNettoNetto']].agg('sum')
-    pv_by_week = (pv_rkw_netto.merge(pv_akw_netto, left_on=['PvNr', 'RJahr', 'RKw'], right_on=['PvNr', 'AJahr', 'AKw'], 
-                                     how='outer', suffixes=('_res', '_aus'))
-                  .rename({'RJahr': 'Jahr', 'RKw': 'Kw', 'optNettoNetto_res': 'Res', 'optNettoNetto_aus': 'Aus'}, axis='columns'))
-
-    pv_by_week = (pv_by_week.fillna({'Jahr': pv_by_week.AJahr, 'Kw': pv_by_week.AKw, 'Res': 0, 'Aus': 0})
-                            .drop(['AJahr', 'AKw'], axis='columns')
-                            .sort_values(['Jahr', 'PvNr', 'Kw'])
-                            .reset_index(drop=True))              
-```
-
-```python
-store_bin(pv_akw_netto, 'pv_akw_netto.feather')
-store_bin(pv_rkw_netto, 'pv_rkw_netto.feather')
-```
-
 # Aggregationen hinzufügen
 
 
@@ -148,47 +109,55 @@ Fürs aktuelle Jahr werden die Jahressummen vom letzten Jahr benutzt. Dies impli
 So zeigt die Summenkurve die Zielerreichung relativ zum Vorjahr.
 
 ```python
-def make_year_grp_sumcurve(df, year_col, grp_col, data_col):
+def make_year_grp_sumcurve(df, year_col, grp_col, data_col, prefix=''):
     # rowmasks for this/last year
     this_year = (df[year_col] == dtt.today().year)
     last_year = (df[year_col] == dtt.today().year-1)
 
     # build new columns with sum/cumsum per year/grp
     df = (df
-          .pipe(calc_col_partitioned, 'sumJahr', fun='sum',    on=data_col, part_by=[year_col, grp_col])
-          .pipe(calc_col_partitioned, 'cumJahr', fun='cumsum', on=data_col, part_by=[year_col, grp_col]))
+          .pipe(calc_col_partitioned, f'{prefix}sumJahr', fun='sum',    on=data_col, part_by=[year_col, grp_col])
+          .pipe(calc_col_partitioned, f'{prefix}cumJahr', fun='cumsum', on=data_col, part_by=[year_col, grp_col]))
 
     # replace this year's sums with last year's
     last_year_sum_map = df.loc[last_year].groupby(grp_col)[data_col].agg('sum')
-    df.loc[this_year, 'sumJahr'] = df.loc[this_year, grp_col].apply(lambda x: last_year_sum_map[x])
+    df.loc[this_year, f'{prefix}sumJahr'] = df.loc[this_year, grp_col].apply(lambda x: last_year_sum_map[x])
 
     # divide cumsum by sum to get sum curve [0, 1], show in %
-    df = (df.eval('crvJahr = (cumJahr / sumJahr) * 100 + 0.5')
-            .astype({'crvJahr': 'int'}))
+    df = (df.eval(f'{prefix}crvJahr = ({prefix}cumJahr / {prefix}sumJahr) * 100 + 0.5')
+            .fillna({f'{prefix}crvJahr': 0})
+            .astype({f'{prefix}crvJahr': 'int'}))
     return df
 ```
 
 #### Auf Rohdaten
 
 ```python
-pv_bd_a = make_year_grp_sumcurve(pv_bd_a, year_col='AJahr', grp_col='PvNr', data_col='optNettoNetto')
+pv_data_a = make_year_grp_sumcurve(pv_data, year_col='AJahr', grp_col='PvNr', data_col='optNettoNetto')
 ```
+
+Check: Einen Partner betrachten
 
 ```python
 qgrid.show_grid(
-    pv_bd_a.query('PvNr == 311225').loc[:,['AushangBeginn', 'PvNr', 'PvPosNr', 'optNettoNetto', 'sumJahr', 'cumJahr', 'crvJahr']]
+    pv_data_a.query('PvNr == 311225').loc[:,['AushangBeginn', 'PvNr', 'optNettoNetto', 'sumJahr', 'cumJahr', 'crvJahr']]
 )
 ```
 
 #### Auf Aggregationen
 
 ```python
-pv_akw_netto = make_year_grp_sumcurve(pv_akw_netto.reset_index(), year_col='Jahr', grp_col='PvNr', data_col='Netto')
-pv_rkw_netto = make_year_grp_sumcurve(pv_rkw_netto.reset_index(), year_col='Jahr', grp_col='PvNr', data_col='Netto')
+pv_by_week = (pv_by_week
+              .pipe(make_year_grp_sumcurve, year_col='Jahr', grp_col='PvNr', data_col='Res', prefix='res_')
+              .pipe(make_year_grp_sumcurve, year_col='Jahr', grp_col='PvNr', data_col='Aus', prefix='aus_'))
 ```
 
 ```python
-qgrid.show_grid(pv_akw_netto)
+qgrid.show_grid(pv_by_week)
+```
+
+```python
+desc_col(pv_by_week, det=True)
 ```
 
 # Buchungsverlauf graphisch zeigen
@@ -199,7 +168,6 @@ def select_Pv(df, PvNr):
 ```
 
 #### Alle Buchungen
-Verträge: Top 20 ohne SBB
 
 ```python
 import bokeh
@@ -209,12 +177,12 @@ from bokeh.io import output_notebook
 output_notebook()
 
 p = figure(title="Buchungen über Aushang", x_axis_type='datetime', y_axis_label='Netto', plot_width=900)
-for PvNr in pv_liste[1:31]:
-    p.circle(x='AushangBeginn', y='optNettoNetto', source=select_Pv(pv_bd, PvNr), line_color='navy')
+for PvNr in pv_liste[:30]:
+    p.circle(x='AushangBeginn', y='optNettoNetto', source=select_Pv(pv_data, PvNr), line_color='navy')
 show(p)
 p = figure(title="Buchungen über Reservation", x_axis_type='datetime', y_axis_label='Netto', plot_width=900)
-for PvNr in pv_liste[1:31]:
-    p.circle(x='ResDatum', y='optNettoNetto', source=select_Pv(pv_bd, PvNr), line_color='navy')
+for PvNr in pv_liste[:30]:
+    p.circle(x='ResDatum', y='optNettoNetto', source=select_Pv(pv_data, PvNr), line_color='navy')
 show(p)
 ```
 
@@ -226,10 +194,13 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
     """Jahres-Buchungsverlauf zeigen. PvNr kann >=1 PvNr enthalten, typ in ('aushang', 'reservation') oder Abk."""
     import altair as alt
 
-    if typ[:3] == 'aus':
-        data = select_Pv(pv_akw_netto, PvNr)
-    elif typ[:3] == 'res':
-        data = select_Pv(pv_akw_netto, PvNr)
+    data = select_Pv(pv_by_week, PvNr)
+    if typ[:3] == 'res':
+        prefix = 'res_'
+    elif typ[:3] == 'aus':
+        prefix = 'aus_'
+    else:
+        raise ValueError("typ in ('aushang', 'reservation') oder abgekürzt")
 
     pv_select = alt.selection_multi(fields=['PvNr'], nearest=True)
     pv_color = alt.condition(pv_select,
@@ -249,7 +220,7 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
         x=kw_axis,
         color=pv_color,
         opacity=alt.Opacity('Jahr', legend=None),
-        tooltip=['Kw', 'Jahr', 'cumJahr', 'crvJahr']
+        tooltip=['Kw', 'Jahr', f'{prefix}cumJahr', f'{prefix}crvJahr']
     ).add_selection(
         pv_select
     ).transform_filter(
@@ -257,12 +228,12 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
     ).transform_filter(
         yr_select
     )
-    lines_cum = lines.encode(y='cumJahr')
-    lines_crv = lines.encode(y='crvJahr')
+    lines_cum = lines.encode(y=f'{prefix}cumJahr')
+    lines_crv = lines.encode(y=f'{prefix}crvJahr')
 
     # clickable Pv legend
     pv_legend = alt.Chart(data).mark_rect().encode(
-        y=alt.Y('PvNr:N', sort=pv_top20, axis=alt.Axis(orient='right')),
+        y=alt.Y('PvNr:N', sort=PvNr, axis=alt.Axis(orient='right')),
         color=pv_color
     ).add_selection(
         pv_select
@@ -286,8 +257,7 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
 ```
 
 ```python
-pv_top20 = pv_liste[1:21]
-graph_jahresverlauf(pv_top20, 'reservation').display()
+graph_jahresverlauf(pv_liste[:20], 'aushang').display()
 ```
 
 # Aushang per Vertrag per Datum
@@ -297,12 +267,12 @@ Mit Vergleich zu Vorjahren (gleiche KW)
 def aushang(date):
     (jahr, kw) = date.isocalendar()[:2]
     
-    result_columns = ['PvNr', 'Jahr', 'sumJahr', 'cumJahr', 'crvJahr']
+    result_columns = ['PvNr', 'Jahr', 'aus_sumJahr', 'aus_cumJahr', 'aus_crvJahr']
     result_labels  = ['PvNr', 'Jahr', 'total', 'cum', 'prc']
-    tab = (pv_akw_netto.query('Kw == @kw')
-                       .loc[:,result_columns]
-                       .rename(columns=dict(zip(result_columns, result_labels)))
-                       .pivot(index='PvNr', columns='Jahr', values=['total', 'cum', 'prc']))
+    tab = (pv_by_week.query('Kw == @kw')
+                     .loc[:,result_columns]
+                     .rename(columns=dict(zip(result_columns, result_labels)))
+                     .pivot(index='PvNr', columns='Jahr', values=['total', 'cum', 'prc']))
     cols = [f'{lbl}_{yr}' for (lbl, yr) in tab.columns.to_flat_index()]
     tab.set_axis(labels=cols, axis='columns', inplace=True)
     return tab
@@ -341,12 +311,12 @@ Mit Vergleich zu Vorjahren (gleiche KW)
 def reservation(date):
     (jahr, kw) = date.isocalendar()[:2]
     
-    result_columns = ['PvNr', 'Jahr', 'sumJahr', 'cumJahr', 'crvJahr']
+    result_columns = ['PvNr', 'Jahr', 'res_sumJahr', 'res_cumJahr', 'res_crvJahr']
     result_labels  = ['PvNr', 'Jahr', 'total', 'cum', 'prc']
-    tab = (pv_rkw_netto.query('Kw == @kw')
-                       .loc[:,result_columns]
-                       .rename(columns=dict(zip(result_columns, result_labels)))
-                       .pivot(index='PvNr', columns='Jahr', values=['total', 'cum', 'prc']))
+    tab = (pv_by_week.query('Kw == @kw')
+                     .loc[:,result_columns]
+                     .rename(columns=dict(zip(result_columns, result_labels)))
+                     .pivot(index='PvNr', columns='Jahr', values=['total', 'cum', 'prc']))
     cols = [f'{lbl}_{yr}' for (lbl, yr) in tab.columns.to_flat_index()]
     tab.set_axis(labels=cols, axis='columns', inplace=True)
     return tab
@@ -381,7 +351,20 @@ r[['total_2018', 'prc_diff', 'cum_diff']].describe()
 ```
 
 ```python
-r.sort_values(by='prc_diff', ascending=False).head(10)
+r.reset_index(inplace=True)
+```
+
+```python
+r = r.assign(Partner = r.PvNr.apply(lambda x: pv_info.at[x,'Partner']), 
+             Titel   = r.PvNr.apply(lambda x: pv_info.at[x,'Titel']),
+             Total   = r.total_2017 + r.total_2018 + r.total_2019)
+
+pv_output = (pd.DataFrame(dict(Vertrag=r.PvNr, Partner=r.Partner, Titel=r.Titel, Total_2017=r.total_2017, Total_2018 = r.total_2018,
+                               Stand_2017=r.cum_2017, Stand_2018=r.cum_2018, Stand_2019=r.cum_2019, Diff=r.cum_diff))
+             .sort_values('Diff')
+             .reset_index(drop=True))
+
+store_excel(pv_output, 'res_per_pv.xlsx')
 ```
 
 ### Plot: % Vorjahr vs. % dieses Jahr, Grösse ~ Umsatz Vorjahr
