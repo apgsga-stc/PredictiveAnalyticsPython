@@ -105,3 +105,10 @@ venv.bak/
 
 # PyCharm
 .idea/
+
+# pivottablejs
+pivottablejs.html
+
+# VSCode
+
+.vscode/
