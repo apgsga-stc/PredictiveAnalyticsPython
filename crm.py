@@ -10,7 +10,8 @@ import pandas as pd
 
 from pa_lib.ora   import Connection
 from pa_lib.log   import info, time_log
-from pa_lib.data  import store_csv, store_bin, as_dtype, split_date_iso, make_isoweek_rd
+from pa_lib.file  import store_csv, store_bin
+from pa_lib.df    import as_dtype, split_date_iso, make_isoweek_rd
 from pa_lib.util  import obj_size
 from pa_lib.sql   import QUERY
 from pa_lib.types import dtFactor
@@ -21,7 +22,7 @@ info('Starting CRM query on CRM Prod instance')
 with Connection('CRM_PROD') as c:
     crm_data_raw = c.long_query(crm_query)
 info(f'Loaded data: {crm_data_raw.shape}, size is {obj_size(crm_data_raw)}')
-    
+
 # Write out raw data to CSV (runtime 14 sec)
 info('Writing raw CRM data to data directory')
 store_csv(crm_data_raw, 'crm_data.csv', zip=True)

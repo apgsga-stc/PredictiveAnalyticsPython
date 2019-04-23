@@ -9,7 +9,8 @@ Query runtime: 3.5 sec
 
 from pa_lib.ora   import Connection
 from pa_lib.log   import info
-from pa_lib.data  import store_csv, store_bin, as_dtype
+from pa_lib.file  import store_csv, store_bin
+from pa_lib.df    import as_dtype
 from pa_lib.util  import obj_size
 from pa_lib.sql   import QUERY
 from pa_lib.types import dtFactor
