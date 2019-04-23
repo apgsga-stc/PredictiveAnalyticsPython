@@ -392,3 +392,7 @@ diag = alt.Chart(
 
 (diag + points).configure_view(width=600, height=600).interactive()
 ```
+
+```python
+
+```

@@ -52,11 +52,11 @@ def as_dtype(df, to_dtype, **selectors):
     return df
 
 
-def as_date(df, do_format, **selectors):
-    """Convert columns to datetime64, using 'format'.
+def as_date(df, format_str, **selectors):
+    """Convert columns to datetime64, using 'format_str'.
        **selectors are passed to select_columns()"""
     for col in select_columns(df, **selectors):
-        df.loc[:, col] = pd.to_datetime(df.loc[:, col], format=do_format)
+        df.loc[:, col] = pd.to_datetime(df.loc[:, col], format=format_str)
     return df
 
 

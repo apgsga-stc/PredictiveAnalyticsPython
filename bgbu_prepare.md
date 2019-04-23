@@ -18,11 +18,14 @@ jupyter:
 <!-- #endregion -->
 
 ```python pycharm={"is_executing": false}
+%load_ext autoreload
+%autoreload
+
 import pandas as pd
 
-from pa_lib.data import data_files, load_csv, store_bin
-from pa_lib.data import desc_col, as_dtype, as_date, split_date_iso
-from pa_lib.util import obj_size
+from pa_lib.file  import data_files, load_csv, store_bin
+from pa_lib.df    import desc_col, as_dtype, as_date, split_date_iso
+from pa_lib.util  import obj_size
 from pa_lib.types import dtFactor
 
 # display long columns completely
@@ -71,7 +74,7 @@ pv_bd = pv_bd.dropna(how='any')
 pv_bd.loc[:,:] = (pv_bd
                   .pipe(as_dtype, 'int', incl_pattern='.*Nr.*')
                   .pipe(as_dtype, 'float', incl_pattern='.*tto')
-                  .pipe(as_date, format='%d.%m.%Y', incl_col=('ResDatum', 'AushangBeginn'))
+                  .pipe(as_date, format_str='%d.%m.%Y', incl_col=('ResDatum', 'AushangBeginn'))
                   .pipe(as_dtype, dtFactor, incl_dtype='object'))
 ```
 
@@ -163,4 +166,8 @@ store_bin(pv_bd, 'pv_bd_raw.feather')
 pv_data = pv_bd.drop(['PvPosNr', 'PartnerNr', 'PartnerName', 'PvTitel', 'optBrutto', 'optNetto'], axis='columns')
 store_bin(pv_data, 'pv_data.feather')
 store_bin(pv_info, 'pv_info.feather')
+```
+
+```python
+
 ```
