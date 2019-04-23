@@ -10,9 +10,6 @@ import pandas as pd
 import numpy as np
 import sys
 
-if '/home/pa/python/' not in sys.path:
-    sys.path.insert(0, '/home/pa/python/')
-    
 from pa_lib.ora   import Connection
 from pa_lib.log   import info
 from pa_lib.data  import store_csv, store_bin
