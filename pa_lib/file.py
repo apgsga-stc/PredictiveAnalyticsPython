@@ -27,9 +27,9 @@ def file_list(path='.', pattern='*.*', sort='name', desc=False, do_format=True):
        sorted by 'sort' and 'desc'"""
     files = pd.DataFrame.from_records(
         columns='name size mtime'.split(),
-        data=[(f.name, stat.st_size, dtt.fromtimestamp(stat.st_mtime))
-              for (f, stat) in ((f, f.stat()) for f in Path(path).iterdir()
-                                if f.is_file() and f.match(pattern))
+        data=[(name, stat.st_size, dtt.fromtimestamp(stat.st_mtime))
+              for (name, stat) in ((f.name, f.stat()) for f in Path(path).iterdir()
+                                   if f.is_file() and f.match(pattern))
              ])
     if sort is not None:
         files = files.sort_values(by=sort, ascending=not desc)
@@ -131,7 +131,7 @@ def load_bin(file_name, **params):
 def rm_file(file_name):
     file_path = Path(file_name).resolve()
     info(f'Removing file {file_path}')
-    Path(file_name).unlink()
+    file_path.unlink()
 
 
 def rm_data_file(file_name):
