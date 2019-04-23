@@ -14,14 +14,14 @@ from contextlib import ContextDecorator
 from pa_lib.const import PA_LOG_DIR
 
 def _init():
-    log_path = PA_LOG_DIR
+    log_path = PA_LOG_DIR.resolve()
     log_file = 'pa_log.txt'
 
     logger = lg.getLogger('pa_log')
     logger.setLevel(lg.INFO)
 
     # # File handler
-    # file_hdl = WatchedFileHandler(log_path + log_file)
+    # file_hdl = WatchedFileHandler(log_path / log_file)
     # file_hdl.setLevel(lg.INFO)
 
     # Stream handler (writes to STDERR)

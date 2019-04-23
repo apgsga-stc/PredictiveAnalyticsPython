@@ -85,3 +85,7 @@ class Record(object):
     def items(self):
         return list(self.__dict__.items())
 
+
+if __name__ == "__main__":
+    test = Record(a=1, b=2, c='abc', d=[1,2,3], e=Record(e1='a', e2='b'))
+    print(test)

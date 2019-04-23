@@ -7,12 +7,14 @@ Central constants for PA code
 """
 
 import sys
+from pathlib import Path
 
 from pa_lib.types import ConnectPar, Record
 
 # Directories
-PA_LOG_DIR  = '/home/pa/logs/'
-PA_DATA_DIR = '/home/pa/data/'
+PA_BASE_DIR = Path.home()
+PA_LOG_DIR  = PA_BASE_DIR / 'logs'
+PA_DATA_DIR = PA_BASE_DIR / 'data'
 
 # Database connections
 PA_ORA_DSN_TEMPL = '(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST={}.apgsga.ch)(PORT=1521)))(CONNECT_DATA=(SID={})))'
@@ -22,9 +24,3 @@ PA_ORA_CONN = Record(
     CRM_PROD    = ConnectPar('chpcrm1', 'ors_apg', 'ors_pwd_apg'),
     IT21_DEV_VK = ConnectPar('chei211', 'vk',      'vk_pass')
 )
-
-
-if __name__ == "__main__":
-    test = Record(a=1, b=2, c='abc', d=[1,2,3], e=Record(e1='a', e2='b'))
-    print(test)
-    print(PA_ORA_CONN)
