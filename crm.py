@@ -39,6 +39,7 @@ with time_log('cleaning data'):
         # finish
         .sort_values(by=['ENDKUNDE_NR', 'DATUM'])
         .pipe(as_dtype, to_dtype=dtFactor, incl_dtype='object')
+        .reset_index(drop=True)
     )
 
 info(f'Cleaned data: {crm_data.shape}, size is {obj_size(crm_data)}')
@@ -50,12 +51,13 @@ info('Model-specific Data Management: Verkaufsprognose (VKProg)')
 end_date = pd.Timestamp.today().normalize()
 start_date = end_date.replace(year=end_date.year - 4)
 crm_data = (crm_data
-            # filter
-            .query('@start_date <= DATUM')
-            # enrich
-            .pipe(split_date_iso, dt_col='DATUM', yr_col='YEAR', kw_col='KW')
-            .pipe(make_isoweek_rd, kw_col='KW', round_by=(2, 4))
-            )
+    # filter
+    .query('@start_date <= DATUM')
+    # enrich
+    .pipe(split_date_iso, dt_col='DATUM', yr_col='YEAR', kw_col='KW')
+    .pipe(make_isoweek_rd, kw_col='KW', round_by=(2, 4))
+    .reset_index(drop=True)
+)
 store_bin(crm_data, 'crm_data_vkprog.feather')
 
 del (crm_data_raw, crm_data)

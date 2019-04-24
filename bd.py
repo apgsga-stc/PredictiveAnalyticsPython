@@ -25,9 +25,16 @@ with Connection('IT21_PROD') as c:
     bd_data_raw = c.long_query(bd_query)
 info(f'Finished Buchungsdaten query, returned data: {bd_data_raw.shape}')
 
+info(f'Convert data types {bd_data_raw.shape}')
+bd_data_raw = (bd_data_raw
+    .pipe(as_dtype, to_dtype=dtFactor, incl_dtype='object',
+          incl_col=('ENDKUNDE_NR', 'EK_AKTIV', 'KAMPAGNEN_STATUS'))
+)
+
 # Write out to CSV (runtime 2 min)
 info('Writing raw Buchungsdaten to data directory')
-store_csv(bd_data_raw, 'bd_data.csv', zip=True)
+store_csv(bd_data_raw, 'bd_data.csv', do_zip=True)
+store_bin(bd_data_raw, 'bd_data_raw.feather')
 
 ################################################################################
 col_list = """ENDKUNDE_NR
@@ -36,6 +43,7 @@ col_list = """ENDKUNDE_NR
               EK_PLZ
               EK_ORT
               EK_LAND
+              EK_HB_APG_KURZZ
               EK_AKTIV
               AGENTUR
               VERKAUFSBERATER
@@ -105,6 +113,8 @@ bd_data = (bd_data
     .pipe(replace_col, 'KAMPAGNE_ERFASSUNGSDATUM', with_col='KV_RES_DAT',
           where='KAMPAGNE_ERFASSUNGSDATUM < KV_RES_DAT')
     .drop('KV_RES_DAT', axis='columns')
+    .pipe(clean_up_categoricals)
+    .reset_index(drop=True)
 )
 
 info(f'Cleaned data: {bd_data.shape}, size is {obj_size(bd_data)}')
@@ -121,6 +131,7 @@ bd_data = (bd_data
     .query('AUFTRAGSART != ["Eigenwerbung APG|SGA", "Aushangauftrag Partner", "Logistik für Dritte", "Politisch"]')
     .query('not SEGMENT == "Airport" and not KV_TYP == "KPGL"')
     .pipe(clean_up_categoricals)
+    .reset_index(drop=True)
 )
 info('Data Enrichment')
 bd_data = (bd_data

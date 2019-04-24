@@ -149,7 +149,8 @@ QUERY = dict(
                 LEFT JOIN gebiete_blatt_tot_v       ort   ON plz.gbot_oid = ort.blatt_gbot_oid AND TRUNC(SYSDATE) BETWEEN ort.gueltig_von AND ort.gueltig_bis AND ort.geb_gbat_id = 4   
                     WHERE TRUNC(SYSDATE) BETWEEN plz.gueltig_von AND plz.gueltig_bis
             ''',
-            
+    
+            ####################################################################################################           
             crm = '''
                 SELECT /*+ Predictive Analytics: Read CRM data */
                         cm.display_name                                          betreff,
@@ -175,13 +176,17 @@ QUERY = dict(
                 WHERE cm.evt_start >= to_date('01.01.2009', 'dd.mm.yyyy')
                 ORDER BY c.company_no, cm.evt_start
             ''',
-            
+    
+            ####################################################################################################
             bd = '''
                 WITH endkunden AS 
                 ( 
-                SELECT /*+ materialize */ ekx.subj_oid, ekx.geschaeftspartner_nr, ekx.kombi_name, ekx.abc_kunden, ekx.post_plz,  ekx.post_ort, ekx.post_postland, ekx.brc_id, ekx.brc_sek_id
-                    FROM subjekte_denorm_tot_v ekx 
-                WHERE (SELECT max(su.gueltig_von) FROM subjekte_denorm_tot_v su WHERE su.subj_oid = ekx.subj_oid) BETWEEN ekx.gueltig_von  AND ekx.gueltig_bis  
+                SELECT /*+ materialize */ ekx.subj_oid, ekx.geschaeftspartner_nr, ekx.kombi_name, ekx.abc_kunden, 
+                       ekx.post_plz,  ekx.post_ort, ekx.post_postland, ekx.hbapg_kurzz, ekx.brc_id, ekx.brc_sek_id
+                  FROM subjekte_denorm_tot_v ekx 
+                 WHERE (SELECT max(su.gueltig_von) 
+                          FROM subjekte_denorm_tot_v su 
+                         WHERE su.subj_oid = ekx.subj_oid) BETWEEN ekx.gueltig_von  AND ekx.gueltig_bis  
                 ),
                 --------------------------------------
                 -- Flächen-Eigenschaften (Agglo/WG/PF)
@@ -198,8 +203,8 @@ QUERY = dict(
                     JOIN auftrag_positionen_v  ap ON ag.ag_id    = ap.ag_id
                     JOIN agps_fl_zuordnungen_v fz ON ap.agps_id  = fz.agps_id
                     JOIN flaechen_denorm_tot_v fl ON fz.fl_oid   = fl.fl_oid         AND TRUNC(fz.aushang_beginn) BETWEEN fl.gueltig_von AND fl.gueltig_bis
-                LEFT JOIN gebiete_blatt_tot_v   ga ON fl.gbot_oid = ga.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN ga.gueltig_von AND ga.gueltig_bis AND ga.geb_gbat_id = 8  -- Agglo
-                LEFT JOIN gebiete_blatt_tot_v   gw ON fl.gbot_oid = gw.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN gw.gueltig_von AND gw.gueltig_bis AND gw.geb_gbat_id = 7  -- WG
+                LEFT JOIN gebiete_blatt_tot_v  ga ON fl.gbot_oid = ga.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN ga.gueltig_von AND ga.gueltig_bis AND ga.geb_gbat_id = 8  -- Agglo
+                LEFT JOIN gebiete_blatt_tot_v  gw ON fl.gbot_oid = gw.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN gw.gueltig_von AND gw.gueltig_bis AND gw.geb_gbat_id = 7  -- WG
                     WHERE ap.aushang_beginn > to_date('29.12.2008','dd.mm.yyyy')     
                     GROUP BY kv.endkunde_subj_oid
                 )
@@ -215,6 +220,7 @@ QUERY = dict(
                     ek.post_plz                                    EK_PLZ,
                     ek.post_ort                                    EK_ORT,
                     ek.post_postland                               EK_LAND, 
+                    ek.hbapg_kurzz                                 EK_HB_APG_KURZZ,
                     DECODE(eka.subj_oid,NULL,0,1)                  EK_AKTIV,
                     
                     ebg.branche_id                                 ENDKUNDE_BRANCHENGRUPPE_ID,
