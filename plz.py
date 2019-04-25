@@ -22,10 +22,6 @@ with Connection('IT21_PROD') as c:
     plz_data_raw = c.long_query(plz_query)
 info(f'Finished PLZ query, returned {obj_size(plz_data_raw)} of data: {plz_data_raw.shape}')
 
-# Write out raw data to CSV (runtime 0.02 sec)
-info('Writing PLZ data to data directory')
-store_csv(plz_data_raw, 'plz_data.csv', zip=True)
-
 info('Starting cleaning data')
 plz_data = (plz_data_raw
     .sort_values(by=['PLZ', 'FRAKTION', 'ORT'])
@@ -35,7 +31,8 @@ plz_data = (plz_data_raw
 )
 info(f'Cleaned data: {plz_data.shape}, size is {obj_size(plz_data)}')
 
-info('Writing cleaned PLZ data to data directory')
+info('Writing PLZ data to data directory')
+store_csv(plz_data, 'plz_data.csv', do_zip=True)
 store_bin(plz_data, 'plz_data.feather')
 
 del(plz_data_raw, plz_data)

@@ -96,12 +96,6 @@ bd_data = (bd_data_raw
     .query('DAUER >= 0')
 )
 
-info(f'Convert data types {bd_data.shape}')
-bd_data = (bd_data
-    .pipe(as_dtype, to_dtype=dtFactor, incl_dtype='object',
-          incl_col=('ENDKUNDE_NR', 'EK_AKTIV', 'KAMPAGNEN_STATUS'))
-)
-
 info('Data Corrections')
 bd_data = (bd_data
     # fix ANNULLATION_DATUM < RES_DAT
@@ -125,7 +119,8 @@ info('Model-specific Data Management: Verkaufsprognose (VKProg)')
 info('Data Filtering')
 end_date = last_monday(pd.Timestamp.today())
 start_date = end_date.replace(year=end_date.year - 4)
-bd_data = (bd_data
+
+bd_data_vkprog = (bd_data
     .query('not @start_date >= KAMPAGNE_BEGINN and not KAMPAGNE_BEGINN > @end_date')  # keep empties!
     .query('DAUER < 62')
     .query('AUFTRAGSART != ["Eigenwerbung APG|SGA", "Aushangauftrag Partner", "Logistik für Dritte", "Politisch"]')
@@ -133,8 +128,9 @@ bd_data = (bd_data
     .pipe(clean_up_categoricals)
     .reset_index(drop=True)
 )
+
 info('Data Enrichment')
-bd_data = (bd_data
+bd_data_vkprog = (bd_data_vkprog
     .pipe(split_date_iso, 'KAMPAGNE_BEGINN',
           yr_col='KAMP_BEGINN_JAHR', kw_col='KAMP_BEGINN_KW')
     .pipe(make_isoweek_rd, kw_col='KAMP_BEGINN_KW', round_by=(2, 4))
@@ -143,6 +139,6 @@ bd_data = (bd_data
     .pipe(make_isoweek_rd, kw_col='KAMP_ERFASS_KW', round_by=(2, 4))
 )
 
-store_bin(bd_data, 'bd_data_vkprog.feather')
+store_bin(bd_data_vkprog, 'bd_data_vkprog.feather')
 
-del (bd_data_raw, bd_data)
+del (bd_data_raw, bd_data, bd_data_vkprog)

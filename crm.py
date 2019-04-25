@@ -23,10 +23,6 @@ with Connection('CRM_PROD') as c:
     crm_data_raw = c.long_query(crm_query)
 info(f'Loaded data: {crm_data_raw.shape}, size is {obj_size(crm_data_raw)}')
 
-# Write out raw data to CSV (runtime 14 sec)
-info('Writing raw CRM data to data directory')
-store_csv(crm_data_raw, 'crm_data.csv', zip=True)
-
 info('Starting cleaning data')
 with time_log('cleaning data'):
     crm_data = crm_data_raw.rename({'STARTTERMIN': 'DATUM'}, axis='columns')
@@ -44,13 +40,15 @@ with time_log('cleaning data'):
 
 info(f'Cleaned data: {crm_data.shape}, size is {obj_size(crm_data)}')
 
-info('Writing cleaned CRM data to data directory')
+# Write out data to CSV (runtime 14 sec)
+info('Writing CRM data to data directory')
+store_csv(crm_data, 'crm_data.csv', do_zip=True)
 store_bin(crm_data, 'crm_data.feather')
 
 info('Model-specific Data Management: Verkaufsprognose (VKProg)')
 end_date = pd.Timestamp.today().normalize()
 start_date = end_date.replace(year=end_date.year - 4)
-crm_data = (crm_data
+crm_data_vkprog = (crm_data
     # filter
     .query('@start_date <= DATUM')
     # enrich
@@ -58,6 +56,6 @@ crm_data = (crm_data
     .pipe(make_isoweek_rd, kw_col='KW', round_by=(2, 4))
     .reset_index(drop=True)
 )
-store_bin(crm_data, 'crm_data_vkprog.feather')
+store_bin(crm_data_vkprog, 'crm_data_vkprog.feather')
 
-del (crm_data_raw, crm_data)
+del (crm_data_raw, crm_data, crm_data_vkprog)
