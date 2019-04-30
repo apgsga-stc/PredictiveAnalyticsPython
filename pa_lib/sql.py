@@ -170,7 +170,7 @@ QUERY = dict(
                         c.company_no                                             endkunde_nr,
                         c.y_evt_pa_aussetzen                                     vb_filter_von,
                         c.y_evt_bis                                              vb_filter_bis,
-                        c.y_grund                                                vb_filter_grund
+                        to_char(substr(c.y_grund, 1, 4000))                      vb_filter_grund
                 FROM bsi_communication cm
                 JOIN bsi_company       c   ON cm.company_nr  = c.company_nr
                 WHERE cm.evt_start >= to_date('01.01.2009', 'dd.mm.yyyy')

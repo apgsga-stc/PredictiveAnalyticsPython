@@ -25,15 +25,14 @@ info(f'Loaded data: {crm_data_raw.shape}, size is {obj_size(crm_data_raw)}')
 
 info('Starting cleaning data')
 with time_log('cleaning data'):
-    crm_data = crm_data_raw.rename({'STARTTERMIN': 'DATUM'}, axis='columns')
-    crm_data = (crm_data
+    crm_data = (crm_data_raw
         # filter
         .dropna(how='any',
                 subset=('ENDKUNDE_NR', 'KANAL', 'QUELLE',
-                        'DATUM', 'VERANTWORTLICH'))
+                        'STARTTERMIN', 'VERANTWORTLICH'))
         .drop_duplicates()
         # finish
-        .sort_values(by=['ENDKUNDE_NR', 'DATUM'])
+        .sort_values(by=['ENDKUNDE_NR', 'STARTTERMIN'])
         .pipe(as_dtype, to_dtype=dtFactor, incl_dtype='object')
         .reset_index(drop=True)
     )
@@ -49,6 +48,7 @@ info('Model-specific Data Management: Verkaufsprognose (VKProg)')
 end_date = pd.Timestamp.today().normalize()
 start_date = end_date.replace(year=end_date.year - 4)
 crm_data_vkprog = (crm_data
+    .rename({'STARTTERMIN': 'DATUM'}, axis='columns')
     # filter
     .query('@start_date <= DATUM')
     # enrich
