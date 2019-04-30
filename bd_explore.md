@@ -26,6 +26,7 @@ from pa_lib.file import data_files, load_bin, store_bin, store_excel
 from pa_lib.df   import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
 from pa_lib.util import obj_size
 from pa_lib.log  import time_log
+from pa_lib.types import dtFactor
 
 # display long columns completely
 pd.set_option('display.max_colwidth', 200)
@@ -54,18 +55,17 @@ plt.rcParams['figure.figsize'] = [15, 10]
 ```
 
 ```python
-data = bd.loc[bd.NETTO > 0].pipe(clean_up_categoricals)
+data = bd.loc[(bd.NETTO > 0) & (bd.KAMP_ERFASS_JAHR > 2014)].pipe(clean_up_categoricals)
 ```
 
 ### Plots
 
 ```python
-plt.yscale('log')
-sns.violinplot(x=data.KAMP_BEGINN_JAHR, y=data.NETTO)
+sns.barplot(data=data, x="SEGMENT", y="NETTO", hue='KAMP_BEGINN_JAHR', estimator=np.sum)
 ```
 
 ```python
-sns.countplot(data.SEGMENT)
+sns.barplot(data=data, x="SEGMENT", y="NETTO", hue='KAMP_BEGINN_JAHR', estimator=np.median)
 ```
 
 ```python
@@ -82,6 +82,74 @@ desc_col(data, det=True)
 ```
 
 ```python
-sns.lineplot(data=data.loc[(data.KAMP_ERFASS_JAHR > 2014) & (data.KAMP_ERFASS_JAHR < 2019)], 
-             x='KAMP_ERFASS_KW_2', y='NETTO', hue='KAMP_ERFASS_JAHR', legend=False)
+data.KAMP_ERFASS_JAHR.value_counts(dropna=False)
+```
+
+```python
+data.loc[data.KAMP_BEGINN_JAHR.isna()]['KAMP_ERFASS_JAHR'].value_counts()
+```
+
+```python
+sns.lineplot(x=data.KAMP_ERFASS_KW_2, y=data.NETTO, hue=data.KAMP_ERFASS_JAHR, legend=False)
+```
+
+### Netto Reservation und Aushang per Endkunde und KW2
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+def sum_calc(param):
+    (df, col_year, col_week) = param
+    return (df.groupby(['ENDKUNDE_NR', col_year, col_week], observed=False, as_index=False)[['NETTO']].agg('sum'))
+
+with time_log('calculating sums'):
+    with ProcessPoolExecutor(max_workers=2) as executor:
+        (data_res, data_aus) = tuple(executor.map(sum_calc, [(data, 'KAMP_ERFASS_JAHR', 'KAMP_ERFASS_KW_2'), 
+                                                             (data, 'KAMP_BEGINN_JAHR', 'KAMP_BEGINN_KW_2')]))
+
+    data_by_week = (data_res.merge(data_aus,  
+                                   left_on=['ENDKUNDE_NR', 'KAMP_ERFASS_JAHR', 'KAMP_ERFASS_KW_2'], 
+                                   right_on=['ENDKUNDE_NR', 'KAMP_BEGINN_JAHR', 'KAMP_BEGINN_KW_2'], 
+                                   how='outer', suffixes=('_res', '_aus'))
+                            .rename({'KAMP_ERFASS_JAHR': 'Jahr', 'KAMP_ERFASS_KW_2': 'Kw', 'NETTO_res': 'Res', 'NETTO_aus': 'Aus'}, 
+                                    axis='columns'))
+
+    data_by_week = (data_by_week.fillna({'Jahr': data_by_week.KAMP_BEGINN_JAHR, 'Kw': data_by_week.KAMP_BEGINN_KW_2, 'Res': 0, 'Aus': 0})
+                                .drop(['KAMP_BEGINN_JAHR', 'KAMP_BEGINN_KW_2'], axis='columns')
+                                .sort_values(['Jahr', 'ENDKUNDE_NR', 'Kw'])
+                                .reset_index(drop=True))
+
+store_bin(data_by_week, 'bd_by_week.feather')
+```
+
+```python
+desc_col(data_by_week, det=True)
+```
+
+```python
+data_non_zero = (data_by_week
+                 .query('Res > 0 or Aus > 0')
+                 .pipe(clean_up_categoricals))
+
+ek_minmax = (data_non_zero
+             .assign(Jahr_Kw = data_non_zero.Jahr.astype('str').str.cat(
+                               data_non_zero.Kw.astype('str'), sep='_')
+                               .str.replace(r'_(\d)$', r'_0\g<1>') # make Kw two digits for sorting
+                               .astype(dtFactor))
+             .drop('Kw', axis='columns')
+             .groupby('ENDKUNDE_NR')
+             .agg(['min', 'max']))
+```
+
+```python
+cols = [f'{fld}_{agg}' for (fld, agg) in ek_minmax.columns.to_flat_index()]
+ek_minmax.set_axis(labels=cols, axis='columns', inplace=True)
+```
+
+```python
+ek_minmax.query('Jahr_min < 2016 and Jahr_max > 2017').shape
+```
+
+```python
+qgrid.show_grid(ek_minmax)
 ```

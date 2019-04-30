@@ -20,14 +20,14 @@ def desc_col(df, det=False):
                  col.nunique(),
                  format_size(col.memory_usage(deep=True)),
                  f'[{col.min(skipna=True)},{col.max(skipna=True)}]'],
-                index='DTYPE NULLS UNIQUE MEM RANGE'.split()),
+                 index='DTYPE NULLS UNIQUE MEM RANGE'.split()),
             result_type='expand').transpose()
     else:
         return df.apply(
             lambda col: pd.Series(
                 [col.dtype, f'{len(col) - col.count()}/{col.count()}',
                  col.nunique()],
-                index='DTYPE NULLS UNIQUE'.split()),
+                 index='DTYPE NULLS UNIQUE'.split()),
             result_type='expand').transpose()
 
 
