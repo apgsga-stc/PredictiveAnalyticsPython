@@ -31,7 +31,7 @@ bd_data_raw = (bd_data_raw
           incl_col=('ENDKUNDE_NR', 'EK_AKTIV', 'KAMPAGNEN_STATUS'))
 )
 
-# Write out to CSV (runtime 2 min)
+# Write out to CSV (runtime 5 min)
 info('Writing raw Buchungsdaten to data directory')
 store_csv(bd_data_raw, 'bd_data.csv', do_zip=True)
 store_bin(bd_data_raw, 'bd_data_raw.feather')
