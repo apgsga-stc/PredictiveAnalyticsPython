@@ -44,6 +44,12 @@ bd = load_bin('bd_data_vkprog.feather')
 desc_col(bd, True)
 ```
 
+#### Filter data: Only from 2014, only non-zero
+
+```python
+data = bd.loc[(bd.NETTO > 0) & (bd.KAMP_ERFASS_JAHR > 2014)].pipe(clean_up_categoricals)
+```
+
 #### Set up plotting
 
 ```python
@@ -52,10 +58,6 @@ import seaborn as sns
 sns.set()
 plt.rcParams['figure.dpi'] = 90
 plt.rcParams['figure.figsize'] = [15, 10]
-```
-
-```python
-data = bd.loc[(bd.NETTO > 0) & (bd.KAMP_ERFASS_JAHR > 2014)].pipe(clean_up_categoricals)
 ```
 
 ### Plots
@@ -136,7 +138,7 @@ ek_minmax = (data_non_zero
                                data_non_zero.Kw.astype('str'), sep='_')
                                .str.replace(r'_(\d)$', r'_0\g<1>') # make Kw two digits for sorting
                                .astype(dtFactor))
-             .drop('Kw', axis='columns')
+             .drop(['Kw', 'Jahr'], axis='columns')
              .groupby('ENDKUNDE_NR')
              .agg(['min', 'max']))
 ```
