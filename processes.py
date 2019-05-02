@@ -3,24 +3,24 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 from pandarallel import pandarallel
 
-from pa_lib import file, log, df
+from pa_lib import file, log, data
 
 
 # Read command output
-with sp.Popen('ls -l', shell=True, stdout=sp.PIPE) as p: 
+with sp.Popen('ls -l', shell=True, stdout=sp.PIPE) as p:
     output = b''.join(p.stdout).decode()
 
 df1 = pd.DataFrame(dict(nr1=range(10), nr2=range(1,11)))
-    
+
 # Write dataframe through pipe
 with sp.Popen(['zip daten.csv.zip -'], shell=True, stdin=sp.PIPE, universal_newlines=True) as p:
     df1.to_csv(p.stdin)
 
 # Read dataframe through pipe
 with sp.Popen('7za e -so daten.csv.zip', shell=True, stdout=sp.PIPE) as p:
-    df2 = pd.read_csv(p.stdout, encoding='cp1252', dtype=np.str) 
+    df2 = pd.read_csv(p.stdout, encoding='cp1252', dtype=np.str)
 
-    
+
 # Group aggregation using multiple processes
 file.data_files()
 bd = file.load_bin('bd_data_vkprog.feather')
@@ -37,4 +37,3 @@ with log.time_log('calculating sums'):
 # 348s
     with log.time_log('calculating sums'):
     tmp = bd.groupby(['ENDKUNDE_NR', 'KAMP_ERFASS_JAHR', 'KAMP_ERFASS_KW_2'], observed=False, as_index=False)[['NETTO']].agg('sum')
-    
