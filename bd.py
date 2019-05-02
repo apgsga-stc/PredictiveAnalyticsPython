@@ -111,6 +111,16 @@ bd_data = (bd_data
     .reset_index(drop=True)
 )
 
+info('Data Enrichment')
+bd_data = (bd_data
+    .pipe(split_date_iso, 'KAMPAGNE_BEGINN',
+          yr_col='KAMP_BEGINN_JAHR', kw_col='KAMP_BEGINN_KW')
+    .pipe(make_isoweek_rd, kw_col='KAMP_BEGINN_KW', round_by=(2, 4))
+    .pipe(split_date_iso, 'KAMPAGNE_ERFASSUNGSDATUM',
+          yr_col='KAMP_ERFASS_JAHR', kw_col='KAMP_ERFASS_KW')
+    .pipe(make_isoweek_rd, kw_col='KAMP_ERFASS_KW', round_by=(2, 4))
+)
+
 info(f'Cleaned data: {bd_data.shape}, size is {obj_size(bd_data)}')
 store_bin(bd_data, 'bd_data.feather')
 
@@ -121,22 +131,13 @@ end_date = last_monday(pd.Timestamp.today())
 start_date = end_date.replace(year=end_date.year - 4)
 
 bd_data_vkprog = (bd_data
-    .query('not @start_date >= KAMPAGNE_BEGINN and not KAMPAGNE_BEGINN > @end_date')  # keep empties!
+    .query('not @start_date >= KAMPAGNE_BEGINN and not KAMPAGNE_BEGINN > @end_date')  # keep empties
+    .query('not @start_date >= KAMPAGNE_ERFASSUNGSDATUM and not KAMPAGNE_ERFASSUNGSDATUM > @end_date')
     .query('DAUER < 62')
     .query('AUFTRAGSART != ["Eigenwerbung APG|SGA", "Aushangauftrag Partner", "Logistik für Dritte", "Politisch"]')
     .query('not SEGMENT == "Airport" and not KV_TYP == "KPGL"')
     .pipe(clean_up_categoricals)
     .reset_index(drop=True)
-)
-
-info('Data Enrichment')
-bd_data_vkprog = (bd_data_vkprog
-    .pipe(split_date_iso, 'KAMPAGNE_BEGINN',
-          yr_col='KAMP_BEGINN_JAHR', kw_col='KAMP_BEGINN_KW')
-    .pipe(make_isoweek_rd, kw_col='KAMP_BEGINN_KW', round_by=(2, 4))
-    .pipe(split_date_iso, 'KAMPAGNE_ERFASSUNGSDATUM',
-          yr_col='KAMP_ERFASS_JAHR', kw_col='KAMP_ERFASS_KW')
-    .pipe(make_isoweek_rd, kw_col='KAMP_ERFASS_KW', round_by=(2, 4))
 )
 
 store_bin(bd_data_vkprog, 'bd_data_vkprog.feather')

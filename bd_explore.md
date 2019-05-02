@@ -23,7 +23,7 @@ import beakerx as bx
 from datetime import datetime as dtt
 
 from pa_lib.file import data_files, load_bin, store_bin, store_excel
-from pa_lib.df   import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
+from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
 from pa_lib.util import obj_size
 from pa_lib.log  import time_log
 from pa_lib.types import dtFactor
@@ -37,17 +37,23 @@ data_files()
 ```
 
 ```python
-bd = load_bin('bd_data_vkprog.feather')
+bd = load_bin('bd_data.feather')
 ```
 
 ```python
-desc_col(bd, True)
+desc_col(bd, det=True)
 ```
 
-#### Filter data: Only from 2014, only non-zero
+#### Filtered data: Only above-zero
 
 ```python
-data = bd.loc[(bd.NETTO > 0) & (bd.KAMP_ERFASS_JAHR > 2014)].pipe(clean_up_categoricals)
+bd = bd.loc[(bd.NETTO >= 0)].pipe(clean_up_categoricals)
+```
+
+#### Reduced data: Only from 2014, only non-zero
+
+```python
+data = bd.loc[(bd.KAMP_ERFASS_JAHR > 2014)].pipe(clean_up_categoricals)
 ```
 
 #### Set up plotting
@@ -76,7 +82,7 @@ sns.boxenplot(data=data, x='SEGMENT', y='NETTO', hue='KAMP_BEGINN_JAHR')
 ```
 
 ```python
-sns.scatterplot(x=data.BRUTTO, y=data.NETTO)
+sns.scatterplot(x=bd.BRUTTO, y=bd.NETTO)
 ```
 
 ```python
@@ -84,7 +90,7 @@ desc_col(data, det=True)
 ```
 
 ```python
-data.KAMP_ERFASS_JAHR.value_counts(dropna=False)
+data.KAMP_BEGINN_JAHR.value_counts(dropna=False)
 ```
 
 ```python
@@ -125,6 +131,10 @@ store_bin(data_by_week, 'bd_by_week.feather')
 ```
 
 ```python
+data_by_week = load_bin('bd_by_week.feather')
+```
+
+```python
 desc_col(data_by_week, det=True)
 ```
 
@@ -137,10 +147,10 @@ ek_minmax = (data_non_zero
              .assign(Jahr_Kw = data_non_zero.Jahr.astype('str').str.cat(
                                data_non_zero.Kw.astype('str'), sep='_')
                                .str.replace(r'_(\d)$', r'_0\g<1>') # make Kw two digits for sorting
-                               .astype(dtFactor))
+                               .astype('str'))
              .drop(['Kw', 'Jahr'], axis='columns')
              .groupby('ENDKUNDE_NR')
-             .agg(['min', 'max']))
+             .agg({'Res': 'sum', 'Aus': 'sum', 'Jahr_Kw': ['min', 'max']}))
 ```
 
 ```python
@@ -149,9 +159,88 @@ ek_minmax.set_axis(labels=cols, axis='columns', inplace=True)
 ```
 
 ```python
-ek_minmax.query('Jahr_min < 2016 and Jahr_max > 2017').shape
+qgrid.set_grid_option('minVisibleRows', 1)
+qgrid.set_grid_option('maxVisibleRows', 20)
+
+qgrid.show_grid(ek_minmax)
+```
+
+### Vollständige Daten per Woche
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+def sum_calc(param):
+    (df, col_year, col_week) = param
+    return (df.groupby(['ENDKUNDE_NR', col_year, col_week], observed=True, as_index=False)[['NETTO']].agg('sum'))
+
+with time_log('calculating sums'):
+    with ProcessPoolExecutor(max_workers=2) as executor:
+        (bd_res,bd_aus) = tuple(executor.map(sum_calc, [(bd, 'KAMP_ERFASS_JAHR', 'KAMP_ERFASS_KW_2'), 
+                                                        (bd, 'KAMP_BEGINN_JAHR', 'KAMP_BEGINN_KW_2')]))
+
+    bd_by_week = (bd_res.merge(bd_aus,  
+                               left_on=['ENDKUNDE_NR', 'KAMP_ERFASS_JAHR', 'KAMP_ERFASS_KW_2'], 
+                               right_on=['ENDKUNDE_NR', 'KAMP_BEGINN_JAHR', 'KAMP_BEGINN_KW_2'], 
+                               how='outer', suffixes=('_res', '_aus'))
+                        .rename({'KAMP_ERFASS_JAHR': 'Jahr', 'KAMP_ERFASS_KW_2': 'Kw', 'NETTO_res': 'Res', 'NETTO_aus': 'Aus'}, 
+                                axis='columns'))
+
+    bd_by_week = (bd_by_week.fillna({'Jahr': bd_by_week.KAMP_BEGINN_JAHR, 'Kw': bd_by_week.KAMP_BEGINN_KW_2, 'Res': 0, 'Aus': 0})
+                            .drop(['KAMP_BEGINN_JAHR', 'KAMP_BEGINN_KW_2'], axis='columns')
+                            .sort_values(['Jahr', 'ENDKUNDE_NR', 'Kw'])
+                            .reset_index(drop=True))
+
+store_bin(bd_by_week, 'bd_long_by_week.feather')
 ```
 
 ```python
-qgrid.show_grid(ek_minmax)
+bd_by_week = load_bin('bd_long_by_week.feather')
+```
+
+```python
+desc_col(bd_by_week, det=True)
+```
+
+```python
+qgrid.set_grid_option('minVisibleRows', 1)
+qgrid.set_grid_option('maxVisibleRows', 20)
+
+qgrid.show_grid(bd_by_week)
+```
+
+```python
+qgrid.show_grid(bd.loc[(bd.ENDKUNDE_NR==483063) & (bd.KAMP_BEGINN_JAHR==2014) & (bd.KAMP_BEGINN_KW_2.isin([23, 45]))].transpose())
+```
+
+```python
+bd_non_zero = (bd_by_week
+                 .query('Res > 0 or Aus > 0')
+                 .pipe(clean_up_categoricals))
+
+ek_minmax = (bd_non_zero
+             .assign(Jahr_Kw = bd_non_zero.Jahr.astype('str').str.cat(
+                               bd_non_zero.Kw.astype('str'), sep='_')
+                               .str.replace(r'_(\d)$', r'_0\g<1>') # make Kw two digits for sorting
+                               .astype('str'))
+             .drop(['Kw', 'Jahr'], axis='columns')
+             .groupby('ENDKUNDE_NR')
+             .agg({'Res': 'sum', 'Aus': 'sum', 'Jahr_Kw': ['min', 'max']}))
+```
+
+```python
+cols = [f'{fld}_{agg}' for (fld, agg) in ek_minmax.columns.to_flat_index()]
+ek_minmax.set_axis(labels=cols, axis='columns', inplace=True)
+```
+
+```python
+ek_minmax.reset_index(inplace=True)
+store_bin(ek_minmax, 'bd_ek_minmax.feather')
+```
+
+```python
+qgrid.set_grid_option('minVisibleRows', 1)
+qgrid.set_grid_option('maxVisibleRows', 20)
+
+qgrid.show_grid(ek_minmax.query('J'))
 ```
