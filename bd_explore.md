@@ -242,5 +242,5 @@ store_bin(ek_minmax, 'bd_ek_minmax.feather')
 qgrid.set_grid_option('minVisibleRows', 1)
 qgrid.set_grid_option('maxVisibleRows', 20)
 
-qgrid.show_grid(ek_minmax.query('J'))
+qgrid.show_grid(ek_minmax.query('Jahr_Kw_min < "2009_01"'))
 ```
