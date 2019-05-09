@@ -62,7 +62,7 @@ parcats = go.Parcats(
                     'Brown', 'Blue', 'Blue', 'Blue', 'Green', 'Other']},
         {'label': 'Sex',
          'values': ['Female', 'Female', 'Female', 'Male',
-                    'Female', 'Male', 'Male', 'Male', 'complicated', 'n/a']}]
+                    'Female', 'Male', 'Male', 'Male', 'complicated', 'complicated']}]
 )
 
 iplot([parcats])

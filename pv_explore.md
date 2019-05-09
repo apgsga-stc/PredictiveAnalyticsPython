@@ -26,7 +26,7 @@ import qgrid
 from datetime import datetime as dtt
 
 from pa_lib.file import data_files, load_bin, store_bin, store_excel
-from pa_lib.df   import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
+from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
 from pa_lib.util import obj_size
 from pa_lib.log  import time_log
 
