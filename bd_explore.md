@@ -30,7 +30,13 @@ from pa_lib.types import dtFactor
 
 # display long columns completely
 pd.set_option('display.max_colwidth', 200)
+
+pd.set_option('display.max_rows', 200)
+
+qgrid.set_grid_option()
 ```
+
+## Data Setup
 
 ```python
 data_files()
@@ -50,13 +56,13 @@ desc_col(bd, det=True)
 bd = bd.loc[(bd.NETTO >= 0)].pipe(clean_up_categoricals)
 ```
 
-#### Reduced data: Only from 2014, only non-zero
+#### Reduced data: Only from 2014
 
 ```python
 data = bd.loc[(bd.KAMP_ERFASS_JAHR > 2014)].pipe(clean_up_categoricals)
 ```
 
-#### Set up plotting
+### Set up plotting
 
 ```python
 import matplotlib.pyplot as plt
@@ -73,7 +79,7 @@ sns.barplot(data=data, x="SEGMENT", y="NETTO", hue='KAMP_BEGINN_JAHR', estimator
 ```
 
 ```python
-sns.barplot(data=data, x="SEGMENT", y="NETTO", hue='KAMP_BEGINN_JAHR', estimator=np.median)
+sns.barplot(data=data, x="SEGMENT", y="NETTO", hue='KAMP_BEGINN_JAHR', estimator=np.mean)
 ```
 
 ```python
@@ -82,19 +88,15 @@ sns.boxenplot(data=data, x='SEGMENT', y='NETTO', hue='KAMP_BEGINN_JAHR')
 ```
 
 ```python
-sns.scatterplot(x=bd.BRUTTO, y=bd.NETTO)
+sns.scatterplot(x=bd.BRUTTO, y=bd.NETTO, hue=bd.KAMP_ERFASS_JAHR.astype('float'))
+```
+
+```python
+qgrid.show_grid(bd.loc[bd.BRUTTO > 1000000].sort_values('BRUTTO', ascending=False).transpose())
 ```
 
 ```python
 desc_col(data, det=True)
-```
-
-```python
-data.KAMP_BEGINN_JAHR.value_counts(dropna=False)
-```
-
-```python
-data.loc[data.KAMP_BEGINN_JAHR.isna()]['KAMP_ERFASS_JAHR'].value_counts()
 ```
 
 ```python
@@ -165,7 +167,7 @@ qgrid.set_grid_option('maxVisibleRows', 20)
 qgrid.show_grid(ek_minmax)
 ```
 
-### Vollständige Daten per Woche
+### Vollständige Daten per KW2
 
 ```python
 from concurrent.futures import ProcessPoolExecutor
@@ -213,24 +215,23 @@ qgrid.show_grid(bd_by_week)
 qgrid.show_grid(bd.loc[(bd.ENDKUNDE_NR==483063) & (bd.KAMP_BEGINN_JAHR==2014) & (bd.KAMP_BEGINN_KW_2.isin([23, 45]))].transpose())
 ```
 
+### New/leaving customers
+
 ```python
 bd_non_zero = (bd_by_week
                  .query('Res > 0 or Aus > 0')
                  .pipe(clean_up_categoricals))
 
 ek_minmax = (bd_non_zero
-             .assign(Jahr_Kw = bd_non_zero.Jahr.astype('str').str.cat(
-                               bd_non_zero.Kw.astype('str'), sep='_')
-                               .str.replace(r'_(\d)$', r'_0\g<1>') # make Kw two digits for sorting
-                               .astype('str'))
-             .drop(['Kw', 'Jahr'], axis='columns')
+             .assign(Jahr_Kw = bd_non_zero.Jahr.astype('float') + bd_non_zero.Kw.astype('float') / 53)
              .groupby('ENDKUNDE_NR')
              .agg({'Res': 'sum', 'Aus': 'sum', 'Jahr_Kw': ['min', 'max']}))
-```
 
-```python
 cols = [f'{fld}_{agg}' for (fld, agg) in ek_minmax.columns.to_flat_index()]
 ek_minmax.set_axis(labels=cols, axis='columns', inplace=True)
+
+ek_minmax = (ek_minmax
+             .assign(Lifetime = np.subtract(ek_minmax.Jahr_Kw_max, ek_minmax.Jahr_Kw_min)))
 ```
 
 ```python
@@ -239,8 +240,86 @@ store_bin(ek_minmax, 'bd_ek_minmax.feather')
 ```
 
 ```python
-qgrid.set_grid_option('minVisibleRows', 1)
-qgrid.set_grid_option('maxVisibleRows', 20)
-
-qgrid.show_grid(ek_minmax.query('Jahr_Kw_min < "2009_01"'))
+ek_minmax.sort_values(['Jahr_Kw_max', 'Jahr_Kw_min'], inplace=True)
 ```
+
+```python
+end_jahr = (np.rint(ek_minmax.Jahr_Kw_max).astype('int').value_counts().reset_index().sort_values('index')
+            .reset_index(drop=True).set_axis(['end_jahr', 'cnt'], axis='columns', inplace=False))
+
+start_jahr = (np.rint(ek_minmax.Jahr_Kw_min).astype('int').value_counts().reset_index().sort_values('index')
+              .reset_index(drop=True).set_axis(['start_jahr', 'cnt'], axis='columns', inplace=False))
+
+start_end_jahre = start_jahr.merge(end_jahr, left_on='start_jahr', right_on='end_jahr', how='outer', suffixes=('_start', '_end'))
+
+start_end_jahre = (start_end_jahre.fillna({'start_jahr': start_end_jahre.end_jahr, 'cnt_start': 0, 'cnt_end': 0})
+                                  .drop('end_jahr', axis='columns'))
+
+start_end_jahre = start_end_jahre.assign(saldo = np.subtract(np.cumsum(start_end_jahre.cnt_start), np.cumsum(start_end_jahre.cnt_end)))
+
+qgrid.show_grid(start_end_jahre)
+```
+
+```python
+qgrid.show_grid(ek_minmax)
+```
+
+```python
+import bokeh
+from bokeh.plotting import figure, show
+from bokeh.io import output_notebook
+
+output_notebook()
+```
+
+```python
+p = figure(title="Endkunden: Lebensdauer vs. Umsatz/Jahr", x_axis_label='Lifetime', y_axis_label='Umsatz / Jahr', 
+           plot_width=900, y_axis_type="log")
+
+p.circle(y=ek_minmax.Aus_sum / ek_minmax.Lifetime, x=ek_minmax.Lifetime, size=4, line_color='navy')
+
+show(p)
+```
+
+```python
+desc_col(ek_minmax, True)
+```
+
+```python
+import seaborn as sns
+
+sns.distplot(ek_minmax.Lifetime, hist_kws=dict(cumulative=True))
+```
+
+### Schlussfolgerungen
+
+- 50% aller Kunden in den letzten 10 Jahren blieben nicht länger als ein Jahr
+- Die Kunden-Lebensdauer hat Halbjahres-Peaks, wahrscheinlich wegen der Dispo-Eröffnungsdaten?
+- Pro Jahr kommen und gehen zwischen 2000 und 3000 Kunden, "aktiv" sind zwischen 8000 und 9500
+
+
+## Analyse Kunden vs. Vertragstypen
+
+```python
+bd.columns
+```
+
+```python
+bd.AUFTRAGSART.value_counts()
+```
+
+```python
+bd_auftr_art = bd.groupby('AUFTRAGSART').agg({'ENDKUNDE_NR': 'count', 'NETTO': 'sum', 'KV_NR': 'count'})
+
+qgrid.show_grid(bd_auftr_art)
+```
+
+```python
+bd.pivot_table(values='NETTO', index='AUFTRAGSART', columns='KAMP_ERFASS_JAHR', aggfunc=np.sum, margins=True, fill_value=-1).astype('int')
+```
+
+### Schlussfolgerungen
+- "Kommerziell" ist umsatzmässig führend (1.9 Mia von 2.7 Mia über 10 Jahre)
+- Nächstwichtig sind "Traffic Auftrag" (336 Mio), "langfristiger Vertrag" (187 Mio) und "Politisch" (117 Mio)
+- "Freespace" existiert erst seit 2017 und trägt nichts zum Umsatz bei
+- "Eigenwerbung APG|SGA" ist sehr irregulär
