@@ -62,7 +62,16 @@ pv_liste[:20]
 
 ```python
 pv_top20 = pv_data.loc[pv_data['PvNr'].isin(pv_liste[:20])]
-qgrid.show_grid(pv_top20)
+qgrid.show_grid(pv_top20.loc[(pv_data.PvNr==20199) & (pv_data.AJahr==2017)].sort_values(['AJahr', 'AKw']))
+```
+
+```python
+pv_top20.loc[(pv_top20.PvNr==20199) & (pv_top20.AJahr==2017) & (pv_top20.AKw==2)].sum(axis='rows')
+```
+
+```python
+pv_top20.pivot_table(values='optNettoNetto', index='PvNr', columns='AJahr', aggfunc='sum', 
+                     fill_value=0, margins=True).astype('int').sort_values('All')
 ```
 
 ## Daten filtern und bereinigen

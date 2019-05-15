@@ -22,5 +22,6 @@ PA_ORA_DSN_TEMPL = '(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST={}.a
 PA_ORA_CONN = Record(
     IT21_PROD   = ConnectPar('chpi211', 'it21',    'it21nurzumlesen12ti'),
     CRM_PROD    = ConnectPar('chpcrm1', 'ors_apg', 'ors_pwd_apg'),
-    IT21_DEV_VK = ConnectPar('chei211', 'vk',      'vk_pass')
+    IT21_DEV_VK = ConnectPar('chei211', 'vk',      'vk_pass'),
+    APC_PROD_VDWH1 = ConnectPar('chpapc1', 'vdwh1', 'vdwh1_pass')
 )
