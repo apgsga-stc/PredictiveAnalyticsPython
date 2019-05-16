@@ -40,7 +40,7 @@ data_files()
 
 ```python
 pv_data = load_bin('pv_data.feather')
-pv_info = load_bin('pv_info.feather').set_index('PvNr')
+pv_info = load_bin('pv_info.feather').set_index('PV_NR')
 ```
 
 <!-- #region {"toc-hr-collapsed": false} -->
@@ -50,12 +50,16 @@ Nur Verträge, die seit 2017 jedes Jahr Umsatz generieren, sortiert nach Gesamtu
 <!-- #endregion -->
 
 ```python
-pv_liste = tuple(pv_info.loc[(pv_info.firstRes.dt.year < 2017) & (pv_info.lastAus.dt.year > 2018),:]
-                        .query('Netto_Aus_2017 > 0 and Netto_Aus_2018 > 0 and Netto_Aus_2019 > 0')
-                        .query('Netto_Res_2017 > 0 and Netto_Res_2018 > 0 and Netto_Res_2019 > 0')
+desc_col(pv_info, det=True)
+```
+
+```python
+pv_liste = tuple(pv_info.loc[(pv_info.firstKw < 201501) & (pv_info.lastKw >= 201901),:]
+                        .query('Netto_Aus_2014 * Netto_Aus_2015 * Netto_Aus_2016 * Netto_Aus_2017 * Netto_Aus_2018 * Netto_Aus_2019 > 0')
+                        .query('Netto_Res_2014 * Netto_Res_2015 * Netto_Res_2016 * Netto_Res_2017 * Netto_Res_2018 * Netto_Res_2019 > 0')
                         .eval('SortNetto = Netto_Aus_2017 + Netto_Aus_2018 + Netto_Aus_2019')
                         .sort_values('SortNetto', ascending=False).index.values)
-pv_liste[:20]
+qgrid.show_grid(pv_info.loc[pv_info.index.isin(pv_liste[:20])])
 ```
 
 ### Check: Buchungen zu Top-20 Verträgen ansehen
@@ -400,8 +404,4 @@ diag = alt.Chart(
 ).mark_line(color='lightgray', strokeWidth=1).encode(x='x', y='y')
 
 (diag + points).configure_view(width=600, height=600).interactive()
-```
-
-```python
-
 ```

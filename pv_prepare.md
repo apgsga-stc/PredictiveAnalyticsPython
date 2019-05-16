@@ -55,10 +55,6 @@ pv_data_raw.head()
 ```
 
 ```python pycharm={}
-(obj_size(pv_data_raw), pv_data_raw.shape)
-```
-
-```python pycharm={}
 desc_col(pv_data_raw)
 ```
 
@@ -107,7 +103,7 @@ desc_col(pv_data, det=True)
 ## Vertragsinformationen extrahieren
 
 ```python
-pv_idx = pv_data.sort_values(['PV_NR', 'JAHR_KW']).groupby('PV_NR', as_index=True)
+pv_idx = pv_data.groupby('PV_NR', as_index=True)
 ```
 
 ```python
