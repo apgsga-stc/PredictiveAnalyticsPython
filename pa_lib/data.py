@@ -20,14 +20,14 @@ def desc_col(df, det=False):
                  col.nunique(),
                  format_size(col.memory_usage(deep=True)),
                  f'[{col.min(skipna=True)},{col.max(skipna=True)}]'],
-                 index='DTYPE NULLS UNIQUE MEM RANGE'.split()),
+                index='DTYPE NULLS UNIQUE MEM RANGE'.split()),
             result_type='expand').transpose()
     else:
         return df.apply(
             lambda col: pd.Series(
                 [col.dtype, f'{len(col) - col.count()}/{col.count()}',
                  col.nunique()],
-                 index='DTYPE NULLS UNIQUE'.split()),
+                index='DTYPE NULLS UNIQUE'.split()),
             result_type='expand').transpose()
 
 
@@ -172,8 +172,8 @@ def split_date_iso(df, dt_col, yr_col='YEAR', kw_col='KW'):
     year_kw = pd.DataFrame.from_records(
         columns=[yr_col, kw_col],
         data=(df.loc[not_null, dt_col]
-                .dt.date.apply(isoyear_isokw)
-                .to_list()),
+              .dt.date.apply(isoyear_isokw)
+              .to_list()),
         index=df.index[not_null]
     ).astype({yr_col: dtYear, kw_col: dtKW})
     df = df.assign(**dict(year_kw))

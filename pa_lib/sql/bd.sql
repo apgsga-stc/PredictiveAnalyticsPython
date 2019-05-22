@@ -17,15 +17,15 @@ SELECT /*+ PARALLEL (fz 32) */ kv.endkunde_subj_oid,
         util.util_pa.strl40002str(CAST(COLLECT(DISTINCT gw.geb_gebiet_code) AS util.str_l))  wg,
         util.util_pa.strl40002str(CAST(COLLECT(DISTINCT fl.pf_bez)          AS util.str_l))  pf,
         util.util_pa.strl40002str(CAST(COLLECT(DISTINCT to_char(fl.pf_id))  AS util.str_l))  pf_id
-    FROM kunde_vertraege_v     kv
-    JOIN auftraege_v           ag ON kv.kdvt_id  = ag.kdvt_id
-    JOIN auftrag_positionen_v  ap ON ag.ag_id    = ap.ag_id
-    JOIN agps_fl_zuordnungen_v fz ON ap.agps_id  = fz.agps_id
-    JOIN flaechen_denorm_tot_v fl ON fz.fl_oid   = fl.fl_oid         AND TRUNC(fz.aushang_beginn) BETWEEN fl.gueltig_von AND fl.gueltig_bis
-LEFT JOIN gebiete_blatt_tot_v  ga ON fl.gbot_oid = ga.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN ga.gueltig_von AND ga.gueltig_bis AND ga.geb_gbat_id = 8  -- Agglo
-LEFT JOIN gebiete_blatt_tot_v  gw ON fl.gbot_oid = gw.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN gw.gueltig_von AND gw.gueltig_bis AND gw.geb_gbat_id = 7  -- WG
-    WHERE ap.aushang_beginn > to_date('29.12.2008','dd.mm.yyyy')     
-    GROUP BY kv.endkunde_subj_oid
+   FROM kunde_vertraege_v     kv
+   JOIN auftraege_v           ag ON kv.kdvt_id  = ag.kdvt_id
+   JOIN auftrag_positionen_v  ap ON ag.ag_id    = ap.ag_id
+   JOIN agps_fl_zuordnungen_v fz ON ap.agps_id  = fz.agps_id
+   JOIN flaechen_denorm_tot_v fl ON fz.fl_oid   = fl.fl_oid             AND TRUNC(fz.aushang_beginn) BETWEEN fl.gueltig_von AND fl.gueltig_bis
+   LEFT JOIN gebiete_blatt_tot_v  ga ON fl.gbot_oid = ga.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN ga.gueltig_von AND ga.gueltig_bis AND ga.geb_gbat_id = 8  -- Agglo
+   LEFT JOIN gebiete_blatt_tot_v  gw ON fl.gbot_oid = gw.blatt_gbot_oid AND TRUNC(SYSDATE)           BETWEEN gw.gueltig_von AND gw.gueltig_bis AND gw.geb_gbat_id = 7  -- WG
+  WHERE ap.aushang_beginn > to_date('29.12.2008','dd.mm.yyyy')
+  GROUP BY kv.endkunde_subj_oid
 )
 /*
 ================================================
