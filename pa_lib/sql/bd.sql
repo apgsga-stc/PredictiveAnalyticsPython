@@ -1,11 +1,12 @@
 WITH endkunden AS 
 ( 
 SELECT /*+ materialize */ ekx.subj_oid, ekx.geschaeftspartner_nr, ekx.kombi_name, ekx.abc_kunden, 
-        ekx.post_plz,  ekx.post_ort, ekx.post_postland, ekx.hbapg_kurzz, ekx.brc_id, ekx.brc_sek_id
-    FROM subjekte_denorm_tot_v ekx 
-    WHERE (SELECT max(su.gueltig_von) 
-            FROM subjekte_denorm_tot_v su 
-            WHERE su.subj_oid = ekx.subj_oid) BETWEEN ekx.gueltig_von  AND ekx.gueltig_bis  
+       (select bedeutung from edom.bonitaet_bs_v t1 where t1.code_wert = ekx.bonitaet) boni_kunden,
+       ekx.post_plz,  ekx.post_ort, ekx.post_postland, ekx.hbapg_kurzz, ekx.brc_id, ekx.brc_sek_id
+  FROM subjekte_denorm_tot_v ekx 
+ WHERE (SELECT max(su.gueltig_von) 
+          FROM subjekte_denorm_tot_v su 
+         WHERE su.subj_oid = ekx.subj_oid) BETWEEN ekx.gueltig_von  AND ekx.gueltig_bis  
 ),
 --------------------------------------
 -- Flächen-Eigenschaften (Agglo/WG/PF)
@@ -36,6 +37,7 @@ SELECT /*+ Predictive Analytics: Read Buchungen data (runs for ca. 15 min) */
     ek.geschaeftspartner_nr                        ENDKUNDE_NR,                                             
     ek.kombi_name                                  ENDKUNDE,                        
     ek.abc_kunden                                  EK_ABC,
+    ek.boni_kunden                                 EK_BONI,                                               
     ek.post_plz                                    EK_PLZ,
     ek.post_ort                                    EK_ORT,
     ek.post_postland                               EK_LAND, 
@@ -161,7 +163,7 @@ FROM
       AND ap.reservation_datum <  TRUNC(SYSDATE-1)                               -- aktuellen Tag ausschliessen
       AND ap.reservation_datum >  to_date('01.01.2007','dd.mm.yyyy')             -- Inkonsistenzen ausschliessen
 ) kamp_daten
-    JOIN endkunden                ek  ON kamp_daten.endkunde_subj_oid = ek.subj_oid 
+     JOIN endkunden                ek  ON kamp_daten.endkunde_subj_oid = ek.subj_oid 
 LEFT JOIN subjekte_denorm_tot_v    eka ON kamp_daten.endkunde_subj_oid = eka.subj_oid AND TRUNC(SYSDATE) BETWEEN eka.gueltig_von AND eka.gueltig_bis 
 
 LEFT JOIN branchen_bs_v            ebb ON ek.brc_id = ebb.brc_id
