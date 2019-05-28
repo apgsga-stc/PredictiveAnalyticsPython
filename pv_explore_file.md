@@ -55,17 +55,32 @@ pv_liste = tuple(pv_info.loc[(pv_info.firstRes.dt.year < 2017) & (pv_info.lastAu
                         .query('Netto_Res_2017 > 0 and Netto_Res_2018 > 0 and Netto_Res_2019 > 0')
                         .eval('SortNetto = Netto_Aus_2017 + Netto_Aus_2018 + Netto_Aus_2019')
                         .sort_values('SortNetto', ascending=False).index.values)
-qgrid.show_grid(pv_info.loc[pv_info.index.isin(pv_liste[:20])])
+qgrid.show_grid(pv_info.loc[pv_info.index.isin(pv_liste[:20]), 
+                ['Titel', 'Partner', 'Netto_Aus_2017', 'Netto_Aus_2018', 'Netto_Aus_2019']]
+                .eval('SortNetto = Netto_Aus_2017 + Netto_Aus_2018 + Netto_Aus_2019')
+                .sort_values('SortNetto', ascending=False))
 ```
 
 ```python
 pv_info.columns
 ```
 
+```python
+pv_data.columns
+```
+
+```python
+pv_liste[:20]
+```
+
+```python
+pv_top20 = pv_data.loc[pv_data.PvNr.isin(pv_liste[:20])]
+pv_top20.loc[(pv_top20.PvNr==20199),['AJahr', 'AKw', 'optNettoNetto']].sum(axis='rows').astype('int')
+```
+
 ### Check: Buchungen zu Top-20 Verträgen ansehen
 
 ```python
-pv_top20 = pv_data.loc[pv_data['PvNr'].isin(pv_liste[:20])]
 qgrid.show_grid(pv_top20.loc[(pv_data.PvNr==20199) & (pv_data.AJahr==2017)].sort_values(['AJahr', 'AKw']))
 ```
 
@@ -273,6 +288,10 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
 graph_jahresverlauf(pv_liste[:20], 'aushang').display()
 ```
 
+```python
+pv_info.loc[76]
+```
+
 # Aushang per Vertrag per Datum
 Mit Vergleich zu Vorjahren (gleiche KW)
 
@@ -299,7 +318,7 @@ aus_per_heute = aushang(dtt.today())
 alle_pv = aus_per_heute.loc[:,['total_2018', 'cum_2019', 'cum_2018', 'cum_2017']].sum(axis=0).astype('int')
 print(f'Über alle Verträge:\n{alle_pv}')
 
-aus_per_heute.query('total_2018 > 20000')
+aus_per_heute.query('PvNr == 11566')
 ```
 
 <!-- #region {"toc-hr-collapsed": false} -->
@@ -368,12 +387,22 @@ r.reset_index(inplace=True)
 ```
 
 ```python
+r.loc[r.PvNr==311224]
+```
+
+```python
+r.columns
+```
+
+```python
 r = r.assign(Partner = r.PvNr.apply(lambda x: pv_info.at[x,'Partner']), 
              Titel   = r.PvNr.apply(lambda x: pv_info.at[x,'Titel']),
              Total   = r.total_2017 + r.total_2018 + r.total_2019)
 
-pv_output = (pd.DataFrame(dict(Vertrag=r.PvNr, Partner=r.Partner, Titel=r.Titel, Total_2017=r.total_2017, Total_2018 = r.total_2018,
-                               Stand_2017=r.cum_2017, Stand_2018=r.cum_2018, Stand_2019=r.cum_2019, Diff=r.cum_diff))
+pv_output = (pd.DataFrame(dict(Vertrag=r.PvNr, Partner=r.Partner, Titel=r.Titel, Total_2017=r.total_2017, Total_2018=r.total_2018,
+                               Stand_2017=r.cum_2017, Stand_2018=r.cum_2018, Stand_2019=r.cum_2019, Diff=r.cum_diff,
+                               Prozent_2017=r.prc_2017, Prozent_2018=r.prc_2018, Prozent_2019=r.prc_2019, 
+                               Prozent_Diff=r.prc_diff))
              .sort_values('Diff')
              .reset_index(drop=True))
 
@@ -386,7 +415,7 @@ store_excel(pv_output, 'res_per_pv.xlsx')
 import altair as alt
 
 # Neue Spalte 'pv_size' = srqt(Umsatz 2018)
-data = (r.query('total_2018 > 1000')
+data = (r.query('total_2018 > 10000')
          .assign(pv_size=np.sqrt(r.total_2018))
          .reset_index().sort_values('total_2018'))
 
@@ -404,4 +433,8 @@ diag = alt.Chart(
 ).mark_line(color='lightgray', strokeWidth=1).encode(x='x', y='y')
 
 (diag + points).configure_view(width=600, height=600).interactive()
+```
+
+```python
+
 ```

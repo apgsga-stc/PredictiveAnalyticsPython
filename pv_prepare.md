@@ -40,7 +40,7 @@ pd.set_option('display.max_colwidth', 200)
 <!-- #endregion -->
 
 ```python pycharm={}
-pv_query = query('pv')
+pv_query = query('pv_2')
 ```
 
 ```python pycharm={}

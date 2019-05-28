@@ -54,27 +54,34 @@ desc_col(pv_info, det=True)
 ```
 
 ```python
-pv_liste = tuple(pv_info.loc[(pv_info.firstKw < 201501) & (pv_info.lastKw >= 201901),:]
-                        .query('Netto_Aus_2014 * Netto_Aus_2015 * Netto_Aus_2016 * Netto_Aus_2017 * Netto_Aus_2018 * Netto_Aus_2019 > 0')
-                        .query('Netto_Res_2014 * Netto_Res_2015 * Netto_Res_2016 * Netto_Res_2017 * Netto_Res_2018 * Netto_Res_2019 > 0')
+pv_liste = tuple(pv_info.loc[(pv_info.firstKw < 201701) & (pv_info.lastKw >= 201901),:]
+#                        .query('Netto_Aus_2014 * Netto_Aus_2015 * Netto_Aus_2016 * Netto_Aus_2017 * Netto_Aus_2018 * Netto_Aus_2019 > 0')
+#                        .query('Netto_Res_2014 * Netto_Res_2015 * Netto_Res_2016 * Netto_Res_2017 * Netto_Res_2018 * Netto_Res_2019 > 0')
+                        .query('Netto_Aus_2017 > 0 and Netto_Aus_2018 > 0 and Netto_Aus_2019 > 0')
+                        .query('Netto_Res_2017 > 0 and Netto_Res_2018 > 0 and Netto_Res_2019 > 0')
                         .eval('SortNetto = Netto_Aus_2017 + Netto_Aus_2018 + Netto_Aus_2019')
                         .sort_values('SortNetto', ascending=False).index.values)
-qgrid.show_grid(pv_info.loc[pv_info.index.isin(pv_liste[:20])])
+qgrid.show_grid(pv_info.loc[pv_info.index.isin(pv_liste[:20]), 
+                ['Titel', 'Partner', 'Netto_Aus_2017', 'Netto_Aus_2018', 'Netto_Aus_2019']]
+                .eval('SortNetto = Netto_Aus_2017 + Netto_Aus_2018 + Netto_Aus_2019')
+                .sort_values('SortNetto', ascending=False))
 ```
 
 ### Check: Buchungen zu Top-20 Verträgen ansehen
 
 ```python
-pv_top20 = pv_data.loc[pv_data['PvNr'].isin(pv_liste[:20])]
-qgrid.show_grid(pv_top20.loc[(pv_data.PvNr==20199) & (pv_data.AJahr==2017)].sort_values(['AJahr', 'AKw']))
+pv_top20 = pv_data.loc[pv_data['PV_NR'].isin(pv_liste[:20])]
+#qgrid.show_grid(pv_top20.loc[(pv_data.PV_NR==20199) & (pv_data.JAHR==2017)].sort_values(['JAHR', 'KW']))
+
+pv_liste[:20]
 ```
 
 ```python
-pv_top20.loc[(pv_top20.PvNr==20199) & (pv_top20.AJahr==2017) & (pv_top20.AKw==2)].sum(axis='rows')
+pv_top20.loc[(pv_top20.PV_NR==6000),['RES_BRUTTO', 'RES_NETTO', 'AUS_BRUTTO', 'AUS_NETTO']].sum(axis='rows').astype('int')
 ```
 
 ```python
-pv_top20.pivot_table(values='optNettoNetto', index='PvNr', columns='AJahr', aggfunc='sum', 
+pv_top20.pivot_table(values='AUS_NETTO', index='PV_NR', columns='JAHR', aggfunc='sum', 
                      fill_value=0, margins=True).astype('int').sort_values('All')
 ```
 
