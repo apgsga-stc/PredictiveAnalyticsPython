@@ -55,7 +55,7 @@ pv_data_raw.head()
 ```
 
 ```python pycharm={}
-desc_col(pv_data_raw)
+desc_col(pv_data_raw, det=True)
 ```
 
 <!-- #region {"pycharm": {}} -->
@@ -87,11 +87,11 @@ pv_data_raw.head()
 ```
 
 <!-- #region {"pycharm": {}} -->
-## Netto = 0 ausfiltern, sortieren, Geschäftsjahr und -woche für Aushang und Reservation berechnen
+## Netto = 0 ausfiltern, sortieren
 <!-- #endregion -->
 
 ```python pycharm={}
-pv_data = (pv_data_raw.query('AUS_NETTO > 0')
+pv_data = (pv_data_raw.query('AUS_NETTO_NETTO > 0')
            .sort_values(['JAHR_KW', 'PV_NR'])
            .reset_index(drop=True))
 ```
@@ -107,9 +107,9 @@ pv_idx = pv_data.groupby('PV_NR', as_index=True)
 ```
 
 ```python
-pv_info = pv_idx.agg({'PV_TITEL': 'first', 'RES_BRUTTO': 'sum', 'RES_NETTO': 'sum', 'AUS_BRUTTO': 'sum', 'AUS_NETTO': 'sum', 'PARTNER_NR': 'last', 'PARTNER': 'last',
+pv_info = pv_idx.agg({'PV_TITEL': 'first', 'RES_BRUTTO': 'sum', 'RES_NETTO_NETTO': 'sum', 'AUS_BRUTTO': 'sum', 'AUS_NETTO_NETTO': 'sum', 'PARTNER_NR': 'last', 'PARTNER': 'last',
                       'JAHR_KW': ['min', 'max']})
-pv_info.columns = 'Titel totalResBrutto, totalResNetto totalAusBrutto totalAusNetto partnerNr Partner firstKw lastKw'.split()
+pv_info.columns = 'Titel totalResBrutto, totalResNettoNetto totalAusBrutto totalAusNettoNetto partnerNr Partner firstKw lastKw'.split()
 ```
 
 ```python
@@ -117,16 +117,16 @@ desc_col(pv_info, det=True)
 ```
 
 ```python
-qgrid.show_grid(pv_info)
+qgrid.show_grid(pv_info.loc[:,'Titel NettoNetto_Aus_2017 NettoNetto_Aus_2018 NettoNetto_Aus_2019'.split()])
 ```
 
 #### Jahres-Nettoumsätze
 
 ```python
-pvYearANetto = pv_data.groupby(['PV_NR', 'JAHR'], observed=True, as_index=False)[['AUS_NETTO']].agg('sum')
-pvYearRNetto = pv_data.groupby(['PV_NR', 'JAHR'], observed=True, as_index=False)[['RES_NETTO']].agg('sum')
-pvANetto = pvYearANetto.pivot(index='PV_NR', columns='JAHR', values='AUS_NETTO').fillna(0).add_prefix('Netto_Aus_')
-pvRNetto = pvYearRNetto.pivot(index='PV_NR', columns='JAHR', values='RES_NETTO').fillna(0).add_prefix('Netto_Res_')
+pvYearANetto = pv_data.groupby(['PV_NR', 'JAHR'], observed=True, as_index=False)[['AUS_NETTO_NETTO']].agg('sum')
+pvYearRNetto = pv_data.groupby(['PV_NR', 'JAHR'], observed=True, as_index=False)[['RES_NETTO_NETTO']].agg('sum')
+pvANetto = pvYearANetto.pivot(index='PV_NR', columns='JAHR', values='AUS_NETTO_NETTO').fillna(0).add_prefix('NettoNetto_Aus_')
+pvRNetto = pvYearRNetto.pivot(index='PV_NR', columns='JAHR', values='RES_NETTO_NETTO').fillna(0).add_prefix('NettoNetto_Res_')
 ```
 
 ```python
