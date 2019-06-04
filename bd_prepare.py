@@ -3,7 +3,7 @@
 """
 Created on Mon Mar  4 14:29:51 2019
 Reads Buchungen data since 2009 from IT21 prod
-Query runtime: 11 min
+Query runtime: 15 min
 @author: pa
 """
 import pandas as pd
@@ -40,6 +40,7 @@ store_bin(bd_data_raw, 'bd_data_raw.feather')
 col_list = """ENDKUNDE_NR
               ENDKUNDE
               EK_ABC
+              EK_BONI
               EK_PLZ
               EK_ORT
               EK_LAND
