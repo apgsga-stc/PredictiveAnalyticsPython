@@ -27,9 +27,10 @@ import qgrid
 from datetime import datetime as dtt
 
 from pa_lib.file import data_files, load_bin, store_bin, store_excel
-from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
+from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col, as_dtype
 from pa_lib.util import obj_size
 from pa_lib.log  import time_log
+from pa_lib.types import dtFactor
 
 # display long columns completely
 pd.set_option('display.max_colwidth', 200)
@@ -116,7 +117,7 @@ pv_by_week = (pv_data
 ```
 
 ```python
-qgrid.show_grid(pv_by_week)
+qgrid.show_grid(pv_by_week.loc[pv_by_week.PV_NR==20199,'PV_NR JAHR KW aus_sumJahr aus_cumJahr aus_cumJahr aus_crvJahr'.split()])
 ```
 
 ```python
@@ -126,15 +127,23 @@ desc_col(pv_by_week, det=True)
 # Buchungsverlauf graphisch zeigen
 
 
-Für x-Achse: 
+* Für x-Achse: Jahr mit Nachkommastellen
+* Für Gruppierung: PV_NR als String (Bokeh braucht das so für factor_cmap)
+* Summenkurven hinzufügen
 
 ```python
 pv_data['JahrKw'] = pv_data.JAHR.astype('float') + (pv_data.KW.astype('float') - 1) / 53
+pv_data = (pv_data
+           .pipe(make_year_grp_sumcurve, year_col='JAHR', grp_col='PV_NR', data_col='RES_NETTO_NETTO', prefix='res_')
+           .pipe(make_year_grp_sumcurve, year_col='JAHR', grp_col='PV_NR', data_col='AUS_NETTO_NETTO', prefix='aus_')
+           .pipe(as_dtype, 'str', incl_col='PV_NR'))
 ```
 
 ```python
 def select_Pv(df, PvNr):
-    return df.loc[df.PV_NR.isin(flatten(PvNr))]
+    labels = tuple(map(str, flatten(PvNr)))
+    row_mask = df.PV_NR.isin(labels)
+    return df.loc[row_mask]
 ```
 
 #### Alle Buchungen
@@ -143,19 +152,25 @@ def select_Pv(df, PvNr):
 import bokeh
 from bokeh.plotting import figure, show
 from bokeh.io import output_notebook
-from bokeh.transform import linear_cmap, factor_cmap
+from bokeh.transform import factor_cmap
 
 output_notebook()
 
 pv_sel = pv_liste[:10]
+source_data = select_Pv(pv_data, pv_sel)
 
-p = figure(title=f"Buchungen über Aushang", x_axis_label='Datum', y_axis_label='Netto', plot_width=900)
-p.circle(x='JahrKw', y='AUS_NETTO_NETTO', source=select_Pv(pv_data, pv_sel), size=6, alpha=0.6,
-         color=linear_cmap('PV_NR', 'Category20_20', np.min(pv_data.PV_NR), np.max(pv_data.PV_NR)))
+p = figure(title=f"Buchungen pro Vertrag über Aushang", x_axis_label='Datum', y_axis_label='Netto', 
+           plot_width=1000, tooltips=[("Vertrag", "@PV_NR")])
+p.circle(x='JahrKw', y='AUS_NETTO_NETTO', source=source_data, size=6, alpha=0.3,
+         color=factor_cmap('PV_NR', 'Category20_10', source_data.PV_NR.unique()),
+         legend='PV_NR')
 show(p)
-p = figure(title=f"Buchungen über Reservation", x_axis_label='Datum', y_axis_label='Netto', plot_width=900)
-p.circle(x='JahrKw', y='RES_NETTO_NETTO', source=select_Pv(pv_data, pv_sel), size=6, alpha=0.6,
-         color=linear_cmap('PV_NR', 'Category20_20', np.min(pv_data.PV_NR), np.max(pv_data.PV_NR)))
+
+p = figure(title=f"Buchungen pro Vertrag über Reservation", x_axis_label='Datum', y_axis_label='Netto', 
+           plot_width=1000, tooltips=[("Vertrag", "@PV_NR")])
+p.circle(x='JahrKw', y='RES_NETTO_NETTO', source=source_data, size=6, alpha=0.3,
+         color=factor_cmap('PV_NR', 'Category20_10', source_data.PV_NR.unique()),
+         legend='PV_NR')
 show(p)
 ```
 
@@ -168,7 +183,10 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
     import altair as alt
     alt.data_transformers.enable('default', max_rows=None)
 
-    data = select_Pv(pv_by_week, PvNr)
+    data = select_Pv(pv_data, PvNr)
+    data = (data.loc[(data.JAHR >= '2015') & (data.JAHR <= '2019')]
+            .pipe(clean_up_categoricals, incl_col='JAHR'))
+    
     if typ[:3] == 'res':
         prefix = 'res_'
     elif typ[:3] == 'aus':
@@ -181,20 +199,20 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
                              alt.Color('PV_NR:N', legend=None),
                              alt.value('lightgray'))
 
-    yr_select = alt.selection_multi(fields=['Jahr'])
+    yr_select = alt.selection_multi(fields=['JAHR'])
     yr_color = alt.condition(yr_select,
                              alt.value('black'),
                              alt.value('lightgray'))
 
     # X axis: no auto-scaling per category
-    kw_axis = alt.X('Kw', scale=alt.Scale(rangeStep=None))
+    kw_axis = alt.X('KW', scale=alt.Scale(rangeStep=None))
 
     # line graphs
     lines = alt.Chart(data).mark_line(strokeWidth=3, interpolate='linear').encode(
         x=kw_axis,
         color=pv_color,
-        opacity=alt.Opacity('Jahr', legend=None),
-        tooltip=['Kw', 'Jahr', f'{prefix}cumJahr', f'{prefix}crvJahr']
+        opacity=alt.Opacity('JAHR', legend=None),
+        tooltip=['KW', 'JAHR', f'{prefix}cumJahr', f'{prefix}crvJahr']
     ).add_selection(
         pv_select
     ).transform_filter(
@@ -202,12 +220,13 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
     ).transform_filter(
         yr_select
     )
+    
     lines_cum = lines.encode(y=f'{prefix}cumJahr')
     lines_crv = lines.encode(y=f'{prefix}crvJahr')
 
     # clickable Pv legend
     pv_legend = alt.Chart(data).mark_rect().encode(
-        y=alt.Y('PV_NR:N', sort=PV_NR, axis=alt.Axis(orient='right')),
+        y=alt.Y('PV_NR:N', sort=PvNr, axis=alt.Axis(orient='right')),
         color=pv_color
     ).add_selection(
         pv_select
@@ -215,10 +234,10 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
 
     # clickable AJahr legend
     yr_legend = alt.Chart(data).mark_circle(size=150).encode(
-        y=alt.Y('Jahr:N', axis=alt.Axis(orient='right')),
+        y=alt.Y('JAHR:N', axis=alt.Axis(orient='right')),
         color=yr_color,
         opacity=alt.condition(yr_select,
-                              alt.Opacity('Jahr:N', legend=None),
+                              alt.Opacity('JAHR:N', legend=None),
                               alt.value(0.25))
     ).add_selection(
         yr_select
@@ -231,7 +250,7 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
 ```
 
 ```python
-graph_jahresverlauf(pv_liste[:20], 'aushang').display()
+graph_jahresverlauf(pv_liste[:20], 'resserv').display()
 ```
 
 # Aushang per Vertrag per Datum
