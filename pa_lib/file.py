@@ -162,4 +162,12 @@ def store_pickle(df, file_name, **params):
     info(f'Writing to file {file_path}')
     df.to_pickle(file_path, **params)
     info(f'Written {file_size(file_path)}')
+
+    
+@time_log('loading pickle file')
+def load_pickle(file_name, **params):
+    file_path = (PA_DATA_DIR / file_name).resolve()
+    info(f'Reading from file {file_path}')
+    df = pd.read_pickle(file_path, **params)
+    return df
     
