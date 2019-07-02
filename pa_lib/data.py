@@ -22,17 +22,16 @@ def desc_col(df, det=False):
                  f'[{col.min(skipna=True)},{col.max(skipna=True)}]'],
                 index='DTYPE NULLS UNIQUE MEM RANGE'.split()),
             result_type='expand').transpose()
-    else:
-        return df.apply(
-            lambda col: pd.Series(
-                [col.dtype, f'{len(col) - col.count()}/{col.count()}',
-                 col.nunique()],
-                index='DTYPE NULLS UNIQUE'.split()),
-            result_type='expand').transpose()
+    return df.apply(
+        lambda col: pd.Series(
+            [col.dtype, f'{len(col) - col.count()}/{col.count()}',
+             col.nunique()],
+            index='DTYPE NULLS UNIQUE'.split()),
+        result_type='expand').transpose()
 
 
 def select_columns(df, incl_col=None, incl_pattern=None, incl_dtype=None):
-    """Filter column list. Specify source dtypes, column names, or patterns"""
+    """Filter column list. Specify column names, patterns, or source dtypes"""
     col_list = list()
     if incl_col is not None:
         col_list.extend([c for c in flatten(incl_col) if c in df.columns])
@@ -46,15 +45,18 @@ def select_columns(df, incl_col=None, incl_pattern=None, incl_dtype=None):
 
 def as_dtype(df, to_dtype, **selectors):
     """Convert columns to a target dtype.
-       **selectors are passed to select_columns()"""
+       **selectors incl_col=None, incl_pattern=None, incl_dtype
+       are passed to select_columns()"""
+    res = df.copy()
     for col in select_columns(df, **selectors):
-        df.loc[:, col] = df.loc[:, col].astype(to_dtype)
-    return df
+        res.loc[:, col] = df.loc[:, col].astype(to_dtype)
+    return res
 
 
 def as_date(df, format_str, **selectors):
     """Convert columns to datetime64, using 'format_str'.
-       **selectors are passed to select_columns()"""
+       **selectors incl_col=None, incl_pattern=None, incl_dtype
+       are passed to select_columns()"""
     for col in select_columns(df, **selectors):
         df.loc[:, col] = pd.to_datetime(df.loc[:, col], format=format_str)
     return df
@@ -62,7 +64,8 @@ def as_date(df, format_str, **selectors):
 
 def as_int_factor(df, **selectors):
     """Convert columns to Categorial of integers, keeping NaNs.
-       **selectors are passed to select_columns()"""
+       **selectors incl_col=None, incl_pattern=None, incl_dtype
+       are passed to select_columns()"""
     col_list = select_columns(df, **selectors)
     df[col_list] = df[col_list].astype('float').astype(
         pd.CategoricalDtype(ordered=True))
@@ -73,7 +76,9 @@ def as_int_factor(df, **selectors):
 
 
 def as_kw(df, **selectors):
-    """Convert columns to KW type. **selectors are passed to select_columns()"""
+    """Convert columns to KW type.
+       **selectors incl_col=None, incl_pattern=None, incl_dtype
+       are passed to select_columns()"""
     col_list = select_columns(df, **selectors)
     df[col_list] = df[col_list].astype(dtFactor)
     for col in col_list:

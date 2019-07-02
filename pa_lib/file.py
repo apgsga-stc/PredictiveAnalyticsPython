@@ -8,6 +8,7 @@ File handling for PA data
 import pandas as pd
 from pathlib import Path
 from datetime import datetime as dtt
+import xlsxwriter as xlsw
 
 from pa_lib.const import PA_DATA_DIR
 from pa_lib.log import time_log, info
@@ -137,3 +138,28 @@ def rm_file(file_name):
 def rm_data_file(file_name):
     file_path = PA_DATA_DIR / file_name
     rm_file(file_path)
+
+    
+def write_xlsx(df, file_name, sheet_name='df'):
+    """Write df into a XLSX with fixed title row, enable auto filters"""
+    file_path = PA_DATA_DIR / file_name
+    writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
+    df.to_excel(writer, index=False, sheet_name=sheet_name)
+    workbook = writer.book
+    worksheet = writer.sheets[sheet_name]
+    title_row = (0, 0, 0, df.shape[-1]-1)
+    bold = workbook.add_format({'bold': True, 'align': 'left'})
+    
+    worksheet.set_row(0, cell_format=bold)
+    worksheet.autofilter(*title_row)
+    worksheet.freeze_panes(1, 0)
+    writer.save()
+    
+
+@time_log('storing pickle file')
+def store_pickle(df, file_name, **params):
+    file_path = (PA_DATA_DIR / file_name).resolve()
+    info(f'Writing to file {file_path}')
+    df.to_pickle(file_path, **params)
+    info(f'Written {file_size(file_path)}')
+    
