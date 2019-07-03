@@ -72,6 +72,7 @@ FROM
         au.kombi_name                                       AUFTRAGGEBER, 
         wa.geschaeftspartner_nr                             AGENTUR_NR,                           
         wa.kombi_name                                       AGENTUR, 
+        wa.hbapg_kurzz                                      AG_HAUPTBETREUER,
 
         kv.kampagne_nummer                                  KV_NR, 
         kv.kdvt_type                                        KV_TYP,

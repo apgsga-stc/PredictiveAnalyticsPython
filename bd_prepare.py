@@ -47,6 +47,7 @@ col_list = """ENDKUNDE_NR
               EK_HB_APG_KURZZ
               EK_AKTIV
               AGENTUR
+              AG_HAUPTBETREUER
               VERKAUFSBERATER
               ENDKUNDE_BRANCHENGRUPPE_ID
               ENDKUNDE_BRANCHENGRUPPE
@@ -143,4 +144,4 @@ bd_data_vkprog = (bd_data
 
 store_bin(bd_data_vkprog, 'bd_data_vkprog.feather')
 
-del (bd_data_raw, bd_data, bd_data_vkprog)
+del(bd_data_raw, bd_data, bd_data_vkprog)

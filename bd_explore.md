@@ -33,13 +33,15 @@ pd.set_option('display.max_colwidth', 200)
 
 pd.set_option('display.max_rows', 200)
 
-qgrid.set_grid_option()
+def sep_format(num):
+    return format(num, ',d')
+pd.set_option('display.float_format', sep_format)
 ```
 
 ## Data Setup
 
 ```python
-data_files()
+data_files('*.feather')
 ```
 
 ```python
@@ -231,7 +233,7 @@ cols = [f'{fld}_{agg}' for (fld, agg) in ek_minmax.columns.to_flat_index()]
 ek_minmax.set_axis(labels=cols, axis='columns', inplace=True)
 
 ek_minmax = (ek_minmax
-             .assign(Lifetime = np.subtract(ek_minmax.Jahr_Kw_max, ek_minmax.Jahr_Kw_min)))
+             .assign(Lifetime=ek_minmax.Jahr_Kw_max-ek_minmax.Jahr_Kw_min))
 ```
 
 ```python
@@ -255,7 +257,7 @@ start_end_jahre = start_jahr.merge(end_jahr, left_on='start_jahr', right_on='end
 start_end_jahre = (start_end_jahre.fillna({'start_jahr': start_end_jahre.end_jahr, 'cnt_start': 0, 'cnt_end': 0})
                                   .drop('end_jahr', axis='columns'))
 
-start_end_jahre = start_end_jahre.assign(saldo = np.subtract(np.cumsum(start_end_jahre.cnt_start), np.cumsum(start_end_jahre.cnt_end)))
+start_end_jahre = start_end_jahre.assign(saldo=np.cumsum(start_end_jahre.cnt_start)-np.cumsum(start_end_jahre.cnt_end))
 
 qgrid.show_grid(start_end_jahre)
 ```
@@ -315,7 +317,7 @@ qgrid.show_grid(bd_auftr_art)
 ```
 
 ```python
-bd.pivot_table(values='NETTO', index='AUFTRAGSART', columns='KAMP_ERFASS_JAHR', aggfunc=np.sum, margins=True, fill_value=-1).astype('int')
+bd.pivot_table(values='NETTO', index='AUFTRAGSART', columns='KAMP_ERFASS_JAHR', aggfunc=np.sum, margins=True, fill_value=-1).astype('int').sort_values('All')
 ```
 
 ### Schlussfolgerungen
