@@ -8,7 +8,6 @@ File handling for PA data
 import pandas as pd
 from pathlib import Path
 from datetime import datetime as dtt
-import xlsxwriter as xlsw
 
 from pa_lib.const import PA_DATA_DIR
 from pa_lib.log import time_log, info
@@ -31,7 +30,7 @@ def file_list(path='.', pattern='*.*', sort='name', desc=False, do_format=True):
         data=[(name, stat.st_size, dtt.fromtimestamp(stat.st_mtime))
               for (name, stat) in ((f.name, f.stat()) for f in Path(path).iterdir()
                                    if f.is_file() and f.match(pattern))
-             ])
+              ])
     if sort is not None:
         files = files.sort_values(by=sort, ascending=not desc)
     if do_format:
@@ -140,23 +139,24 @@ def rm_data_file(file_name):
     rm_file(file_path)
 
     
+@time_log('writing xlsx file')
 def write_xlsx(df, file_name, sheet_name='df'):
     """Write df into a XLSX with fixed title row, enable auto filters"""
     file_path = PA_DATA_DIR / file_name
+    info(f'Writing to file {file_path}')
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name=sheet_name)
     workbook = writer.book
     worksheet = writer.sheets[sheet_name]
     title_row = (0, 0, 0, df.shape[-1]-1)
     bold = workbook.add_format({'bold': True, 'align': 'left'})
-    
     worksheet.set_row(0, cell_format=bold)
     worksheet.autofilter(*title_row)
     worksheet.freeze_panes(1, 0)
     writer.save()
-    
+    info(f'Written {file_size(file_path)}')
 
-@time_log('storing pickle file')
+
 def store_pickle(df, file_name, **params):
     file_path = (PA_DATA_DIR / file_name).resolve()
     info(f'Writing to file {file_path}')
@@ -170,4 +170,3 @@ def load_pickle(file_name, **params):
     info(f'Reading from file {file_path}')
     df = pd.read_pickle(file_path, **params)
     return df
-    
