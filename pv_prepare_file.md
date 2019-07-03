@@ -167,3 +167,7 @@ pv_data = pv_bd.drop(['PvPosNr', 'PartnerNr', 'PartnerName', 'PvTitel', 'optBrut
 store_bin(pv_data, 'pv_data_file.feather')
 store_bin(pv_info, 'pv_info_file.feather')
 ```
+
+```python
+
+```
