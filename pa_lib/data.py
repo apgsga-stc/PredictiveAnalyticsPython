@@ -75,6 +75,17 @@ def as_int_factor(df, **selectors):
     return df
 
 
+def unfactorize(df):
+    df = df.copy()
+    for col in select_columns(df, incl_dtype='category'):
+        nulls = df[col].isna()
+        df[col] = df[col].astype(df[col].cat.categories.dtype)
+        # Integer columns with Nulls need fixing, will convert to float
+        if any(nulls):
+            df.loc[nulls, col] = np.NaN
+    return(df)
+
+
 def as_kw(df, **selectors):
     """Convert columns to KW type.
        **selectors incl_col=None, incl_pattern=None, incl_dtype

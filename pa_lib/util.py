@@ -20,6 +20,21 @@ from collections import OrderedDict, deque
 
 
 ###############################################################################
+def cap_words(txt, sep=None):
+    """Capitalize each word of txt where 'words' are separated by sep"""
+    return sep.join(map(lambda word: word.capitalize(), txt.split(sep)))
+
+
+###############################################################################
+def contents(obj):
+    """Show attributes of an object with their types"""
+    tab = pd.DataFrame({'name': dir(obj), 
+                        'type': [type(obj.__getattribute__(attr)) 
+                                 for attr in dir(obj)]})
+    return tab
+
+    
+###############################################################################
 def seq_join(seq, sep=' '):
     """Join seq to a string separated by sep. Seq can by any iterable"""
     return sep.join(map(str, seq))
@@ -89,6 +104,7 @@ def _total_size(obj, handlers=OrderedDict()):
 
     def dict_handler(d):
         return chain.from_iterable(d.items())
+    
     all_handlers = {tuple: iter,
                     list: iter,
                     deque: iter,

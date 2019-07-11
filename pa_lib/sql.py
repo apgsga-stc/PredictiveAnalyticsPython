@@ -15,9 +15,9 @@ QUERY = {}
 def init():
     sql_path = Path('pa_lib', 'sql').resolve()
     for sql_file in file_list(sql_path, '*.sql').name:
-        tag = sql_file[0:-4]
+        base_name = sql_file.rsplit('.', maxsplit=1)[0]
         with open(sql_path / sql_file) as query_file:
-            QUERY[tag] = query_file.read()
+            QUERY[base_name] = query_file.read()
         
         
 def query(tag):
