@@ -22,7 +22,10 @@ from collections import OrderedDict, deque
 ###############################################################################
 def cap_words(txt, sep=None):
     """Capitalize each word of txt where 'words' are separated by sep"""
-    return sep.join(map(lambda word: word.capitalize(), txt.split(sep)))
+    def cap_word(word):
+        return word.capitalize() if len(word)>2 else word
+    
+    return sep.join(map(lambda word: cap_word(word), txt.split(sep)))
 
 
 ###############################################################################
