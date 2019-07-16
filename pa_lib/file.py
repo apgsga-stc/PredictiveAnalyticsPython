@@ -6,6 +6,7 @@ File handling for PA data
 @author: kpf
 """
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from datetime import datetime as dtt
 from string import ascii_uppercase as alphabet
@@ -143,9 +144,9 @@ def rm_data_file(file_name):
 @time_log('writing xlsx file')
 def write_xlsx(df, file_name, sheet_name='df'):
     """Write df into a XLSX with fixed title row, enable auto filters"""
-    # column widths as max strlength of column's contents
-    col_width = df.astype('str').apply(lambda col: max(col.str.len())).to_list()
-    title_width = list(map(len, df.columns))
+    # column widths as max strlength of column's contents, or strlength of column's header if greater
+    col_width = np.maximum(df.astype('str').apply(lambda col: max(col.str.len())).to_list(), 
+                           list(map(len, df.columns)))
     file_path = PA_DATA_DIR / file_name
     info(f'Writing to file {file_path}')
     
@@ -162,7 +163,7 @@ def write_xlsx(df, file_name, sheet_name='df'):
     worksheet.freeze_panes(1, 0)
     # Column autowidth: set each to max(col_width, title_width)
     for col in range(ncols):
-        worksheet.set_column(col, col, max(col_width[col], title_width[col]) + 1)
+        worksheet.set_column(col, col, col_width[col] + 1)
     
     writer.save()
     info(f'Written {file_size(file_path)}')
