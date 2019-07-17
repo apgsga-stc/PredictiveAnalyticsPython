@@ -21,7 +21,8 @@ from collections import OrderedDict, deque
 
 ###############################################################################
 def cap_words(txt, sep=None):
-    """Capitalize each word of txt where 'words' are separated by sep"""
+    """Capitalize each word of txt where 'words' are separated by sep. 
+       Two-letter words are left alone."""
     def cap_word(word):
         return word.capitalize() if len(word)>2 else word
     
@@ -44,7 +45,11 @@ def seq_join(seq, sep=' '):
 
 
 ###############################################################################
-def is_iterable(obj):
+def is_seq(obj):
+    """Strings are not classed as sequences (this would cause flatten() 
+       to recurse indefinitely, as single-character strings are still strings)"""
+    if isinstance(obj, (str, bytes)):
+        return False
     try:
         iter(obj)
     except TypeError:
@@ -53,15 +58,11 @@ def is_iterable(obj):
         return True
 
 
-def is_string(obj):
-    return isinstance(obj, (str, bytes))
-
-
 def flatten(obj):
     """Flatten complex object recursively to linear sequence.
        Supports nesting levels up to the interpreter's recursion depth limit."""
-    # iterate over sub-elements unless they're strings (infinite recursion!)
-    if is_iterable(obj) and not is_string(obj):
+    # iterate over sub-elements
+    if is_seq(obj):
         for element in obj:
             yield from flatten(element)
     else:
