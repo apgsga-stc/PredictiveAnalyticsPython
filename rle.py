@@ -2,7 +2,6 @@
 # Python-Implementation der einfachen Komprimierung
 # Keine rekursive Komprimierung von Sub-Elementen!
 
-
 from itertools import groupby, chain, repeat
 from typing import Iterable
 
@@ -26,8 +25,8 @@ def decode_str(rle: list, sep='') -> str:
 ###############################################################################
 
 if __name__ == "__main__":
-    from pa_log import time_log
-    from pa_util import obj_size
+    from pa_lib.log import time_log
+    from pa_lib.util import obj_size
 
     src = [(1,2), (1,2), 'a', 'a', 3, 3, 5, 5, 5]
     print(f'{src} ==> {encode(src)}')

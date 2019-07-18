@@ -1,4 +1,3 @@
-from __future__ import print_function
 from sys import getsizeof, stderr
 from itertools import chain
 from collections import deque
