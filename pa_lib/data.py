@@ -30,14 +30,22 @@ def desc_col(df, det=False):
         result_type='expand').transpose()
 
 
+def flatten_multi_index_cols(df, sep='_'):
+    if isinstance(df.columns, pd.MultiIndex):
+        col_names = list(map(sep.join, df.columns.to_flat_index()))
+        df = df.set_axis(col_names, axis='columns', inplace=False)
+    return df
+
+
 def select_columns(df, incl_col=None, incl_pattern=None, incl_dtype=None):
     """Filter column list. Specify column names, patterns, or source dtypes"""
     col_list = list()
     if incl_col is not None:
         col_list.extend([c for c in flatten(incl_col) if c in df.columns])
     if incl_pattern is not None:
+        flat_df = flatten_multi_index_cols(df, sep='|')
         for pat in flatten(incl_pattern):
-            col_list.extend(df.columns[df.columns.str.match(pat)])
+            col_list.extend(flat_df.columns[flat_df.columns.str.match(pat)])
     if incl_dtype is not None:
         col_list.extend(df.select_dtypes(include=incl_dtype).columns)
     return list(set(col_list))  # make unique

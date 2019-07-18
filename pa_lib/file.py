@@ -10,12 +10,24 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime as dtt
 from string import ascii_uppercase as alphabet
+from functools import partial
 
 from pa_lib.const import PA_DATA_DIR
 from pa_lib.log import time_log, info
 from pa_lib.util import format_size
+from pa_lib.data import flatten_multi_index_cols
 
+flatten_multi_cols = partial(flatten_multi_index_cols, sep='|')
 
+def _check_index(df):
+    # if we have a default index, trash it. If it's more sophisticated, store it
+    if type(df.index) == pd.RangeIndex:
+        df = df.reset_index(drop=True)
+    else:
+        df = df.reset_index()
+    return df
+
+    
 def file_size(file_path, do_format=True):
     nbytes = Path(file_path).stat().st_size
     if do_format:
@@ -31,8 +43,7 @@ def file_list(path='.', pattern='*.*', sort='name', desc=False, do_format=True):
         columns='name size mtime'.split(),
         data=[(name, stat.st_size, dtt.fromtimestamp(stat.st_mtime))
               for (name, stat) in ((f.name, f.stat()) for f in Path(path).iterdir()
-                                   if f.is_file() and f.match(pattern))
-              ])
+                                   if f.is_file() and f.match(pattern))])
     if sort is not None:
         files = files.sort_values(by=sort, ascending=not desc)
     if do_format:
@@ -51,11 +62,8 @@ def data_files(pattern='[!.]*.*', sort='name', **kwargs):
 def store_excel(df, file_name, **params):
     file_path = (PA_DATA_DIR / file_name).resolve()
     info(f'Writing to file {file_path}')
-    # if we have a default index, trash it. If it's more sophisticated, store it
-    if type(df.index) == pd.RangeIndex:
-        df = df.reset_index(drop=True)
-    else:
-        df = df.reset_index()
+    df = (df.pipe(_check_index)
+            .pipe(flatten_multi_cols))
     df.to_excel(file_path, index=False, freeze_panes=(1, 0), **params)
     info(f'Written {file_size(file_path)}')
 
@@ -66,11 +74,8 @@ def store_csv(df, file_name, do_zip=True, index=False, **params):
     if do_zip:
         file_path = file_path.with_name(file_path.name + '.zip')
     info(f'Writing to file {file_path}')
-    # if we have a default index, trash it. If it's more sophisticated, store it
-    if type(df.index) == pd.RangeIndex:
-        df = df.reset_index(drop=True)
-    else:
-        df = df.reset_index()
+    df = (df.pipe(_check_index)
+            .pipe(flatten_multi_cols))
     if do_zip:
         df.to_csv(file_path, compression='zip', index=index, **params)
     else:
@@ -90,11 +95,8 @@ def load_csv(file_name, **params):
 def store_hdf(df, file_name, **params):
     file_path = (PA_DATA_DIR / file_name).resolve()
     info(f'Writing to file {file_path}')
-    # if we have a default index, trash it. If it's more sophisticated, store it
-    if type(df.index) == pd.RangeIndex:
-        df = df.reset_index(drop=True)
-    else:
-        df = df.reset_index()
+    df = (df.pipe(_check_index)
+            .pipe(flatten_multi_cols))
     df.to_hdf(file_path, key='df', mode='w', format='table', complevel=9,
               complib='blosc:lz4', index=False, **params)
     info(f'Written {file_size(file_path)}')
@@ -113,11 +115,8 @@ def load_hdf(file_name, **params):
 def store_bin(df, file_name, **params):
     file_path = (PA_DATA_DIR / file_name).resolve()
     info(f'Writing to file {file_path}')
-    # if we have a default index, trash it. If it's more sophisticated, store it
-    if type(df.index) == pd.RangeIndex:
-        df = df.reset_index(drop=True)
-    else:
-        df = df.reset_index()
+    df = (df.pipe(_check_index)
+            .pipe(flatten_multi_cols))
     df.to_feather(file_path, **params)
     info(f'Written {file_size(file_path)}')
 
@@ -144,6 +143,9 @@ def rm_data_file(file_name):
 @time_log('writing xlsx file')
 def write_xlsx(df, file_name, sheet_name='df'):
     """Write df into a XLSX with fixed title row, enable auto filters"""
+    df = (df.pipe(_check_index)
+            .pipe(flatten_multi_cols))
+
     # column widths as max strlength of column's contents, or strlength of column's header if greater
     col_width = np.maximum(df.astype('str').apply(lambda col: max(col.str.len())).to_list(), 
                            list(map(len, df.columns)))
@@ -161,7 +163,7 @@ def write_xlsx(df, file_name, sheet_name='df'):
     worksheet.set_row(0, cell_format=bold)
     worksheet.autofilter(*title_cells)
     worksheet.freeze_panes(1, 0)
-    # Column autowidth: set each to max(col_width, title_width)
+    # Column autowidth
     for col in range(ncols):
         worksheet.set_column(col, col, col_width[col] + 1)
     
