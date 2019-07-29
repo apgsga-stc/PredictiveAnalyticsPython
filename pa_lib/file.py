@@ -171,6 +171,14 @@ def write_xlsx(df, file_name, sheet_name='df'):
     info(f'Written {file_size(file_path)}')
 
 
+@time_log('loading xlsx file')
+def load_xlsx(file_name, **params):
+    file_path = (PA_DATA_DIR / file_name).resolve()
+    info(f'Reading from file {file_path}')
+    df = pd.read_excel(file_path, **params)
+    return df
+
+    
 def store_pickle(df, file_name, **params):
     file_path = (PA_DATA_DIR / file_name).resolve()
     info(f'Writing to file {file_path}')
