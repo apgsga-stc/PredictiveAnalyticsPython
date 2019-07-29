@@ -260,7 +260,7 @@ from email.message import EmailMessage
 from email.headerregistry import Address
 ```
 
-#### Talk to me, please!
+#### Talk to the gateway
 
 ```python
 with SMTP(host='mailint.apgsga.ch') as mail_gateway:
@@ -269,6 +269,8 @@ with SMTP(host='mailint.apgsga.ch') as mail_gateway:
     mail_gateway.helo('http://lxewi041.apgsga.ch')
 ```
 
+#### Send a simple message
+
 ```python
 with SMTP(host='mailint.apgsga.ch') as mail_gateway:
     mail_gateway.set_debuglevel(True)
@@ -276,6 +278,8 @@ with SMTP(host='mailint.apgsga.ch') as mail_gateway:
                           to_addrs='kaspar.pflugshaupt@apgsga.ch', 
                           msg='This is a test message')
 ```
+
+#### Build a complex message and send it
 
 ```python
 msg = EmailMessage()
@@ -301,9 +305,7 @@ msg.add_alternative("""\
   </body>
 </html>
 """, subtype='html')
-```
 
-```python
 print(msg.as_string())
 ```
 
