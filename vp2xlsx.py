@@ -7,7 +7,7 @@ erstellt.
 #%% Reset
 #%reset -f
 
-#%% Load general modules
+#%% Load modules
 import pandas as pd
 import numpy  as np
 #import xlsxwriter as xlsx
@@ -23,8 +23,8 @@ ek_list             = load_csv('EK_LIST_2W_KOMPLETT.csv',
 gv_VB_KUERZ_new_raw = load_csv('vkber_data.csv',
                                sep=',',
                                encoding='UTF-8')
-#%% Data Preparation:Complete Scoring table
-## Column selection:
+#%% Data Preparation:Complete Scoring Table
+#%% Column & Row Selection:
 ek_list_ultrakompakt = (
     ek_list.loc[(pd.isna(ek_list.Kleinkunde) &
                  pd.isna(ek_list.Neukunde) &
@@ -33,12 +33,12 @@ ek_list_ultrakompakt = (
                  pd.isna(ek_list.kuerzlich_gebucht) &
                  pd.isna(ek_list.kuerzlich_im_aushang) &
                  pd.isna(ek_list.kuerzlich_im_kontakt) &
-                 pd.isna(ek_list.VB_FILTER_AKTIV)), ## Zeilen-Bedinungen
+                 pd.isna(ek_list.VB_FILTER_AKTIV)), ## Row conditions
                  "ENDKUNDE_NR Endkunde HB_APG Agentur HB_Agentur PLZ Ort".split() +
                  [col for col in ek_list.columns if 'Net_2'in col] +
                  "letzte_VBs letzter_Kontakt KZ_letzter_Ktkt Kanal Betreff letzte_Kamp_erfasst letzte_Kamp_Beginn Verkaufsgebiet VB_VK_Geb".split()+
                  [col for col in ek_list.columns if 'prob_KW' in col]])
-## Data type clean up
+#%% Data-Type Clean Up:
 ek_list_ultrakompakt["PLZ"] = (
     ek_list_ultrakompakt["PLZ"].fillna(0).astype(np.int64))
 ek_list_ultrakompakt["ENDKUNDE_NR"] = (
@@ -56,6 +56,7 @@ ek_list_ultrakompakt['letzte_Kamp_erfasst'] = (
 ek_list_ultrakompakt['letzte_Kamp_Beginn'] = (
     pd.to_datetime(ek_list_ultrakompakt['letzte_Kamp_Beginn'],
                    format = '%Y-%m-%d'))
+#%% Data Preparation: Active VB-list
 #%% Zuteilung und die einzelnen VBs
 gv_VB_KUERZ_new_raw['Vorname']  = [x.split(' ')[-1]
                                    for x in gv_VB_KUERZ_new_raw['KOMBI_NAME']]
@@ -67,9 +68,9 @@ vkber_list = gv_VB_KUERZ_new_raw.loc[:,["Vorname",
                                         "FUNKTION",
                                         "KURZZEICHEN"]
                                     ].set_index("KURZZEICHEN")
+#%% Data Preparation:
 gv_VB_KUERZ = {x: [y] for (x,y) in zip(gv_VB_KUERZ_new_raw['KURZZEICHEN'],
                                        gv_VB_KUERZ_new_raw['KURZZEICHEN'])}
-#%% Data Preparation:
 ek_list_vb_dict = {}
 for x in gv_VB_KUERZ.keys():
     ek_list_vb_dict[x] = (
@@ -78,22 +79,22 @@ for x in gv_VB_KUERZ.keys():
             ek_list_ultrakompakt.HB_Agentur.isin(gv_VB_KUERZ[x]) # VB Agentur
         ].sort_values([col for col in ek_list.columns if 'prob_KW' in col],
                       ascending=False)) # highest probability first.
-#%% Create VB overview with potential leads
+#%% Create VB overview with number of potential leads
 dict_vb_num_leads = {x : ek_list_vb_dict[x].shape[0]
                      for x in ek_list_vb_dict.keys()}
 nleads_dict = pd.DataFrame.from_dict(dict_vb_num_leads,
-                                   orient= 'index',
-                                   columns=['total_leads'])
+                                     orient='index',
+                                     columns=['total_leads'])
 vkber_list_leads = vkber_list.merge(nleads_dict,
                                     left_index=True,
                                     right_index=True)
 #%% Define overview-excel creator
-def write_xlsx(df, file_name, sheet_name='df'):
+def overview_xlsx(df, file_name, sheet_name='df'):
     """Write df into a XLSX with fixed title row, enable auto filters"""
     # column widths as max strlength of column's contents
     col_width = df.astype('str').apply(lambda col: max(col.str.len())).to_list()
     title_width = list(map(len, df.columns))
-    file_path = os.getcwd() + file_name
+    file_path = os.getcwd() + '\\output\\' + file_name
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name=sheet_name)
     workbook = writer.book
@@ -129,7 +130,7 @@ info_text = """Liste von potenziell interessanten Kundenkontakten.
 Die Liste wird alle 2 Wochen bereitgestellt.\n
 Bitte in den letzten 2 Spalten Feedback eintragen, auch Vorschläge für die Verbesserung der Liste sind willkommen. Vielen Dank."""
 #%% Define Excel Function
-def make_excel(dict_vb_df,gv_VB_TOP_N=20):
+def vb_sales_xlsx(dict_vb_df,gv_VB_TOP_N=20):
     """
     Input: Dictionary mit VBs als Keys und Dataframes (Top20 pro VB) als value.
     Output: Pro VB wird ein formartiertes Excel generiert.
@@ -170,7 +171,7 @@ def make_excel(dict_vb_df,gv_VB_TOP_N=20):
                'error_message': 'Bitte auswählen:\n  - hilfreich\n  - nicht hilfreich\n  - nicht bearbeitet'}
 
         ## Create a Pandas Excel writer using XlsxWriter as the engine:
-        writer = pd.ExcelWriter(file_name_templ.format(vb)+'.xlsx',
+        writer = pd.ExcelWriter(os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
                                 engine='xlsxwriter',
                                 datetime_format="dd.mm.yyyy")
 
@@ -309,6 +310,6 @@ def make_excel(dict_vb_df,gv_VB_TOP_N=20):
         # Write file into working folder
         writer.save()
 #%% Create Excels
-make_excel(ek_list_vb_dict, 20)
-write_xlsx(vkber_list_leads, "vkber_potential.xlsx", sheet_name='VK')
+vb_sales_xlsx(ek_list_vb_dict, 20)
+overview_xlsx(vkber_list_leads, "vkber_potential.xlsx", sheet_name='VK')
 #%% End of file.
