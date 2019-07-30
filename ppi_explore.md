@@ -72,6 +72,10 @@ ppi_data.head(10)
 ```
 
 ```python
+qshow(ppi_data)
+```
+
+```python
 write_xlsx(ppi_data, 'ppi_data.xlsx', 'data')
 ```
 
@@ -143,7 +147,7 @@ def aggregate_ppi(df, by_col, ci_method='emplike'):
 
 ```python
 ppi_kamp_data = (ppi_data.groupby('Ppi_NR')
-                 .agg({'Kunde': 'last', 'Kpg_Name': 'last', 'Branche': 'last', 'Gruppe': 'last', 'Kategorie': 'last', 'Std_Publ': 'last', 
+                 .agg({'Kunde': 'last', 'Kpg_Name': 'last', 'Branche': 'last', 'Gruppe': 'last', 'Kategorie': 'last', 'Std_Publ': 'last', 'Spr_Werbedruck': 'mean',
                        'Befr_Erinn_Prz': 'sum', 'Befr_Zuord_Prz': 'sum'})
                  .eval('Nettowirk_Prz = Befr_Zuord_Prz / Befr_Erinn_Prz')
                  .join(ppi_data.groupby('Ppi_NR').size().rename('Befr_N')))
@@ -210,7 +214,7 @@ ppi_data.groupby('Jahr')[['Marke_Bekanntheit']].agg([empty, mixed, full]).sum(ax
 
 ```python
 ppi_kamp_hilo_data = (ppi_data.groupby(['Ppi_NR', 'Marke_Bekannt'], observed=True)
-                      .agg({'Kunde': 'last', 'Kpg_Name': 'last', 'Branche': 'last', 'Gruppe': 'last', 'Kategorie': 'last', 'Std_Publ': 'last', 
+                      .agg({'Kunde': 'last', 'Kpg_Name': 'last', 'Branche': 'last', 'Gruppe': 'last', 'Kategorie': 'last', 'Std_Publ': 'last',  'Spr_Werbedruck': 'mean',
                             'Befr_Erinn_Prz': 'sum', 'Befr_Zuord_Prz': 'sum'})
                       .eval('Nettowirk_Prz = Befr_Zuord_Prz / Befr_Erinn_Prz')
                       .join(ppi_data.groupby(['Ppi_NR', 'Marke_Bekannt'], observed=True).size().rename('Befr_N')))
@@ -248,4 +252,42 @@ g = sns.catplot(data=ppi_kamp_hilo_data.reset_index(), x='Marke_Bekannt', order=
 ```python
 g = sns.catplot(data=ppi_kamp_hilo_data.reset_index(), x='Marke_Bekannt', order=['unknown', 'not', 'low', 'high'], 
                 y='Nettowirk_Prz', col='Std_Publ', col_wrap=4, height=5, kind='swarm');
+```
+
+# Auswertung Werbedruck vs. Impact
+
+```python
+%matplotlib inline 
+
+from pandas.plotting import boxplot
+
+import matplotlib.pyplot as plt
+```
+
+```python
+ppi_data.boxplot(column='Spr_Werbedruck', by='Jahr', figsize=(10,6))
+```
+
+```python
+ppi_kamp_hilo_data.columns
+```
+
+### Does more Werbedruck result in better Erinnerung?
+
+```python
+ppi_kamp_data.plot.scatter(x='Spr_Werbedruck', y='Nettowirk_Prz', figsize=(10,6))
+```
+
+### Split by Marke_Bekannt
+
+```python
+g = sns.relplot(data=ppi_kamp_hilo_data, 
+                x='Spr_Werbedruck', y='Nettowirk_Prz', col='Marke_Bekannt', col_wrap=2, height=5, aspect=2, kind='scatter');
+```
+
+### Split by Std_Publ
+
+```python
+g = sns.relplot(data=ppi_kamp_data, 
+                x='Spr_Werbedruck', y='Nettowirk_Prz', col='Std_Publ', col_wrap=4, height=5, kind='scatter');
 ```
