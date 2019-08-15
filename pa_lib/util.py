@@ -193,6 +193,32 @@ def iso_year(date):
 
 
 ###############################################################################
+def normalize_rows(df):
+    return df.div(df.sum(axis='columns'), axis='index')
+
+
+def clear_row_max(df):
+    '''
+    Return a series of row maximum indexes of df, where they are clear maxima.
+    Clear means: given a row with n not-null values and one maximum max, 
+    the difference from max to the second-biggest value is bigger than max/n.
+    If n = 1, the one not-null value is the clear maximum.
+    If the maximum appears more than once, there is no clear one.
+    '''
+    row_cnt = df.count(axis='columns')
+    row_max = df.max(axis='columns')
+    row_idxmax = df.idxmax(axis='columns')
+    max_cnt = (df.subtract(row_max, axis='index') == 0).sum(axis='columns')
+    row_second = df.apply(
+        lambda s: pd.Series(s.unique()).nlargest(2).iat[-1], 
+        axis='columns'
+    )
+    max_diff = row_max / row_cnt
+    is_clear = (row_max - row_second) > max_diff
+    return row_idxmax.where((max_cnt == 1) & is_clear | (row_cnt == 1))
+
+
+###############################################################################
 # TESTING CODE
 ###############################################################################
 
