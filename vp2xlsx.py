@@ -11,15 +11,22 @@ erstellt.
 import pandas as pd
 import numpy  as np
 #import xlsxwriter as xlsx
-import os
+#import os
+import sys
+from pathlib import Path
+
+#%% Define data location
+gv_DIR_DATA = Path.home() / 'data/2019-08-19_4J_2W_KW34_Buchung/' # please adjust accordingly
+
 #%% Load Data: Active VBs, Complete scoring list
+
 def load_csv(file_name, **params):
-    file_path = os.getcwd() + '\\data\\' + file_name
+    file_path = gv_DIR_DATA / file_name
     df = pd.read_csv(file_path, low_memory=False, **params)
     return df
 ek_list             = load_csv('EK_LIST_2W_KOMPLETT.csv',
                                sep=';',
-                               encoding='ANSI')
+                               encoding='ISO-8859-1')
 gv_VB_KUERZ_new_raw = load_csv('vkber_data.csv',
                                sep=',',
                                encoding='UTF-8')
@@ -94,7 +101,8 @@ def overview_xlsx(df, file_name, sheet_name='df'):
     # column widths as max strlength of column's contents
     col_width = df.astype('str').apply(lambda col: max(col.str.len())).to_list()
     title_width = list(map(len, df.columns))
-    file_path = os.getcwd() + '\\output\\' + file_name
+    #file_path = os.getcwd() + '\\output\\' + file_name
+    file_path = gv_DIR_DATA / file_name
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name=sheet_name)
     workbook = writer.book
@@ -171,7 +179,8 @@ def vb_sales_xlsx(dict_vb_df,gv_VB_TOP_N=20):
                'error_message': 'Bitte auswählen:\n  - hilfreich\n  - nicht hilfreich\n  - nicht bearbeitet'}
 
         ## Create a Pandas Excel writer using XlsxWriter as the engine:
-        writer = pd.ExcelWriter(os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
+        writer = pd.ExcelWriter(gv_DIR_DATA / str(file_name_templ.format(vb)+'.xlsx'),
+                                #os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
                                 engine='xlsxwriter',
                                 datetime_format="dd.mm.yyyy")
 
