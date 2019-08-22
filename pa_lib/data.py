@@ -84,6 +84,7 @@ def as_int_factor(df, **selectors):
 
 
 def unfactorize(df):
+    """Convert categorical columns to their categories' data type"""
     df = df.copy()
     for col in select_columns(df, incl_dtype='category'):
         nulls = df[col].isna()

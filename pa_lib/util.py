@@ -23,23 +23,27 @@ from collections import OrderedDict, deque
 def cap_words(txt, sep=None):
     """Capitalize each word of txt where 'words' are separated by sep. 
        Two-letter words are left alone."""
+
     def cap_word(word):
-        return word.capitalize() if len(word)>2 else word
-    
+        return word.capitalize() if len(word) > 2 else word
+
     return sep.join(map(lambda word: cap_word(word), txt.split(sep)))
 
 
 ###############################################################################
 def contents(obj):
     """Show attributes of an object with their types"""
-    tab = pd.DataFrame({'name': dir(obj), 
-                        'type': [type(obj.__getattribute__(attr)) 
-                                 for attr in dir(obj)]})
+    tab = pd.DataFrame(
+        {
+            "name": dir(obj),
+            "type": [type(obj.__getattribute__(attr)) for attr in dir(obj)],
+        }
+    )
     return tab
 
-    
+
 ###############################################################################
-def seq_join(seq, sep=' '):
+def seq_join(seq, sep=" "):
     """Join seq to a string separated by sep. Seq can by any iterable"""
     return sep.join(map(str, seq))
 
@@ -73,12 +77,12 @@ def flatten(obj):
 def format_size(size):
     """Format "size" (in bytes) to human-readable string"""
     power = 1024
-    labels = {0: '', 1: 'K', 2: 'M', 3: 'G'}
+    labels = {0: "", 1: "K", 2: "M", 3: "G"}
     n = 0
     while size >= power and n <= len(labels):
         size /= power
         n += 1
-    return f'{round(size, 1)} {labels[n]}B'
+    return f"{round(size, 1)} {labels[n]}B"
 
 
 ###############################################################################
@@ -108,14 +112,15 @@ def _total_size(obj, handlers=OrderedDict()):
 
     def dict_handler(d):
         return chain.from_iterable(d.items())
-    
-    all_handlers = {tuple: iter,
-                    list: iter,
-                    deque: iter,
-                    dict: dict_handler,
-                    set: iter,
-                    frozenset: iter
-                    }
+
+    all_handlers = {
+        tuple: iter,
+        list: iter,
+        deque: iter,
+        dict: dict_handler,
+        set: iter,
+        frozenset: iter,
+    }
     all_handlers.update(handlers)  # user handlers take precedence
     seen = set()  # track which object id's have already been seen
     return sizeof(obj)
@@ -144,12 +149,12 @@ def last_monday(date):
 def week(date):
     """Week nr of a date in native datetime format"""
     date = pd.to_datetime(date)
-    return int(dtt.strftime(date, '%W'))
+    return int(dtt.strftime(date, "%W"))
 
 
 def week_txt(date_txt):
     """Normal week nr of a date in format 'YYYY-MM-DD'"""
-    date = dtt.strptime(date_txt, '%Y-%m-%d')
+    date = dtt.strptime(date_txt, "%Y-%m-%d")
     week_nr = week(date)
     return week_nr
 
@@ -157,12 +162,12 @@ def week_txt(date_txt):
 def iso_week(date):
     """ISO week nr of a date in native datetime format"""
     date = pd.to_datetime(date)
-    return int(dtt.strftime(date, '%V'))
+    return int(dtt.strftime(date, "%V"))
 
 
 def iso_week_txt(date_txt):
     """ISO week nr of a date in format 'YYYY-MM-DD'"""
-    date = dtt.strptime(date_txt, '%Y-%m-%d')
+    date = dtt.strptime(date_txt, "%Y-%m-%d")
     week_nr = iso_week(date)
     return week_nr
 
@@ -184,7 +189,33 @@ def iso_week_rd(date, rd_period=2):
 
 
 def iso_year(date):
-    return int(dtt.strftime(date, '%G'))
+    return int(dtt.strftime(date, "%G"))
+
+
+###############################################################################
+def normalize_rows(df):
+    return df.div(df.sum(axis='columns'), axis='index')
+
+
+def clear_row_max(df):
+    '''
+    Return a series of row maximum indexes of df, where they are clear maxima.
+    Clear means: given a row with n not-null values and one maximum max, 
+    the difference from max to the second-biggest value is bigger than max/n.
+    If n = 1, the one not-null value is the clear maximum.
+    If the maximum appears more than once, there is no clear one.
+    '''
+    row_cnt = df.count(axis='columns')
+    row_max = df.max(axis='columns')
+    row_idxmax = df.idxmax(axis='columns')
+    max_cnt = (df.subtract(row_max, axis='index') == 0).sum(axis='columns')
+    row_second = df.apply(
+        lambda s: pd.Series(s.unique()).nlargest(2).iat[-1], 
+        axis='columns'
+    )
+    max_diff = row_max / row_cnt
+    is_clear = (row_max - row_second) > max_diff
+    return row_idxmax.where((max_cnt == 1) & is_clear | (row_cnt == 1))
 
 
 ###############################################################################
@@ -192,10 +223,17 @@ def iso_year(date):
 ###############################################################################
 
 if __name__ == "__main__":
-    print(seq_join((f"{nbytes} bytes are {format_size(nbytes)}" for nbytes in
-                    [1024, 123456, 123456789]), sep='\n'))
+    print(
+        seq_join(
+            (
+                f"{nbytes} bytes are {format_size(nbytes)}"
+                for nbytes in [1024, 123456, 123456789]
+            ),
+            sep="\n",
+        )
+    )
 
-    testlist = [range(4), ['abc', 'd', ('e', 'f')], 1, (2, 3)]
+    testlist = [range(4), ["abc", "d", ("e", "f")], 1, (2, 3)]
     print(testlist)
     print(list(flatten(testlist)))
     print(list(flatten(None)))
@@ -205,12 +243,14 @@ if __name__ == "__main__":
 
     year_days = pd.date_range(dtt(2017, 1, 1), dtt(2017, 12, 31))
     testtab = pd.DataFrame.from_records(
-        columns=['date', 'kw', 'iso', 'iso2', 'iso4'],
-        data=[(d, week(d), iso_week(d), iso_week_rd(d, 2), iso_week_rd(d, 4))
-              for d in year_days],
-        index='date'
+        columns=["date", "kw", "iso", "iso2", "iso4"],
+        data=[
+            (d, week(d), iso_week(d), iso_week_rd(d, 2), iso_week_rd(d, 4))
+            for d in year_days
+        ],
+        index="date",
     )
     print(testtab)
-    print(f'Size of testtab  : {obj_size(testtab)}')
+    print(f"Size of testtab  : {obj_size(testtab)}")
     print(f"Size of 'testtab': {obj_size('testtab')}")
     print(f"Size of None     : {obj_size(None)}")
