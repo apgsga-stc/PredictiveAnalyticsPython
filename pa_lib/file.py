@@ -46,7 +46,7 @@ def file_list(path='.', pattern='*.*', sort='name', desc=False, do_format=True):
                                    if f.is_file() and f.match(pattern))])
     if sort is not None:
         files = files.sort_values(by=sort, ascending=not desc)
-    if do_format:
+    if do_format and files.shape[0] > 0:
         return files.assign(size=files['size'].apply(format_size),
                             mtime=files['mtime'].dt.strftime(
                                 '%d.%m.%y %H:%M:%S'))
