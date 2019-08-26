@@ -18,7 +18,7 @@ from pathlib import Path
 from pa_lib.log import info
 
 #%% Define data location
-gv_DIR_DATA = Path.home() / 'data/2019-08-19_4J_2W_KW34_Buchung/' # please adjust accordingly
+gv_DIR_DATA = Path.home() / 'data/2019-08-26_4J_2W_KW35_Buchung/' # please adjust accordingly
 
 #%% Load Data: Active VBs, Complete scoring list
 
