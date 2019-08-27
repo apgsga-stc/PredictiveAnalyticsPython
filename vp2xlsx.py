@@ -9,16 +9,13 @@ erstellt.
 
 # %% Load modules
 import pandas as pd
-import numpy  as np
-# import xlsxwriter as xlsx
-# import os
-# import sys
+import numpy as np
 from pathlib import Path
 
 from pa_lib.log import info
 
-#%% Define data location
-gv_DIR_DATA = Path.home() / 'data/2019-08-26_4J_2W_KW35_Buchung/' # please adjust accordingly
+# %% Define data location
+gv_DIR_DATA = Path.home() / 'data' / '2019-08-26_4J_2W_KW35_Buchung'  # please adjust accordingly
 
 
 # %% Load Data: Active VBs, Complete scoring list
@@ -36,68 +33,89 @@ ek_list = load_csv('EK_LIST_2W_KOMPLETT.csv',
 gv_VB_KUERZ_new_raw = load_csv('vkber_data.csv',
                                sep=',',
                                encoding='UTF-8')
+
+
 # %% Data Preparation:Complete Scoring Table
 # %% Column & Row Selection:
-ek_list_ultrakompakt = (
-    ek_list.loc[(pd.isna(ek_list.Kleinkunde) &
+def select_columns(df, pattern):
+    return list(df.columns.to_series().loc[df.columns.str.match(pattern)])
+
+
+row_selection = (pd.isna(ek_list.Kleinkunde) &
                  pd.isna(ek_list.Neukunde) &
                  pd.isna(ek_list.Insolvenz) &
                  pd.isna(ek_list.Umsatz_erreicht) &
                  pd.isna(ek_list.kuerzlich_gebucht) &
                  pd.isna(ek_list.kuerzlich_im_aushang) &
                  pd.isna(ek_list.kuerzlich_im_kontakt) &
-                 pd.isna(ek_list.VB_FILTER_AKTIV)),  ## Row conditions
-                "ENDKUNDE_NR Endkunde HB_APG Agentur HB_Agentur PLZ Ort".split() +
-                [col for col in ek_list.columns if 'Net_2' in col] +
-                "letzte_VBs letzter_Kontakt KZ_letzter_Ktkt Kanal Betreff letzte_Kamp_erfasst letzte_Kamp_Beginn Verkaufsgebiet VB_VK_Geb".split() +
-                [col for col in ek_list.columns if 'prob_KW' in col]])
+                 pd.isna(ek_list.VB_FILTER_AKTIV))
+
+col_selection = ("""ENDKUNDE_NR 
+                    Endkunde 
+                    HB_APG 
+                    Agentur 
+                    HB_Agentur 
+                    PLZ 
+                    Ort""".split() +
+                 select_columns(ek_list, pattern='^Net_2') +
+                 """letzte_VBs
+                    letzter_Kontakt 
+                    KZ_letzter_Ktkt 
+                    Kanal 
+                    Betreff 
+                    letzte_Kamp_erfasst 
+                    letzte_Kamp_Beginn 
+                    Verkaufsgebiet 
+                    VB_VK_Geb""".split() +
+                 select_columns(ek_list, pattern='^prob_KW'))
+
+ek_list_ultrakompakt = ek_list.loc[row_selection, col_selection]
+
+
 # %% Data-Type Clean Up:
-ek_list_ultrakompakt["PLZ"] = (
-    ek_list_ultrakompakt["PLZ"].fillna(0).astype(np.int64))
-ek_list_ultrakompakt["ENDKUNDE_NR"] = (
-    ek_list_ultrakompakt["ENDKUNDE_NR"].fillna(0).astype(np.int64))
-for x in ek_list_ultrakompakt.keys():
-    if 'Net_' in x:
-        ek_list_ultrakompakt[x] = (ek_list_ultrakompakt[x].fillna(0)
-                                   .astype(np.int64))
-ek_list_ultrakompakt['letzter_Kontakt'] = (
-    pd.to_datetime(ek_list_ultrakompakt['letzter_Kontakt'],
-                   format='%Y-%m-%d'))
-ek_list_ultrakompakt['letzte_Kamp_erfasst'] = (
-    pd.to_datetime(ek_list_ultrakompakt['letzte_Kamp_erfasst'],
-                   format='%Y-%m-%d'))
-ek_list_ultrakompakt['letzte_Kamp_Beginn'] = (
-    pd.to_datetime(ek_list_ultrakompakt['letzte_Kamp_Beginn'],
-                   format='%Y-%m-%d'))
+
+def make_date_columns(df, columns, format):
+    result = df.copy()
+    for col in columns:
+        result.loc[:, col] = pd.to_datetime(result.loc[:, col], format=format)
+    return result
+
+
+int_columns = ["PLZ", "ENDKUNDE_NR"] + select_columns(ek_list_ultrakompakt, pattern='^Net_')
+ek_list_ultrakompakt.loc[:, int_columns] = ek_list_ultrakompakt.loc[:, int_columns].fillna(0).astype('int64')
+
+date_columns = ['letzter_Kontakt', 'letzte_Kamp_erfasst', 'letzte_Kamp_Beginn']
+ek_list_ultrakompakt = make_date_columns(ek_list_ultrakompakt, date_columns, format='%Y-%m-%d')
+
 # %% Data Preparation: Active VB-list
 # %% Zuteilung und die einzelnen VBs
-gv_VB_KUERZ_new_raw['Vorname'] = [x.split(' ')[-1]
-                                  for x in gv_VB_KUERZ_new_raw['KOMBI_NAME']]
-gv_VB_KUERZ_new_raw['Nachname'] = [' '.join(x.split(' ')[:-1])
-                                   for x in gv_VB_KUERZ_new_raw['KOMBI_NAME']]
-vkber_list = gv_VB_KUERZ_new_raw.loc[:, ["Vorname",
-                                         "Nachname",
-                                         "E_MAIL",
-                                         "FUNKTION",
-                                         "KURZZEICHEN"]
-             ].set_index("KURZZEICHEN")
+vkber_list = (
+    gv_VB_KUERZ_new_raw.assign(
+        Vorname=gv_VB_KUERZ_new_raw['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[-1]),
+        Nachname=gv_VB_KUERZ_new_raw['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[0])
+    )
+    .loc[:, ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]]
+    .set_index("KURZZEICHEN")
+)
+
 # %% Data Preparation:
-gv_VB_KUERZ = {x: [y] for (x, y) in zip(gv_VB_KUERZ_new_raw['KURZZEICHEN'],
-                                        gv_VB_KUERZ_new_raw['KURZZEICHEN'])}
 ek_list_vb_dict = {}
-for x in gv_VB_KUERZ.keys():
-    ek_list_vb_dict[x] = (
-        ek_list_ultrakompakt[
-            ek_list_ultrakompakt.HB_APG.isin(gv_VB_KUERZ[x]) |  # VB Endkunde
-            ek_list_ultrakompakt.HB_Agentur.isin(gv_VB_KUERZ[x])  # VB Agentur
-            ].sort_values([col for col in ek_list.columns if 'prob_KW' in col],
-                          ascending=False))  # highest probability first.
+gv_VB_KUERZ = gv_VB_KUERZ_new_raw['KURZZEICHEN']
+
+for kuerz in gv_VB_KUERZ:
+    ek_list_vb_dict[kuerz] = (
+        ek_list_ultrakompakt.loc[
+            (ek_list_ultrakompakt.HB_APG == kuerz) |  # VB Endkunde
+            (ek_list_ultrakompakt.HB_Agentur == kuerz)  # VB Agentur
+            ].sort_values(select_columns(ek_list, pattern='^prob_KW'), ascending=False)  # highest probability first.
+    )
+
 # %% Create VB overview with number of potential leads
-dict_vb_num_leads = {x: ek_list_vb_dict[x].shape[0]
-                     for x in ek_list_vb_dict.keys()}
-nleads_dict = pd.DataFrame.from_dict(dict_vb_num_leads,
-                                     orient='index',
-                                     columns=['total_leads'])
+nleads_dict = pd.DataFrame.from_records(data=[(ek_list_vb_dict[kuerz].shape[0],)
+                                              for kuerz in ek_list_vb_dict.keys()],
+                                        columns=['total_leads'],
+                                        index=ek_list_vb_dict.keys())
+
 vkber_list_leads = vkber_list.merge(nleads_dict,
                                     left_index=True,
                                     right_index=True)
@@ -129,36 +147,43 @@ def overview_xlsx(df, file_name, sheet_name='df'):
 
 
 # %% Excel column names
+# map all names on itself, then adjust those which need to be adjusted:
+
 dict_xlsx_col_names = dict(zip(ek_list_ultrakompakt.keys(),
                                ek_list_ultrakompakt.keys()))
-# map all names on itself, then adjust those which need to be adjusted:
-dict_xlsx_col_names['ENDKUNDE_NR'] = 'Gepard-Nr. Endkunde'
-dict_xlsx_col_names['HB_APG'] = 'VB Endkunde'
-dict_xlsx_col_names['HB_Agentur'] = 'VB Agentur'
-dict_xlsx_col_names['letzte_VBs'] = 'VBs letzte Kampagnen'
-dict_xlsx_col_names['letzter_Kontakt'] = 'Letzter CRM-Kontakt'
-dict_xlsx_col_names['KZ_letzter_Ktkt'] = 'Kz letzter Kontakt'
-dict_xlsx_col_names['letzte_Kamp_erfasst'] = 'Letzte Kampagne erfasst am'
-dict_xlsx_col_names['letzte_Kamp_Beginn'] = 'Beginn letzte Kampagne'
-dict_xlsx_col_names['VB_VK_Geb'] = 'Gebiets-VB'
+dict_xlsx_col_names.update(
+    {'ENDKUNDE_NR': 'Gepard-Nr. Endkunde',
+     'HB_APG': 'VB Endkunde',
+     'HB_Agentur': 'VB Agentur',
+     'letzte_VBs': 'VBs letzte Kampagnen',
+     'letzter_Kontakt': 'Letzter CRM-Kontakt',
+     'KZ_letzter_Ktkt': 'Kz letzter Kontakt',
+     'letzte_Kamp_erfasst': 'Letzte Kampagne erfasst am',
+     'letzte_Kamp_Beginn': 'Beginn letzte Kampagne',
+     'VB_VK_Geb': 'Gebiets-VB'}
+)
+
 for x in dict_xlsx_col_names.keys():
     if 'prob_' in x:
         dict_xlsx_col_names[x] = 'Chance'
+
 # %% Excel Info text: This will be displayed in every Excel sheet.
 info_text = """Liste von potenziell interessanten Kundenkontakten.
 Die Liste wird alle 2 Wochen bereitgestellt.\n
-Bitte in den letzten 2 Spalten Feedback eintragen, auch Vorschläge für die Verbesserung der Liste sind willkommen. Vielen Dank."""
+Bitte in den letzten 2 Spalten Feedback eintragen, auch Vorschläge für die Verbesserung der Liste sind willkommen. 
+Vielen Dank."""
 
 
 # %% Define Excel Function
 def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
     """
     Input: Dictionary mit VBs als Keys und Dataframes (Top20 pro VB) als value.
-    Output: Pro VB wird ein formartiertes Excel generiert.
+    Output: Pro VB wird ein formatiertes Excel generiert.
     """
-    file_name_templ = 'EK_LIST_2W_KOMPAKT_{0}'
+    file_name_templ = 'EK_LIST_2W_KOMPAKT_{0}.xlsx'
+    sheet_name_templ = 'EK_LIST_2W_KOMPAKT_{0}'
+
     global no_leads
-    no_leads = []  # This will be filled with VBs without leads.
     for vb in dict_vb_df.keys():
         if len(dict_vb_df[vb]) == 0:
             info('Verkaufsberater ' + vb + ' hat keine Leads.')
@@ -191,23 +216,23 @@ def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
                     'error_title': 'Eingabe ungültig',
                     'error_message': 'Bitte auswählen:\n  - hilfreich\n  - nicht hilfreich\n  - nicht bearbeitet'}
 
-        info(f"Write file {gv_DIR_DATA / str(file_name_templ.format(vb) + '.xlsx')}")
+        info(f"Write file {gv_DIR_DATA / file_name_templ.format(vb)}")
 
         ## Create a Pandas Excel writer using XlsxWriter as the engine:
-        writer = pd.ExcelWriter(gv_DIR_DATA / str(file_name_templ.format(vb) + '.xlsx'),
+        writer = pd.ExcelWriter(str(gv_DIR_DATA / file_name_templ.format(vb)),
                                 # os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
                                 engine='xlsxwriter',
                                 datetime_format="dd.mm.yyyy")
 
         ## Convert the dataframe to an XlsxWriter Excel object:
         df_vb.to_excel(writer,
-                       sheet_name=file_name_templ.format(vb),
+                       sheet_name=sheet_name_templ.format(vb),
                        index=False,
                        freeze_panes=(1, 5))
 
         ## Create xlsxwriter workbook object:
         workbook = writer.book
-        worksheet = writer.sheets[file_name_templ.format(vb)]
+        worksheet = writer.sheets[sheet_name_templ.format(vb)]
 
         ## Define column formats:
         column_format_text = workbook.add_format(
@@ -244,7 +269,7 @@ def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
             {'align': 'left', 'valign': 'bottom', 'bg_color': '#EAEAEA',
              'bold': True, 'text_wrap': True})
 
-        ## Automised Setting/formating columns and top-row cells:
+        ## Automatized Setting/formating columns and top-row cells:
         for i in excel_dict.keys():
             # Write Columns:
             if types[excel_dict[i]] == 'float64':
@@ -336,6 +361,7 @@ def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
 
 
 # %% Create Excels
+no_leads = []  # This will be filled with VBs without leads.
 vb_sales_xlsx(ek_list_vb_dict, 20)
 
 overview_xlsx(vkber_list_leads, "vkber_potential.xlsx", sheet_name='VK')
