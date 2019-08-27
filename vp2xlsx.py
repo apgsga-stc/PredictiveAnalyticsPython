@@ -12,7 +12,7 @@ import pandas as pd
 import numpy  as np
 # import xlsxwriter as xlsx
 # import os
-import sys
+# import sys
 from pathlib import Path
 
 from pa_lib.log import info
@@ -161,7 +161,7 @@ def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
     no_leads = []  # This will be filled with VBs without leads.
     for vb in dict_vb_df.keys():
         if len(dict_vb_df[vb]) == 0:
-            # print('Verkaufsberater '+ vb +' hat keine Leads.')
+            info('Verkaufsberater ' + vb + ' hat keine Leads.')
             no_leads += [vb]
             continue
 
