@@ -6,6 +6,14 @@ Reads CRM data since 2009 from CRM prod
 Query runtime: 2 min
 @author: kpf
 """
+# make imports from pa_lib possible (parent directory of file's directory)
+import sys
+from pathlib import Path
+
+file_dir = Path.cwd()
+parent_dir = file_dir.parent
+sys.path.append(str(parent_dir))
+
 import pandas as pd
 
 from pa_lib.ora import Connection

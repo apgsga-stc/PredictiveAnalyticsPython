@@ -3,6 +3,14 @@
 """
 Read all VB (Verkaufsberater) that are currently active
 """
+# make imports from pa_lib possible (parent directory of file's directory)
+import sys
+from pathlib import Path
+
+file_dir = Path.cwd()
+parent_dir = file_dir.parent
+sys.path.append(str(parent_dir))
+
 from pa_lib.ora  import Connection
 from pa_lib.log  import info
 from pa_lib.file import store_csv, store_bin, write_xlsx

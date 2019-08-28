@@ -6,6 +6,13 @@ Reads PLZ mapping from IT21 prod
 Query runtime: 3.5 sec
 @author: kpf
 """
+# make imports from pa_lib possible (parent directory of file's directory)
+import sys
+from pathlib import Path
+
+file_dir = Path.cwd()
+parent_dir = file_dir.parent
+sys.path.append(str(parent_dir))
 
 from pa_lib.ora   import Connection
 from pa_lib.log   import info

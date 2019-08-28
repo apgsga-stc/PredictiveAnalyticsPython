@@ -6,6 +6,14 @@ Reads Buchungen data since 2009 from IT21 prod
 Query runtime: 15 min
 @author: pa
 """
+# make imports from pa_lib possible (parent directory of file's directory)
+import sys
+from pathlib import Path
+
+file_dir = Path.cwd()
+parent_dir = file_dir.parent
+sys.path.append(str(parent_dir))
+
 import pandas as pd
 import numpy as np
 
