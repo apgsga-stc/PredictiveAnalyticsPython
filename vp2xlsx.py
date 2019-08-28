@@ -104,7 +104,7 @@ ek_list = (ek_list
 # %% Zuteilung und die einzelnen VBs
 vb_list = (
     vb_list.assign(
-        Vorname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[-1]),
+        Vorname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[2]),
         Nachname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[0])
     )
         .loc[:, ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]]
@@ -203,11 +203,9 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
     file_name_templ = 'EK_LIST_2W_KOMPAKT_{0}.xlsx'
     sheet_name_templ = 'EK_LIST_2W_KOMPAKT_{0}'
 
-    global no_leads
     for vb in vb_lists.keys():
         if len(vb_lists[vb]) == 0:
             info('Verkaufsberater ' + vb + ' hat keine Leads.')
-            no_leads.append(vb)
             continue
 
         ## Technical Definitions:
@@ -379,8 +377,8 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         writer.save()
 
 
+
 # %% Create Excels
-no_leads = []  # This will be filled with VBs without leads.
 vb_sales_xlsx(vb_ek_map, 20)
 
 overview_xlsx(vb_list, "vkber_potential.xlsx", sheet_name='VK')
