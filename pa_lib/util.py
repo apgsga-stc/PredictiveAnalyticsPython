@@ -219,6 +219,19 @@ def clear_row_max(df):
 
 
 ###############################################################################
+def excel_col(nr):
+    '''
+    Return the nr-th column label of an Excel sheet (A..Z,AA..AZ,BA..BZ,...)
+    nr = 1..many
+    '''
+    letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    (div, rest) = divmod(nr-1, len(letters))
+    if div > 0:
+        return excel_col(div) + letters[rest]
+    return letters[rest]
+
+
+###############################################################################
 # TESTING CODE
 ###############################################################################
 
