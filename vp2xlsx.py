@@ -38,7 +38,11 @@ gv_VB_KUERZ_new_raw = load_csv('vkber_data.csv',
 # %% Data Preparation:Complete Scoring Table
 # %% Column & Row Selection:
 def select_columns(df, pattern):
-    return list(df.columns.to_series().loc[df.columns.str.match(pattern)])
+    return (df.columns
+            .to_series()
+            .loc[df.columns.str.match(pattern)]
+            .to_list()
+            )
 
 
 row_selection = (pd.isna(ek_list.Kleinkunde) &
@@ -94,8 +98,8 @@ vkber_list = (
         Vorname=gv_VB_KUERZ_new_raw['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[-1]),
         Nachname=gv_VB_KUERZ_new_raw['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[0])
     )
-    .loc[:, ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]]
-    .set_index("KURZZEICHEN")
+        .loc[:, ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]]
+        .set_index("KURZZEICHEN")
 )
 
 # %% Data Preparation:
@@ -194,8 +198,8 @@ def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
         df_vb = dict_vb_df[vb].head(gv_VB_TOP_N)
         column_names = df_vb.keys()  # Column names, titles
         alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # Alphabet
-        W = alphabet[len(column_names)]  # Feedback-Spalte
-        X = alphabet[len(column_names) + 1]  # Kommentar-Spalte
+        feedback_col = alphabet[len(column_names)]  # Feedback-Spalte
+        comment_col = alphabet[len(column_names) + 1]  # Kommentar-Spalte
         lengths = (list(np.vectorize(len)(df_vb.values.astype(str))
                         .max(axis=0)))
         # => Maximal character length for each column
@@ -327,18 +331,18 @@ def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
                                   'fill': {'color': '#ddd9c3'},
                                   'line': {'width': 3.25}})
 
-        # Feedback-column, W:
-        worksheet.set_column(W + ':' + W,
+        # Feedback-column:
+        worksheet.set_column(feedback_col + ':' + feedback_col,
                              15,
                              column_format_left)
-        worksheet.write(W + '1',
+        worksheet.write(feedback_col + '1',
                         'Feedback - bitte auswählen',
                         cell_color_yellow)
         for i in range(2, gv_VB_TOP_N + 2):
-            worksheet.write(W + str(i),
+            worksheet.write(feedback_col + str(i),
                             '',
                             column_format_dropdown)
-        worksheet.data_validation(W + '2:' + W + str(gv_VB_TOP_N + 2), feedback)
+        worksheet.data_validation(feedback_col + '2:' + feedback_col + str(gv_VB_TOP_N + 2), feedback)
 
         # General feedback, below list, aligned with Feedback-column W:
         begin_merge_cell = alphabet[len(column_names) - 5] + str(gv_VB_TOP_N + 3)
@@ -346,15 +350,15 @@ def vb_sales_xlsx(dict_vb_df, gv_VB_TOP_N=20):
         worksheet.merge_range(begin_merge_cell + ':' + end_merge_cell,
                               'hier ein generelles Feedback wählen:',
                               cell_color_blue)
-        worksheet.data_validation(W + str(gv_VB_TOP_N + 3), feedback)
-        worksheet.write(W + str(gv_VB_TOP_N + 3), '', column_format_dropdown)
+        worksheet.data_validation(feedback_col + str(gv_VB_TOP_N + 3), feedback)
+        worksheet.write(feedback_col + str(gv_VB_TOP_N + 3), '', column_format_dropdown)
         # => Leave empty cell, so VBs have to fill out.
 
-        # Comment column, X:
-        worksheet.write(X + '1',
+        # Comment column:
+        worksheet.write(comment_col + '1',
                         'falls nicht hilfreich, bitte hier einen kurzen Kommentar angeben - entweder pro Zeile oder für die Gesamt-Liste',
                         cell_color_norot)
-        worksheet.set_column(X + ':' + X, 44, column_format_txt_wrap)
+        worksheet.set_column(comment_col + ':' + comment_col, 44, column_format_txt_wrap)
 
         # Write file into working folder
         writer.save()
