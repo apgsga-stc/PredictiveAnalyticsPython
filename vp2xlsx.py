@@ -218,7 +218,7 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         # => Maximal character length for each column
         types = dict(df_vb.dtypes.astype(str))  # Types for each column
         excel_columns = {excel_col(i + 1): column_names[i]
-                      for i in range(0, len(column_names))}
+                         for i in range(0, len(column_names))}
         # => Dictionary: Column to Name
         excel_width = {excel_col(i + 1): lengths[i] + 1
                        for i in range(0, len(column_names))}
@@ -375,7 +375,6 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
 
         # Write file into working folder
         writer.save()
-
 
 
 # %% Create Excels
