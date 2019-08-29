@@ -222,13 +222,34 @@ def clear_row_max(df):
 def excel_col(nr):
     '''
     Return the nr-th column label of an Excel sheet (A..Z,AA..AZ,BA..BZ,...)
-    nr = 1..many
+    nr starts at 1!
     '''
     letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     (div, rest) = divmod(nr-1, len(letters))
     if div > 0:
         return excel_col(div) + letters[rest]
     return letters[rest]
+
+
+###############################################################################
+def max_is_outlier(series):
+    q25 = series.quantile(0.25)
+    q75 = series.quantile(0.75)
+    return series.max() >= (q25 + (q75 - q25) * 1.5)
+
+
+def peaks(series):
+    """Return a boolean mask selecting local maxima of a series."""
+    s_true = pd.Series(True)
+    s_false = pd.Series(False)
+    descend = s_true.append(series.diff()[1:] >= 0).append(s_false).astype('int')
+    peaks = (descend.diff()[1:] < 0).set_axis(series.index, inplace=False)
+    return peaks
+
+
+def non_repeated(series):
+    """Strip value repetitions from a series"""
+    return series.loc[series.diff() != 0]
 
 
 ###############################################################################
