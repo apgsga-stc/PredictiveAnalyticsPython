@@ -36,7 +36,7 @@ def contents(obj):
     tab = pd.DataFrame(
         {
             "name": dir(obj),
-            "type": [type(obj.__getattribute__(attr)) for attr in dir(obj)],
+            "type": [type(obj.__getattribute__(element)) for element in dir(obj)],
         }
     )
     return tab
@@ -235,7 +235,7 @@ def excel_col(nr):
 def max_is_outlier(series):
     q25 = series.quantile(0.25)
     q75 = series.quantile(0.75)
-    return series.max() >= (q25 + (q75 - q25) * 1.5)
+    return series.max() >= (q25 + 1.5 * (q75 - q25))
 
 
 def peaks(series):
