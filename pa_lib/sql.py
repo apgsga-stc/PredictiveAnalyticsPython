@@ -13,7 +13,7 @@ from pa_lib.file import file_list
 QUERY = {}
 
 def init():
-    sql_path = Path('pa_lib', 'sql').resolve()
+    sql_path = Path.cwd().parent / 'pa_lib' / 'sql'
     for sql_file in file_list(sql_path, '*.sql').name:
         base_name = sql_file.rsplit('.', maxsplit=1)[0]
         with open(sql_path / sql_file) as query_file:
