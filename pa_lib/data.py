@@ -173,20 +173,6 @@ def make_isoweek(df, dt_col, kw_col='KW'):
     return df
 
 
-def make_isoweek_rd(df, kw_col, round_by=()):
-    """Round a KW column to {round_by}-week periods.
-       New columns are named {kw_col}_{round_by}"""
-    kw = df.loc[df[kw_col].notna(), kw_col].astype('int8')
-    roundings = [(rd, f'{kw_col}_{rd}') for rd in flatten(round_by)]
-    for (rd, rd_col) in roundings:
-        df = df.assign(**{rd_col: kw - (kw - 1) % rd})
-        # round any week 53 to last complete period
-        if rd in (2, 4):
-            df.loc[df[rd_col] == 53, rd_col] = 53 - rd
-        df = as_kw(df, incl_col=rd_col)
-    return df
-
-
 def split_date_iso(df, dt_col, yr_col='YEAR', kw_col='KW'):
     """Split a date column into ISO year and ISO week as new columns"""
 
@@ -203,3 +189,26 @@ def split_date_iso(df, dt_col, yr_col='YEAR', kw_col='KW'):
     ).astype({yr_col: dtYear, kw_col: dtKW})
     df = df.assign(**dict(year_kw))
     return df
+
+
+def make_isoweek_rd(df, kw_col, round_by=()):
+    """Round a KW column to {round_by}-week periods.
+       New columns are named {kw_col}_{round_by}"""
+    kw = df.loc[df[kw_col].notna(), kw_col].astype('int8')
+    roundings = [(rd, f'{kw_col}_{rd}') for rd in flatten(round_by)]
+    for (rd, rd_col) in roundings:
+        df = df.assign(**{rd_col: kw - (kw - 1) % rd})
+        # round any week 53 to last complete period
+        if rd in (2, 4):
+            df.loc[df[rd_col] == 53, rd_col] = 53 - rd
+        df = as_kw(df, incl_col=rd_col)
+    return df
+
+
+def make_period_diff(df, year_col_1, period_col_1, year_col_2, period_col_2,
+                     diff_col='diff', round_by=2):
+    """Calculates difference (in periods) between two year/period column pairs"""
+    return df.eval(f'{diff_col} = ({year_col_2} - {year_col_1}) * (52 // {round_by}) \
+                                + ({period_col_2} - {period_col_1})')
+
+
