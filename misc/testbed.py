@@ -41,7 +41,7 @@ print("Silhouette Coefficient: %0.3f"
 # #############################################################################
 # Plot result
 import matplotlib.pyplot as plt
-%matplotlib inline
+#%matplotlib inline
 
 # Black removed and is used for noise instead.
 unique_labels = set(labels)
