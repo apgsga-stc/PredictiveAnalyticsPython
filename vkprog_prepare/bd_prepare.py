@@ -99,9 +99,9 @@ bd_data = (bd_data_raw
     # filter
     .loc[:, col_list]
     .dropna(how='any',
-           subset="""ENDKUNDE_NR ENDKUNDE EK_AKTIV VERKAUFSBERATER AGPS_NR SEGMENT KV_NR 
-              KAMPAGNEN_STATUS KAMPAGNE_ERFASSUNGSDATUM AUFTRAGSART RES_DAT AUSH_VON
-              DAUER VERTRAG BRUTTO NETTO""".split())
+            subset="""ENDKUNDE_NR ENDKUNDE EK_AKTIV VERKAUFSBERATER AGPS_NR SEGMENT KV_NR 
+                KAMPAGNEN_STATUS KAMPAGNE_ERFASSUNGSDATUM AUFTRAGSART RES_DAT AUSH_VON
+                DAUER VERTRAG BRUTTO NETTO""".split())
     .query('not KAMPAGNE_BEGINN < KAMPAGNE_ERFASSUNGSDATUM')  # keep rows where KAMPAGNE_BEGINN is empty!
     .query('DAUER >= 0')
 )
