@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.1'
-      jupytext_version: 1.1.1
+      jupytext_version: 1.2.3
   kernelspec:
     display_name: Python 3
     language: python
@@ -18,6 +18,16 @@ jupyter:
 <!-- #endregion -->
 
 ```python
+# make imports from pa_lib possible (parent directory of file's directory)
+import sys
+from pathlib import Path
+
+file_dir = Path.cwd()
+parent_dir = file_dir.parent
+sys.path.append(str(parent_dir))
+```
+
+```python
 %load_ext autoreload
 %autoreload
 
@@ -25,7 +35,7 @@ import pandas as pd
 import qgrid
 from datetime import datetime as dtt
 
-from pa_lib.file import data_files, load_bin, store_bin, store_excel
+from pa_lib.file import data_files, load_bin, store_bin, store_excel, set_project_dir
 from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col
 from pa_lib.util import obj_size
 from pa_lib.log  import time_log
@@ -35,6 +45,8 @@ pd.set_option('display.max_colwidth', 200)
 ```
 
 ```python
+set_project_dir('pv')
+
 data_files()
 ```
 

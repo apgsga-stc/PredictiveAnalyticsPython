@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.1'
-      jupytext_version: 1.1.7
+      jupytext_version: 1.2.3
   kernelspec:
     display_name: Python 3
     language: python
@@ -33,7 +33,7 @@ sys.path.append(str(parent_dir))
 
 import pandas as pd
 
-from pa_lib.file  import data_files, load_csv, store_bin
+from pa_lib.file  import data_files, load_csv, store_bin, set_project_dir
 from pa_lib.data  import desc_col, as_dtype, as_date, split_date_iso
 from pa_lib.util  import obj_size
 from pa_lib.types import dtFactor
@@ -47,6 +47,8 @@ pd.set_option('display.max_colwidth', 200)
 <!-- #endregion -->
 
 ```python pycharm={}
+set_project_dir('pv')
+
 data_files()
 ```
 
