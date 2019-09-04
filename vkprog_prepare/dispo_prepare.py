@@ -12,8 +12,10 @@ sys.path.append(str(parent_dir))
 import pandas as pd
 
 from pa_lib.log import err
-from pa_lib.file import store_bin, write_xlsx
+from pa_lib.file import store_bin, write_xlsx, set_project_dir
 from pa_lib.data import split_date_iso, make_isoweek_rd
+
+set_project_dir('vkprog')
 
 # Find all source files for dispo planning
 base_dir = Path(r'P:\Projekte\produktmanagement\buchunsgfenster')  # not a typo, that IS the directory's name

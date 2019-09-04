@@ -19,13 +19,14 @@ import numpy as np
 
 from pa_lib.ora import Connection
 from pa_lib.log import info
-from pa_lib.file import store_csv, store_bin
+from pa_lib.file import store_csv, store_bin, set_project_dir
 from pa_lib.data import (as_dtype, clean_up_categoricals, replace_col,
                          calc_col_partitioned, split_date_iso, make_isoweek_rd)
 from pa_lib.util import obj_size, last_monday
 from pa_lib.sql import query
 from pa_lib.types import dtFactor
 
+set_project_dir('vkprog')
 bd_query = query('bd')
 
 info('Starting Buchungsdaten query on IT21 Prod instance')
