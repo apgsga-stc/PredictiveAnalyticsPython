@@ -14,9 +14,9 @@ _QUERY = {}
 
 
 def _init():
-    sql_path = Path.cwd().parent / 'pa_lib' / 'sql'
-    for sql_file in file_list(sql_path, '*.sql').name:
-        base_name = sql_file.rsplit('.', maxsplit=1)[0]
+    sql_path = Path.cwd().parent / "pa_lib" / "sql"
+    for sql_file in file_list(sql_path, "*.sql").name:
+        base_name = sql_file.rsplit(".", maxsplit=1)[0]
         with open(sql_path / sql_file) as query_file:
             _QUERY[base_name] = query_file.read()
 

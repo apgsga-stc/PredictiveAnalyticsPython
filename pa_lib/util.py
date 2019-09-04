@@ -194,24 +194,23 @@ def iso_year(date):
 
 ###############################################################################
 def normalize_rows(df):
-    return df.div(df.sum(axis='columns'), axis='index')
+    return df.div(df.sum(axis="columns"), axis="index")
 
 
 def clear_row_max(df):
-    '''
+    """
     Return a series of row maximum indexes of df, where they are clear maxima.
     Clear means: given a row with n not-null values and one maximum max, 
     the difference from max to the second-biggest value is bigger than max/n.
     If n = 1, the one not-null value is the clear maximum.
     If the maximum appears more than once, there is no clear one.
-    '''
-    row_cnt = df.count(axis='columns')
-    row_max = df.max(axis='columns')
-    row_idxmax = df.idxmax(axis='columns')
-    max_cnt = (df.subtract(row_max, axis='index') == 0).sum(axis='columns')
+    """
+    row_cnt = df.count(axis="columns")
+    row_max = df.max(axis="columns")
+    row_idxmax = df.idxmax(axis="columns")
+    max_cnt = (df.subtract(row_max, axis="index") == 0).sum(axis="columns")
     row_second = df.apply(
-        lambda s: pd.Series(s.unique()).nlargest(2).iat[-1], 
-        axis='columns'
+        lambda s: pd.Series(s.unique()).nlargest(2).iat[-1], axis="columns"
     )
     max_diff = row_max / row_cnt
     is_clear = (row_max - row_second) > max_diff
@@ -220,12 +219,12 @@ def clear_row_max(df):
 
 ###############################################################################
 def excel_col(nr):
-    '''
+    """
     Return the nr-th column label of an Excel sheet (A..Z,AA..AZ,BA..BZ,...)
     nr starts at 1!
-    '''
-    letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    (div, rest) = divmod(nr-1, len(letters))
+    """
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    (div, rest) = divmod(nr - 1, len(letters))
     if div > 0:
         return excel_col(div) + letters[rest]
     return letters[rest]
@@ -242,7 +241,7 @@ def peaks(series):
     """Return a boolean mask selecting local maxima of a series."""
     s_true = pd.Series(True)
     s_false = pd.Series(False)
-    descend = s_true.append(series.diff()[1:] >= 0).append(s_false).astype('int')
+    descend = s_true.append(series.diff()[1:] >= 0).append(s_false).astype("int")
     peaks = (descend.diff()[1:] < 0).set_axis(series.index, inplace=False)
     return peaks
 
