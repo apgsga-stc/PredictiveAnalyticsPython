@@ -13,9 +13,10 @@ sys.path.append(str(parent_dir))
 
 from pa_lib.ora  import Connection
 from pa_lib.log  import info
-from pa_lib.file import store_csv, store_bin, write_xlsx
+from pa_lib.file import store_csv, store_bin, write_xlsx, set_project_dir
 from pa_lib.sql  import query
 
+set_project_dir('vkprog')
 vkber_query = query('vkber')
 
 info('Starting Verkaufsberater query on IT21 Prod instance')

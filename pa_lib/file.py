@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from datetime import datetime as dtt
-from string import ascii_uppercase as alphabet
 from functools import partial
 
 from pa_lib.const import PA_DATA_DIR
@@ -18,6 +17,24 @@ from pa_lib.util import format_size
 from pa_lib.data import flatten_multi_index_cols
 
 flatten_multi_cols = partial(flatten_multi_index_cols, sep='|')
+
+# global state: sub-directory of PA_DATA_DIR we're working in
+_project_dir = PA_DATA_DIR  # initialize to base data directory
+
+
+def set_project_dir(dir_name):
+    global _project_dir
+    project_dir = PA_DATA_DIR / dir_name
+    project_dir.mkdir(exist_ok=True)
+    if project_dir.is_dir():
+        _project_dir = project_dir
+    else:
+        raise FileExistsError(f"Can't create directory '{dir_name}': File exists in {PA_DATA_DIR}")
+
+
+def get_project_dir():
+    return _project_dir
+
 
 def _check_index(df):
     # if we have a default index, trash it. If it's more sophisticated, store it
@@ -55,12 +72,12 @@ def file_list(path='.', pattern='*.*', sort='name', desc=False, do_format=True):
 
 
 def data_files(pattern='[!.]*.*', sort='name', **kwargs):
-    return file_list(PA_DATA_DIR, pattern, sort, **kwargs).set_index(sort)
+    return file_list(_project_dir, pattern, sort, **kwargs).set_index(sort)
 
 
 @time_log('storing Excel')
 def store_excel(df, file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Writing to file {file_path}')
     df = (df.pipe(_check_index)
             .pipe(flatten_multi_cols))
@@ -70,7 +87,7 @@ def store_excel(df, file_name, **params):
 
 @time_log('storing CSV')
 def store_csv(df, file_name, do_zip=True, index=False, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     if do_zip:
         file_path = file_path.with_name(file_path.name + '.zip')
     info(f'Writing to file {file_path}')
@@ -85,7 +102,7 @@ def store_csv(df, file_name, do_zip=True, index=False, **params):
 
 @time_log('loading CSV')
 def load_csv(file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Reading from file {file_path}')
     df = pd.read_csv(file_path, low_memory=False, **params)
     return df
@@ -93,7 +110,7 @@ def load_csv(file_name, **params):
 
 @time_log('storing HDF')
 def store_hdf(df, file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Writing to file {file_path}')
     df = (df.pipe(_check_index)
             .pipe(flatten_multi_cols))
@@ -104,7 +121,7 @@ def store_hdf(df, file_name, **params):
 
 @time_log('loading HDF')
 def load_hdf(file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Reading from file {file_path}')
     with pd.HDFStore(file_path, mode='r', **params) as ds:
         df = ds['df']
@@ -113,7 +130,7 @@ def load_hdf(file_name, **params):
 
 @time_log('storing binary file')
 def store_bin(df, file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Writing to file {file_path}')
     df = (df.pipe(_check_index)
             .pipe(flatten_multi_cols))
@@ -123,7 +140,7 @@ def store_bin(df, file_name, **params):
 
 @time_log('loading binary file')
 def load_bin(file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Reading from file {file_path}')
     df = pd.read_feather(file_path, **params)
     return df
@@ -136,7 +153,7 @@ def rm_file(file_name):
 
 
 def rm_data_file(file_name):
-    file_path = PA_DATA_DIR / file_name
+    file_path = _project_dir / file_name
     rm_file(file_path)
 
     
@@ -147,9 +164,9 @@ def write_xlsx(df, file_name, sheet_name='df'):
             .pipe(flatten_multi_cols))
 
     # column widths as max strlength of column's contents, or strlength of column's header if greater
-    col_width = np.maximum(df.astype('str').apply(lambda col: max(col.str.len())).to_list(), 
+    col_width = np.maximum(df.astype('str').apply(lambda column: max(column.str.len())).to_list(),
                            list(map(len, df.columns)))
-    file_path = PA_DATA_DIR / file_name
+    file_path = _project_dir / file_name
     info(f'Writing to file {file_path}')
     
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
@@ -173,14 +190,14 @@ def write_xlsx(df, file_name, sheet_name='df'):
 
 @time_log('loading xlsx file')
 def load_xlsx(file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Reading from file {file_path}')
     df = pd.read_excel(file_path, **params)
     return df
 
     
 def store_pickle(df, file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Writing to file {file_path}')
     df.to_pickle(file_path, **params)
     info(f'Written {file_size(file_path)}')
@@ -188,7 +205,7 @@ def store_pickle(df, file_name, **params):
     
 @time_log('loading pickle file')
 def load_pickle(file_name, **params):
-    file_path = (PA_DATA_DIR / file_name).resolve()
+    file_path = (_project_dir / file_name).resolve()
     info(f'Reading from file {file_path}')
     df = pd.read_pickle(file_path, **params)
     return df

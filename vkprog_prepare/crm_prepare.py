@@ -18,12 +18,13 @@ import pandas as pd
 
 from pa_lib.ora import Connection
 from pa_lib.log import info, time_log
-from pa_lib.file import store_csv, store_bin
+from pa_lib.file import store_csv, store_bin, set_project_dir
 from pa_lib.data import as_dtype, split_date_iso, make_isoweek_rd
 from pa_lib.util import obj_size
 from pa_lib.sql import query
 from pa_lib.types import dtFactor
 
+set_project_dir('vkprog')
 crm_query = query('crm')
 
 info('Starting CRM query on CRM Prod instance')

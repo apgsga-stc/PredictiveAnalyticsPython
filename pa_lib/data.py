@@ -92,7 +92,7 @@ def unfactorize(df):
         # Integer columns with Nulls need fixing, will convert to float
         if any(nulls):
             df.loc[nulls, col] = np.NaN
-    return(df)
+    return df
 
 
 def as_kw(df, **selectors):
@@ -210,5 +210,3 @@ def make_period_diff(df, year_col_1, period_col_1, year_col_2, period_col_2,
     """Calculates difference (in periods) between two year/period column pairs"""
     return df.eval(f'{diff_col} = ({year_col_2} - {year_col_1}) * (52 // {round_by}) \
                                 + ({period_col_2} - {period_col_1})')
-
-
