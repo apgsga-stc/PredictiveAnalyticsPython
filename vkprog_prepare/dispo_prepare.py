@@ -37,8 +37,11 @@ for dispo in base_dir.glob('20??-?'):
 
 # Read dates from files
 dispo_dates = pd.DataFrame.from_records(columns=['KAM_open_date', 'open_date'],
-                                        index=pd.CategoricalIndex(dispo_files.keys(), name='Dispo', ordered=True),
-                                        data=[]).astype({'KAM_open_date': 'datetime64', 'open_date': 'datetime64'})
+                                        index=pd.CategoricalIndex(dispo_files.keys(),
+                                                                  name='Dispo',
+                                                                  ordered=True),
+                                        data=[]).astype({'KAM_open_date': 'datetime64',
+                                                         'open_date': 'datetime64'})
 for (dispo, dispo_file) in dispo_files.items():
     first_sheet = pd.read_excel(dispo_file, header=None, nrows=2,
                                 parse_dates=[3, 5])
@@ -48,7 +51,8 @@ for (dispo, dispo_file) in dispo_files.items():
         dispo_date = first_sheet.iat[1, 5]
     else:
         continue
-    dispo_dates.loc[dispo, 'KAM_open_date'] = pd.to_datetime(dispo_date, format='%Y-%m-%d %h24:%mi:%s')
+    dispo_dates.loc[dispo, 'KAM_open_date'] = pd.to_datetime(dispo_date,
+                                                             format='%Y-%m-%d')
 
 # Normal opening dates are one week after KAM opening dates. Also clean up data types
 dispo_dates = (dispo_dates
