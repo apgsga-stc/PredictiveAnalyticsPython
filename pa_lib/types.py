@@ -14,28 +14,36 @@ from pa_lib.util import format_size
 
 
 dtFactor = pd.api.types.CategoricalDtype(ordered=True)
-dtYear   = pd.api.types.CategoricalDtype(ordered=True)
-dtKW     = pd.api.types.CategoricalDtype(categories = [w+1 for w in range(53)],
-                                         ordered    = True)
+dtYear = pd.api.types.CategoricalDtype(ordered=True)
+dtKW = pd.api.types.CategoricalDtype(
+    categories=[w + 1 for w in range(53)], ordered=True
+)
+
 
 def as_years(col):
-    return col.astype('int').astype(dtYear)
+    return col.astype("int").astype(dtYear)
+
 
 def as_kw(col):
-    return col.astype('int').astype(dtKW)
+    return col.astype("int").astype(dtKW)
+
 
 def merge_years(col1, col2):
-    merged = pd.api.types.union_categoricals(to_union=[col1.astype(dtYear), col2.astype(dtYear)],
-                                             ignore_order=True,
-                                             sort_categories=True)
+    merged = pd.api.types.union_categoricals(
+        to_union=[col1.astype(dtYear), col2.astype(dtYear)],
+        ignore_order=True,
+        sort_categories=True,
+    )
     return merged.as_ordered()
+
 
 @dataclass
 class ConnectPar:
     """Holds Oracle Connection parameters"""
+
     instance: str
-    user:     str
-    passwd:   str
+    user: str
+    passwd: str
 
     def astuple(self):
         return astuple(self)
@@ -53,14 +61,15 @@ class File:
 
 class Record(object):
     """Simple container class, allows both attribute and dict item access"""
+
     def __init__(self, *args, **kwargs):
         """Initialize from keyword parameters"""
         for (key, value) in kwargs.items():
             setattr(self, key, value)
 
     def __repr__(self):
-        attr_repr = ', '.join(f'{k}={repr(v)}' for (k, v) in self.items())
-        return f'Record({attr_repr})'
+        attr_repr = ", ".join(f"{k}={repr(v)}" for (k, v) in self.items())
+        return f"Record({attr_repr})"
 
     def __getitem__(self, key):
         """Get attribute like from a dict"""
@@ -87,5 +96,5 @@ class Record(object):
 
 
 if __name__ == "__main__":
-    test = Record(a=1, b=2, c='abc', d=[1,2,3], e=Record(e1='a', e2='b'))
+    test = Record(a=1, b=2, c="abc", d=[1, 2, 3], e=Record(e1="a", e2="b"))
     print(test)
