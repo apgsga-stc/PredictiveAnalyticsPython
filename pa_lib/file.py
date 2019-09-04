@@ -7,6 +7,7 @@ File handling for PA data
 """
 import pandas as pd
 import numpy as np
+from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime as dtt
 from functools import partial
@@ -23,19 +24,39 @@ _project_dir = PA_DATA_DIR  # initialize to base data directory
 
 
 def set_project_dir(dir_name):
+    """Set current project dir under base data directory to work in.
+       Will be created if not present"""
     global _project_dir
-    project_dir = PA_DATA_DIR / dir_name
-    project_dir.mkdir(exist_ok=True)
-    if project_dir.is_dir():
-        _project_dir = project_dir
+    new_project_dir = PA_DATA_DIR / dir_name
+    new_project_dir.mkdir(exist_ok=True)
+    if new_project_dir.is_dir():
+        _project_dir = new_project_dir
     else:
         raise FileExistsError(
             f"Can't create directory '{dir_name}': File exists in {PA_DATA_DIR}"
         )
 
 
+def reset_project_dir():
+    """Reset current project dir to initial status (base data directory)"""
+    global _project_dir
+    _project_dir = PA_DATA_DIR
+
+
 def get_project_dir():
+    """Currently set project dir"""
     return _project_dir
+
+
+@contextmanager
+def project_dir(dir_name):
+    """Temporarily switch into another project dir"""
+    previous_project_dir = get_project_dir()
+    set_project_dir(dir_name)
+    try:
+        yield
+    finally:
+        set_project_dir(previous_project_dir)
 
 
 def _check_index(df):
