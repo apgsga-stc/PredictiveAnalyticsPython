@@ -16,24 +16,30 @@ def desc_col(df, det=False):
     if det:
         return df.apply(
             lambda col: pd.Series(
-                [col.dtype, f'{len(col) - col.count()}/{col.count()}',
-                 col.nunique(),
-                 format_size(col.memory_usage(deep=True)),
-                 f'[{col.min(skipna=True)},{col.max(skipna=True)}]'],
-                index='DTYPE NULLS UNIQUE MEM RANGE'.split()),
-            result_type='expand').transpose()
+                [
+                    col.dtype,
+                    f"{len(col) - col.count()}/{col.count()}",
+                    col.nunique(),
+                    format_size(col.memory_usage(deep=True)),
+                    f"[{col.min(skipna=True)},{col.max(skipna=True)}]",
+                ],
+                index="DTYPE NULLS UNIQUE MEM RANGE".split(),
+            ),
+            result_type="expand",
+        ).transpose()
     return df.apply(
         lambda col: pd.Series(
-            [col.dtype, f'{len(col) - col.count()}/{col.count()}',
-             col.nunique()],
-            index='DTYPE NULLS UNIQUE'.split()),
-        result_type='expand').transpose()
+            [col.dtype, f"{len(col) - col.count()}/{col.count()}", col.nunique()],
+            index="DTYPE NULLS UNIQUE".split(),
+        ),
+        result_type="expand",
+    ).transpose()
 
 
-def flatten_multi_index_cols(df, sep='_'):
+def flatten_multi_index_cols(df, sep="_"):
     if isinstance(df.columns, pd.MultiIndex):
         col_names = list(map(sep.join, df.columns.to_flat_index()))
-        df = df.set_axis(col_names, axis='columns', inplace=False)
+        df = df.set_axis(col_names, axis="columns", inplace=False)
     return df
 
 
@@ -43,7 +49,7 @@ def select_columns(df, incl_col=None, incl_pattern=None, incl_dtype=None):
     if incl_col is not None:
         col_list.extend([c for c in flatten(incl_col) if c in df.columns])
     if incl_pattern is not None:
-        flat_df = flatten_multi_index_cols(df, sep='|')
+        flat_df = flatten_multi_index_cols(df, sep="|")
         for pat in flatten(incl_pattern):
             col_list.extend(flat_df.columns[flat_df.columns.str.match(pat)])
     if incl_dtype is not None:
@@ -75,24 +81,26 @@ def as_int_factor(df, **selectors):
        **selectors incl_col=None, incl_pattern=None, incl_dtype
        are passed to select_columns()"""
     col_list = select_columns(df, **selectors)
-    df[col_list] = df[col_list].astype('float').astype(
-        pd.CategoricalDtype(ordered=True))
+    df[col_list] = (
+        df[col_list].astype("float").astype(pd.CategoricalDtype(ordered=True))
+    )
     for col in col_list:
         df[col] = df[col].cat.set_categories(
-            df[col].cat.categories.astype('int'), ordered=True)
+            df[col].cat.categories.astype("int"), ordered=True
+        )
     return df
 
 
 def unfactorize(df):
     """Convert categorical columns to their categories' data type"""
     df = df.copy()
-    for col in select_columns(df, incl_dtype='category'):
+    for col in select_columns(df, incl_dtype="category"):
         nulls = df[col].isna()
         df[col] = df[col].astype(df[col].cat.categories.dtype)
         # Integer columns with Nulls need fixing, will convert to float
         if any(nulls):
             df.loc[nulls, col] = np.NaN
-    return(df)
+    return df
 
 
 def as_kw(df, **selectors):
@@ -111,7 +119,7 @@ def clean_up_categoricals(df, **selectors):
     if len(selectors) > 0:
         col_list = select_columns(df, **selectors)
     else:
-        col_list = select_columns(df, incl_dtype='category')
+        col_list = select_columns(df, incl_dtype="category")
     for col in col_list:
         df[col].cat.remove_unused_categories(inplace=True)
     return df
@@ -154,30 +162,45 @@ def calc_col_partitioned(df, col, fun, on, part_by):
 def make_sumcurve(df, sum_col_name, crv_col_name, on, part_by):
     """create a sumcurve (and a sum) column on 'on', partitioned by 'part_by'
        Order of entries will be as in the original df"""
-    df = (df
-          .pipe(calc_col_partitioned, sum_col_name, fun='sum', on=on,
-                part_by=part_by)
-          .pipe(calc_col_partitioned, crv_col_name, fun='cumsum', on=on,
-                part_by=part_by)
-          .eval(f'{crv_col_name} = {crv_col_name} / {sum_col_name}'))
+    df = (
+        df.pipe(calc_col_partitioned, sum_col_name, fun="sum", on=on, part_by=part_by)
+        .pipe(calc_col_partitioned, crv_col_name, fun="cumsum", on=on, part_by=part_by)
+        .eval(f"{crv_col_name} = {crv_col_name} / {sum_col_name}")
+    )
     return df
 
 
-def make_isoyear(df, dt_col, yr_col='YEAR'):
-    df.loc[:, yr_col] = df[dt_col].dt.strftime('%G').astype('int16')
+def make_isoyear(df, dt_col, yr_col="YEAR"):
+    df.loc[:, yr_col] = df[dt_col].dt.strftime("%G").astype("int16")
     return df
 
 
-def make_isoweek(df, dt_col, kw_col='KW'):
-    df.loc[:, kw_col] = df[dt_col].dt.strftime('%V').astype('int8')
+def make_isoweek(df, dt_col, kw_col="KW"):
+    df.loc[:, kw_col] = df[dt_col].dt.strftime("%V").astype("int8")
+    return df
+
+
+def split_date_iso(df, dt_col, yr_col="YEAR", kw_col="KW"):
+    """Split a date column into ISO year and ISO week as new columns"""
+
+    def isoyear_isokw(date):
+        return date.isocalendar()[:-1]
+
+    not_null = df[dt_col].notna()
+    year_kw = pd.DataFrame.from_records(
+        columns=[yr_col, kw_col],
+        data=(df.loc[not_null, dt_col].dt.date.apply(isoyear_isokw).to_list()),
+        index=df.index[not_null],
+    ).astype({yr_col: dtYear, kw_col: dtKW})
+    df = df.assign(**dict(year_kw))
     return df
 
 
 def make_isoweek_rd(df, kw_col, round_by=()):
     """Round a KW column to {round_by}-week periods.
        New columns are named {kw_col}_{round_by}"""
-    kw = df.loc[df[kw_col].notna(), kw_col].astype('int8')
-    roundings = [(rd, f'{kw_col}_{rd}') for rd in flatten(round_by)]
+    kw = df.loc[df[kw_col].notna(), kw_col].astype("int8")
+    roundings = [(rd, f"{kw_col}_{rd}") for rd in flatten(round_by)]
     for (rd, rd_col) in roundings:
         df = df.assign(**{rd_col: kw - (kw - 1) % rd})
         # round any week 53 to last complete period
@@ -187,19 +210,13 @@ def make_isoweek_rd(df, kw_col, round_by=()):
     return df
 
 
-def split_date_iso(df, dt_col, yr_col='YEAR', kw_col='KW'):
-    """Split a date column into ISO year and ISO week as new columns"""
-
-    def isoyear_isokw(date):
-        return date.isocalendar()[:-1]
-
-    not_null = df[dt_col].notna()
-    year_kw = pd.DataFrame.from_records(
-        columns=[yr_col, kw_col],
-        data=(df.loc[not_null, dt_col]
-              .dt.date.apply(isoyear_isokw)
-              .to_list()),
-        index=df.index[not_null]
-    ).astype({yr_col: dtYear, kw_col: dtKW})
-    df = df.assign(**dict(year_kw))
-    return df
+def make_period_diff(
+    df, year_col_1, period_col_1, 
+    year_col_2, period_col_2, 
+    diff_col="diff", round_by=2
+):
+    """Calculates difference (in periods) between two year/period column pairs"""
+    return df.eval(
+        f"{diff_col} = ({year_col_2} - {year_col_1}) * (52 // {round_by}) \
+                                + ({period_col_2} - {period_col_1})"
+    )

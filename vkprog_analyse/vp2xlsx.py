@@ -23,10 +23,13 @@ from pathlib import Path
 from pa_lib.log import info
 from pa_lib.util import excel_col
 
-
+<<<<<<< HEAD:vp2xlsx.py
 #%% Define data location
 gv_DIR_DATA = Path.home() / 'data/2019-09-09_4J_2W_KW37_Buchung/' # please adjust accordingly
-
+=======
+# %% Define data location
+gv_DIR_DATA = Path.home() / 'data' / '2019-08-26_4J_2W_KW35_Buchung'  # please adjust accordingly
+>>>>>>> 51c7671abc448d716474c1070bf2c88191c61545:vkprog_analyse/vp2xlsx.py
 
 
 # %% Load Data: Active VBs, Complete scoring list
