@@ -196,7 +196,8 @@ def write_xlsx(df, file_name, sheet_name="df"):
     """Write df into a XLSX with fixed title row, enable auto filters"""
     df = df.pipe(_check_index).pipe(flatten_multi_cols)
 
-    # column widths as max strlength of column's contents, or strlength of column's header if greater
+    # column widths as max strlength of column's contents,
+    # or strlength of column's header if greater
     col_width = np.maximum(
         df.astype("str").apply(lambda column: max(column.str.len())).to_list(),
         list(map(len, df.columns)),
