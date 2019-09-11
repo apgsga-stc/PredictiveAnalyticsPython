@@ -42,7 +42,7 @@ def aggregate_per_customer(df_bookings):
         customer_info = (
             df_bookings.sort_values(["Endkunde_NR", "Kampagne_Erfassungsdatum"])
             .astype({"Endkunde_NR": "int64", "Kamp_Erfass_Jahr": "int16"})
-            .groupby("Endkunde_NR")
+            .groupby("Endkunde_NR", as_index=False)
             .agg(
                 {
                     "Endkunde": last_notna,
@@ -62,8 +62,9 @@ def aggregate_per_customer(df_bookings):
         )
 
     customer_info.set_axis(
-        labels="""Endkunde EK_Aktiv EK_Land EK_Plz EK_Ort Agentur EK_BG EK_BG_ID Auftrag_BG_ID Auftrag_BG_Anz
-                  Last_Res_Date First_Res_Year Last_Res_Year Last_Aus_Date""".split(),
+        labels="""Endkunde_NR Endkunde EK_Aktiv EK_Land EK_Plz EK_Ort Agentur EK_BG 
+                  EK_BG_ID Auftrag_BG_ID Auftrag_BG_Anz Last_Res_Date First_Res_Year 
+                  Last_Res_Year Last_Aus_Date""".split(),
         axis="columns",
         inplace=True,
     )
@@ -239,10 +240,8 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
         )
         raise AssertionError(f"{not_matched_count} unmatched records")
 
-    cust_data = (
-        cust_data.merge(df_regions, on="GDENR", how="left")
-        .drop(columns=["GDENR", "FIRST_NAME"])
-        .reset_index(drop=True)
+    cust_data = cust_data.merge(df_regions, on="GDENR", how="left").drop(
+        columns=["GDENR", "FIRST_NAME"]
     )
     return cust_data
 
