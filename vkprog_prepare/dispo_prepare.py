@@ -15,12 +15,9 @@ from pa_lib.log import err, info
 from pa_lib.file import store_bin, write_xlsx, set_project_dir
 from pa_lib.data import split_date_iso, make_isoweek_rd
 
-set_project_dir("vkprog")
-
 
 ########################################################################################
 def get_all_files():
-    info("Read source files from intranet")
     # Find all source files for dispo planning
     base_dir = Path(r"P:\Projekte\produktmanagement\buchunsgfenster")  # not a typo(!)
     if not base_dir.exists():
@@ -50,16 +47,16 @@ def get_all_files():
 
 
 ########################################################################################
-def extract_dates(dispo_files):
+def extract_dates(files):
     # Prepare data structure
     dates = pd.DataFrame.from_records(
         columns=["KAM_open_date", "open_date"],
-        index=pd.CategoricalIndex(dispo_files.keys(), name="Dispo", ordered=True),
+        index=pd.CategoricalIndex(files.keys(), name="Dispo", ordered=True),
         data=[],
     ).astype({"KAM_open_date": "datetime64", "open_date": "datetime64"})
 
     # Read dates from files
-    for (dispo, dispo_file) in dispo_files.items():
+    for (dispo, dispo_file) in files.items():
         first_sheet = pd.read_excel(
             dispo_file, header=None, nrows=2, parse_dates=[3, 5]
         )
@@ -119,6 +116,7 @@ def aggregate_per_year(dates):
 ########################################################################################
 # MAIN CODE
 ########################################################################################
+info("Read source files from intranet")
 dispo_files = get_all_files()
 dispo_dates = extract_dates(dispo_files)
 
@@ -126,7 +124,8 @@ info("Process dispo opening dates")
 dispo_dates = cleanup_dates(dispo_dates)
 dispo_periods_yr = aggregate_per_year(dispo_dates)
 
-# Write out dates to data directory
+info("Write dispo opening dates to project directory")
+set_project_dir("vkprog")
 store_bin(dispo_dates, "dispo.feather")
 store_bin(dispo_periods_yr, "dispo_periods.feather")
 write_xlsx(dispo_dates, "dispo.xlsx", sheet_name="Dispo-Eröffnungen")

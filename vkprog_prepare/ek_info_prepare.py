@@ -9,10 +9,10 @@ sys.path.append(str(parent_dir))
 import pandas as pd
 import numpy as np
 
-from pa_lib.file import load_bin, store_bin, load_xlsx, set_project_dir, project_dir
+from pa_lib.file import load_bin, store_bin, load_xlsx, project_dir
 from pa_lib.data import clean_up_categoricals
 from pa_lib.util import cap_words
-from pa_lib.log import time_log, err
+from pa_lib.log import err, info
 
 
 ########################################################################################
@@ -27,7 +27,7 @@ def load_bookings():
 
 
 ########################################################################################
-def aggregate_per_customer(df_bookings):
+def aggregate_per_customer(bookings):
     def last_notna(s):
         try:
             return s.loc[s.last_valid_index()]
@@ -38,28 +38,27 @@ def aggregate_per_customer(df_bookings):
         return sep.join(map(str, s[s.notna()].unique()))
 
     # this takes around 90 seconds
-    with time_log("preparing EK_INFO"):
-        customer_info = (
-            df_bookings.sort_values(["Endkunde_NR", "Kampagne_Erfassungsdatum"])
-            .astype({"Endkunde_NR": "int64", "Kamp_Erfass_Jahr": "int16"})
-            .groupby("Endkunde_NR", as_index=False)
-            .agg(
-                {
-                    "Endkunde": last_notna,
-                    "EK_Aktiv": last_notna,
-                    "EK_Land": last_notna,
-                    "EK_Plz": last_notna,
-                    "EK_Ort": last_notna,
-                    "Agentur": last_notna,
-                    "Endkunde_Branchengruppe": last_notna,
-                    "Endkunde_Branchengruppe_ID": last_notna,
-                    "Auftrag_Branchengruppe_ID": [collect, "nunique"],
-                    "Kampagne_Erfassungsdatum": "max",
-                    "Kamp_Erfass_Jahr": ["min", "max"],
-                    "Kampagne_Beginn": "max",
-                }
-            )
+    customer_info = (
+        bookings.sort_values(["Endkunde_NR", "Kampagne_Erfassungsdatum"])
+        .astype({"Endkunde_NR": "int64", "Kamp_Erfass_Jahr": "int16"})
+        .groupby("Endkunde_NR", as_index=False)
+        .agg(
+            {
+                "Endkunde": last_notna,
+                "EK_Aktiv": last_notna,
+                "EK_Land": last_notna,
+                "EK_Plz": last_notna,
+                "EK_Ort": last_notna,
+                "Agentur": last_notna,
+                "Endkunde_Branchengruppe": last_notna,
+                "Endkunde_Branchengruppe_ID": last_notna,
+                "Auftrag_Branchengruppe_ID": [collect, "nunique"],
+                "Kampagne_Erfassungsdatum": "max",
+                "Kamp_Erfass_Jahr": ["min", "max"],
+                "Kampagne_Beginn": "max",
+            }
         )
+    )
 
     customer_info.set_axis(
         labels="""Endkunde_NR Endkunde EK_Aktiv EK_Land EK_Plz EK_Ort Agentur EK_BG 
@@ -249,8 +248,13 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
 ########################################################################################
 # MAIN CODE
 ########################################################################################
+info("Load booking data")
 bd = load_bookings()
-customer_bd = aggregate_per_customer(df_bookings=bd)
+
+info("Aggregate per customer")
+customer_bd = aggregate_per_customer(bookings=bd)
+
+info("Get region data")
 (plz, names, plz_names, regions) = load_region_data()
 ek_info = match_regions(
     df_cust=customer_bd,
@@ -260,6 +264,6 @@ ek_info = match_regions(
     df_regions=regions,
 )
 
-# write out result
+info("Write out result")
 with project_dir("vkprog"):
     store_bin(ek_info, "ek_info.feather")
