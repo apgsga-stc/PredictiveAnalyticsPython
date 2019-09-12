@@ -2,7 +2,7 @@ WITH endkunden AS
 ( 
 SELECT /*+ materialize */ ekx.subj_oid, ekx.geschaeftspartner_nr, ekx.kombi_name, ekx.abc_kunden, 
        (select bedeutung from edom.bonitaet_bs_v t1 where t1.code_wert = ekx.bonitaet) boni_kunden,
-       ekx.post_plz,  ekx.post_ort, ekx.post_postland, ekx.hbapg_kurzz, ekx.brc_id, ekx.brc_sek_id
+       ekx.post_plz,  ekx.post_ort, ekx.post_postland, ekx.hbapg_ma_id, ekx.hbapg_kurzz, ekx.brc_id, ekx.brc_sek_id
   FROM subjekte_denorm_tot_v ekx 
  WHERE (SELECT max(su.gueltig_von) 
           FROM subjekte_denorm_tot_v su 
@@ -40,8 +40,14 @@ SELECT /*+ Predictive Analytics: Read Buchungen data (runs for ca. 15 min) */
     ek.boni_kunden                                 EK_BONI,                                               
     ek.post_plz                                    EK_PLZ,
     ek.post_ort                                    EK_ORT,
-    ek.post_postland                               EK_LAND, 
+    ek.post_postland                               EK_LAND,
+    ek.hbapg_ma_id                                 EK_HB_APG,
     ek.hbapg_kurzz                                 EK_HB_APG_KURZZ,
+    (select 1 from dual where exists (
+        select null from VB_VKOE_SUCHE_V
+         where ma_id = ek.hbapg_ma_id
+           and opoe_bezeichnung like 'KAM Verkauf %')
+    )                                              EK_KAM_BETREUT,
     DECODE(eka.subj_oid,NULL,0,1)                  EK_AKTIV,
     
     ebg.branche_id                                 ENDKUNDE_BRANCHENGRUPPE_ID,
