@@ -12,7 +12,7 @@ sys.path.append(str(parent_dir))
 import pandas as pd
 
 from pa_lib.log import err, info
-from pa_lib.file import store_bin, write_xlsx, set_project_dir
+from pa_lib.file import store_bin, write_xlsx, project_dir
 from pa_lib.data import split_date_iso, make_isoweek_rd
 
 
@@ -62,7 +62,7 @@ def extract_dates(files):
         )
         if dispo <= "2011-1":
             dispo_date = first_sheet.iat[1, 3]
-        elif "2011-2" <= dispo:
+        elif dispo >= "2011-2":
             dispo_date = first_sheet.iat[1, 5]
         else:
             continue
@@ -102,7 +102,7 @@ def aggregate_per_year(dates):
             .reset_index(drop=True)
             .set_axis(["KAM_2", "Alle_2"], axis="columns", inplace=False)
         )
-        return pd.concat([dispo_1, dispo_2], axis=1)
+        return pd.concat([dispo_1, dispo_2], axis="columns")
 
     periods = (
         dates.sort_values(["Jahr", "KAM_KW_2"])
@@ -116,16 +116,15 @@ def aggregate_per_year(dates):
 ########################################################################################
 # MAIN CODE
 ########################################################################################
-info("Read source files from intranet")
+info("Read source files from intranet, clean up dates")
 dispo_files = get_all_files()
-dispo_dates = extract_dates(dispo_files)
+dispo_dates = extract_dates(dispo_files).pipe(cleanup_dates)
 
-info("Process dispo opening dates")
-dispo_dates = cleanup_dates(dispo_dates)
+info("Aggregate periods to years")
 dispo_periods_yr = aggregate_per_year(dispo_dates)
 
 info("Write dispo opening dates to project directory")
-set_project_dir("vkprog")
-store_bin(dispo_dates, "dispo.feather")
-store_bin(dispo_periods_yr, "dispo_periods.feather")
-write_xlsx(dispo_dates, "dispo.xlsx", sheet_name="Dispo-Eröffnungen")
+with project_dir("vkprog"):
+    store_bin(dispo_dates, "dispo.feather")
+    store_bin(dispo_periods_yr, "dispo_periods.feather")
+    write_xlsx(dispo_dates, "dispo.xlsx", sheet_name="Dispo-Eröffnungen")
