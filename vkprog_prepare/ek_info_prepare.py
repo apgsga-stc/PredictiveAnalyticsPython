@@ -30,8 +30,8 @@ def load_bookings():
 def aggregate_per_customer(bookings):
     def last_notna(s):
         try:
-            return s.loc[s.last_valid_index()]
-        except KeyError:
+            return s.loc[s.notnull()].iat[-1]
+        except IndexError:
             return np.NaN
 
     def collect(s, sep=","):
@@ -46,6 +46,7 @@ def aggregate_per_customer(bookings):
             {
                 "Endkunde": last_notna,
                 "EK_Aktiv": last_notna,
+                "EK_Kam_Betreut": last_notna,
                 "EK_Land": last_notna,
                 "EK_Plz": last_notna,
                 "EK_Ort": last_notna,
@@ -61,7 +62,7 @@ def aggregate_per_customer(bookings):
     )
 
     customer_info.set_axis(
-        labels="""Endkunde_NR Endkunde EK_Aktiv EK_Land EK_Plz EK_Ort Agentur EK_BG 
+        labels="""Endkunde_NR Endkunde EK_Aktiv EK_Kam_Betreut EK_Land EK_Plz EK_Ort Agentur EK_BG 
                   EK_BG_ID Auftrag_BG_ID Auftrag_BG_Anz Last_Res_Date First_Res_Year 
                   Last_Res_Year Last_Aus_Date""".split(),
         axis="columns",

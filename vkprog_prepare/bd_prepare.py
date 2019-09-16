@@ -33,7 +33,7 @@ from pa_lib.sql import query
 from pa_lib.types import dtFactor
 
 set_project_dir("vkprog")
-bd_query = query("df_bookings")
+bd_query = query("bd")
 
 info("Starting Buchungsdaten query on IT21 Prod instance")
 with Connection("IT21_PROD") as c:
@@ -41,11 +41,10 @@ with Connection("IT21_PROD") as c:
 info(f"Finished Buchungsdaten query, returned data: {bd_data_raw.shape}")
 
 info(f"Convert data types {bd_data_raw.shape}")
-bd_data_raw = bd_data_raw.pipe(
-    as_dtype,
-    to_dtype=dtFactor,
-    incl_dtype="object",
-    incl_col=("ENDKUNDE_NR", "EK_AKTIV", "KAMPAGNEN_STATUS"),
+bd_data_raw = (
+    bd_data_raw.pipe(as_dtype, to_dtype=dtFactor, incl_dtype="object")
+    .fillna({"EK_KAM_BETREUT": 0})
+    .astype({"EK_KAM_BETREUT": "int64"})
 )
 
 # Write out to CSV (runtime 5 min)
@@ -62,6 +61,7 @@ col_list = """ENDKUNDE_NR
               EK_ORT
               EK_LAND
               EK_HB_APG_KURZZ
+              EK_KAM_BETREUT
               EK_AKTIV
               AGENTUR
               AG_HAUPTBETREUER
@@ -139,6 +139,7 @@ bd_data = (
         where="KAMPAGNE_ERFASSUNGSDATUM < KV_RES_DAT",
     )
     .drop("KV_RES_DAT", axis="columns")
+    .fillna({"EK_KAM_BETREUT": 0})
     .pipe(clean_up_categoricals)
     .reset_index(drop=True)
 )

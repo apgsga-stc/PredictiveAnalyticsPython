@@ -10,6 +10,7 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 import pandas as pd
+import numpy as np
 
 from pa_lib.log import err, info
 from pa_lib.file import store_bin, write_xlsx, project_dir
@@ -97,11 +98,14 @@ def aggregate_per_year(dates):
             .reset_index(drop=True)
             .set_axis(["KAM_1", "Alle_1"], axis="columns", inplace=False)
         )
-        dispo_2 = (
-            df.iloc[[1], kw_columns]
-            .reset_index(drop=True)
-            .set_axis(["KAM_2", "Alle_2"], axis="columns", inplace=False)
-        )
+        if df.shape[0] == 2:
+            dispo_2 = (
+                df.iloc[[1], kw_columns]
+                .reset_index(drop=True)
+                .set_axis(["KAM_2", "Alle_2"], axis="columns", inplace=False)
+            )
+        else:
+            dispo_2 = pd.DataFrame(dict(KAM_2=[np.NaN], Alle_2=[np.NaN]))
         return pd.concat([dispo_1, dispo_2], axis="columns")
 
     periods = (
