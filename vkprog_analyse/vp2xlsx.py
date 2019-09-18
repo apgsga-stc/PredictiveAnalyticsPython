@@ -16,6 +16,7 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 # %% Load modules
+import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -26,7 +27,7 @@ from pa_lib.util import excel_col
 
 #%% Define data location and deployment folder
 gv_DIR_DATA       = Path.home() / 'data/2019-09-09_4J_2W_KW37_Buchung/' # please adjust accordingly
-deployment_folder = Path('/mnt/predictiveanalytics/') / '2019_09_09_donttouch'       # please adjust accordingly
+deployment_folder = Path('/mnt/predictiveanalytics/') / '2019_09_09_finaltest'       # please adjust accordingly
 
 #%% Create deployment folder
 os.mkdir(deployment_folder)
