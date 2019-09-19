@@ -49,25 +49,16 @@ from pa_lib.util import obj_size, cap_words, normalize_rows, clear_row_max
 from pa_lib.log import time_log, info
 from pa_lib.vis import dive
 
-# display long columns completely, show more rows
-pd.set_option("display.max_colwidth", 200)
-pd.set_option("display.max_rows", 100)
-pd.set_option("display.max_columns", 200)
-
-
-def qshow(df, fit_width=False):
-    return qgrid.show_grid(
-        df, grid_options={"forceFitColumns": fit_width, "fullWidthRows": False}
-    )
 
 ###################
 ## Load raw data ##
 ###################
-
-bd_raw = load_bin("vkprog\\bd_data.feather").rename(
-    mapper=lambda name: cap_words(name, sep="_"), axis="columns"
-)
-bd = bd_raw.loc[(bd_raw.Netto > 0)].pipe(clean_up_categoricals)
+def load_booking_data():
+    bd_raw = load_bin("vkprog\\bd_data.feather").rename(
+        mapper=lambda name: cap_words(name, sep="_"), axis="columns"
+    )
+    bd = bd_raw.loc[(bd_raw.Netto > 0)].pipe(clean_up_categoricals)
+    return bd
 
 
 ######################################################
@@ -393,7 +384,7 @@ print("[", list(scoring_all.columns) == list(training_all.columns), "] Both sets
 # In[48]:
 
 
-def scaling_bd(dataset,col_bookings=[], col_dates=[]):
+def _scaling_bd(dataset,col_bookings=[], col_dates=[]):
     """
     Booking columns are heavily right-skewed:
      1. log-transform all columns => achieving approx. gaussian distribution
@@ -425,3 +416,11 @@ scaled_training_all = scaling_bd(training_all,col_bookings=feature_colnames_bd, 
 scaled_scoring_all  = scaling_bd(scoring_all, col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
 
 scaled_training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
+
+
+
+########################################################################################################
+def bd_train_scoring(ref_date, years):
+    data = load_booking_data()
+
+    return (train, scoring)
