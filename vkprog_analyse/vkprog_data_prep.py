@@ -69,6 +69,7 @@ bd_raw = load_bin("vkprog\\bd_data.feather").rename(
 )
 bd = bd_raw.loc[(bd_raw.Netto > 0)].pipe(clean_up_categoricals)
 
+
 ######################################################
 ## Booking Data (Beträge: Reservationen & Aushänge) ##
 ######################################################
@@ -126,6 +127,8 @@ def aggregate_bookings(df, period):
     info("aggregate_bookings: Done.")
     return df_aggr
 
+
+## Apply functions ##
 
 bd_aggr_2w = aggregate_bookings(bd, 'KW_2')
 
@@ -207,7 +210,8 @@ def booking_yearly_totals(YYYYKW, year_span):
     container_df.fillna(0, inplace=True)
     
     return container_df
-       
+
+##
 
 def booking_data(YYYYKW, year_span):
     """
@@ -281,26 +285,26 @@ print("[", list(scoring_bd.columns) == list(training_bd.columns), "] Both sets h
 print("training_bd:")
 training_bd.head(4)
 
-
-# In[40]:
-
+#########################
+## Set feature columns ##
+#########################
 
 feature_colnames_bd = list(training_bd.columns)   
 # Don't scale the following columns:
 feature_colnames_bd.remove("Endkunde_NR")
 feature_colnames_bd.remove("Target_Aus_flg")
 feature_colnames_bd.remove("Target_Res_flg")
+
 display(feature_colnames_bd)
 
 
-# ## Reservation Dates
+#######################
+## Reservation Dates ##
+#######################
 
 # 1. Erste Reservation muss vor _View Date_ liegen
 # 2. Die letzte Reservation vor dem _View Date_ darf nicht in den letzten 2 Wochen liegen. Sehr unwahrscheinlich, dass diese gleich nochmal buchen, ausserdem  technische Vermeidung von Überlappungen
 # 3. Muss Target Aussage haben. (Zur zeit Reservationen)
-
-# In[41]:
-
 
 def dates_bd(view_date):
     sec_kw2_factor = (60*60*24*365)
@@ -343,7 +347,7 @@ def dates_bd(view_date):
     return final_selection
 
 
-# In[42]:
+## Apply function ##
 
 
 print("Creating: training_dates")
@@ -354,24 +358,7 @@ scoring_dates  = dates_bd(date_now)
 # Check if both tables have the same columns names
 print("[", list(scoring_dates.columns) == list(training_dates.columns), "] Both sets have same columns")
 
-
-# In[43]:
-
-
-display(training_dates.describe())
-display(desc_col(training_dates))
-
-
-# In[44]:
-
-
-training_dates.head()
-
-
-# ### Store date-feature names in a list
-
-# In[45]:
-
+##  Store date-feature names in a list ##
 
 feature_colnames_dates = list(training_dates.columns)
 feature_colnames_dates.remove("Endkunde_NR")
@@ -379,8 +366,9 @@ feature_colnames_dates.remove("Kampagne_Erfass_Datum_min")
 feature_colnames_dates.remove("Kampagne_Erfass_Datum_max")
 print(feature_colnames_dates)
 
-
-# ## Merge Datasets
+####################
+## Merge Datasets ##
+####################
 
 # 1. Reservation Dates
 # 2. Booking data
@@ -389,37 +377,11 @@ print(feature_colnames_dates)
 # <b>Remark:</b> Merge via INNER-JOIN, to apply all necessary filtration criteria.
 # </div>
 
-# In[46]:
-
-
 training_all = pd.merge(training_dates,training_bd,on="Endkunde_NR", how="inner")
-scoring_all = pd.merge(scoring_dates,  scoring_bd, on="Endkunde_NR", how="inner")
-
-display(training_all.head(3))
+scoring_all  = pd.merge(scoring_dates,  scoring_bd, on="Endkunde_NR", how="inner")
 
 # Check if both tables have the same columns names
 print("[", list(scoring_all.columns) == list(training_all.columns), "] Both sets have same columns")
-
-
-# In[47]:
-
-
-temp_df = training_all
-print("Target_Res_flg == False")
-boxplot_histogram(temp_df.loc[ temp_df.Target_Res_flg == False ,"Erste_Buchung_Delta"])
-print("Target_Res_flg == True")
-boxplot_histogram(temp_df.loc[ temp_df.Target_Res_flg == True ,"Erste_Buchung_Delta"])
-
-print("Target_Res_flg == False")
-boxplot_histogram(temp_df.loc[ temp_df.Target_Res_flg == False ,"Letzte_Buchung_Delta"])
-print("Target_Res_flg == True")
-boxplot_histogram(temp_df.loc[ temp_df.Target_Res_flg == True ,"Letzte_Buchung_Delta"])
-
-
-print("Target_Res_flg == False")
-boxplot_histogram(temp_df.loc[ temp_df.Target_Res_flg == False ,"Erste_Letzte_Buchung_Delta"])
-print("Target_Res_flg == True")
-boxplot_histogram(temp_df.loc[ temp_df.Target_Res_flg == True ,"Erste_Letzte_Buchung_Delta"])
 
 
 # ## Scale Data
@@ -456,46 +418,10 @@ def scaling_bd(dataset,col_bookings=[], col_dates=[]):
     return dataset
 
 
-# In[49]:
+## Apply functions ##
 
 
 scaled_training_all = scaling_bd(training_all,col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
 scaled_scoring_all  = scaling_bd(scoring_all, col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
-
-
-# In[50]:
-
-
-# Summary
-scaled_training_all.head(5)
-
-
-# In[51]:
-
-
-#print(list(training_all.columns))
-
-
-# In[52]:
-
-
-print("Before:")
-boxplot_histogram(       training_all.loc[:,"Netto_Sum_Aus_RY_1"],bins=20)
-print("After:")
-boxplot_histogram(scaled_training_all.loc[:,"Netto_Sum_Aus_RY_1"],bins=20)
-print("Before:")
-boxplot_histogram(       training_all.loc[:,"Netto_Sum_Aus_RY_2"],bins=20)
-print("After:")
-boxplot_histogram(scaled_training_all.loc[:,"Netto_Sum_Aus_RY_2"],bins=20)
-print("Before:")
-boxplot_histogram(       training_all.loc[:,"Netto_Sum_Aus_RY_3"],bins=20)
-print("After:")
-boxplot_histogram(scaled_training_all.loc[:,"Netto_Sum_Aus_RY_3"],bins=20)
-
-
-# ## Save Copy for R-Studio
-
-# In[53]:
-
 
 scaled_training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")

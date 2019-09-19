@@ -26,8 +26,8 @@ from pa_lib.log import info
 from pa_lib.util import excel_col
 
 #%% Define data location and deployment folder
-gv_DIR_DATA       = Path.home() / 'data/2019-09-23_4J_2W_KW37_Buchung/' # please adjust accordingly
-name_depl_folder  = '2019_09_23'                                        # please adjust accordingly
+gv_DIR_DATA       = Path.home() / 'data/2019-09-09_4J_2W_KW37_Buchung/' # please adjust accordingly
+name_depl_folder  = '2019_09_09_finaltest'                              # please adjust accordingly
 
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
 
@@ -435,16 +435,31 @@ msg['From'] = Address("Predictive Analytics", "predictive_analytics", "apgsga.ch
 msg['To'] = ', '.join(map(str,list(notify_emails.loc[:,"E_MAIL"])))
 
 msg.set_content(fr"""
-Hallo zusammen,
+Guten Tag miteinander,
 
-Im folgenden Verzeichnis findet ihr unter eurem Kürzel die aktuellen Excel-Listen:
+Im folgenden Verzeichnis findet ihr unter eurem Kürzel die aktuellen Verkaufsprognose-Listen
 \\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}
 
-Zusätzliche Infos findet ihr auf Wiki:
-https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics
+Zusätzliche Infos findet ihr auf https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics
 
-Lieben Gruss,
+Bitte denkt daran, eure Feedbacks zu den Inhalten direkt in die Excel Liste zu schreiben.
+
+Beste Grüsse
 Euer Data Analytics Team
+
+-----
+
+Bonjour Toutes et Tous,
+Dans le classeur suivant vous trouverez, sous vos initiales,  Les listes actualisées concernant les prévisions de vente.
+\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}
+
+Des informations complémentaires à ce sujet sont disponibles dans Wiki 
+https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics
+Pensez à ajouter votre feedback directement dans la liste Excel (colonne jaune + X).
+
+
+Avec nos remerciements anticipés et meilleures salutations.
+Votre Data Analytics Team
 """)
 
 # Add the html version.  This converts the message into a multipart/alternative
@@ -454,15 +469,23 @@ msg.add_alternative(fr"""
 <html>
   <head></head>
   <body>
-    <p>Hallo zusammen,</p>
-    <p>Im folgenden Verzeichnis findet ihr unter eurem K&uuml;rzel die aktuellen Excel-Listen:</p>
-    <p style="padding-left: 30px;"><a href="\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">Verkaufsprognose: Excels</a></p>
+    <p>Guten Tag miteinander,</p>
+    <p>Im folgenden Verzeichnis findet ihr unter eurem K&uuml;rzel <a href="\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">die aktuellen Verkaufsprognose-Listen.</a></p>
+    <p>Zus&auml;tzliche Infos findet ihr <a href="https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics">hier auf Wiki</a></p>
+    <p>Bitte denkt daran, eure Feedbacks zu den Inhalten direkt in die Excel Liste zu schreiben.</p>
     <p>&nbsp;</p>
-    <p>Zus&auml;tzliche Infos findet ihr auf Wiki:</p>
-    <p style="padding-left: 30px;"><a href="https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics">Wiki-Page</a></p>
-    <p>&nbsp;</p>
-    <p>Lieben Gruss,</p>
+    <p>Beste Gr&uuml;sse</p>
     <p>Euer Data Analytics Team</p>
+    <p>&nbsp;</p>
+    <hr />
+    <p>&nbsp;</p>
+    <p>Bonjour Toutes et Tous,</p>
+    <p>Dans le classeur suivant vous trouverez, sous vos initiales,&nbsp; <a href="\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">Les listes actualis&eacute;es concernant les pr&eacute;visions de vente</a>.</p>
+    <p>Des informations compl&eacute;mentaires &agrave; ce sujet sont disponibles <a href="https://wiki.apgsga.ch/x/5pG8Ag">dans Wiki.</a></p>
+    <p>Pensez &agrave; ajouter votre feedback directement dans la liste Excel (colonne jaune + X).</p>
+    <p>&nbsp;</p>
+    <p>Avec nos remerciements anticip&eacute;s et meilleures salutations.</p>
+    <p>Votre Data Analytics Team</p>
   </body>
 </html>
 """, subtype='html')
