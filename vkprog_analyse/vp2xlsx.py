@@ -26,10 +26,10 @@ from pa_lib.log import info
 from pa_lib.util import excel_col
 
 #%% Define data location and deployment folder
-gv_DIR_DATA       = Path.home() / 'data/2019-09-09_4J_2W_KW37_Buchung/' # please adjust accordingly
-name_depl_folder  = '2019_09_09_finaltest' 
+gv_DIR_DATA       = Path.home() / 'data/2019-09-23_4J_2W_KW37_Buchung/' # please adjust accordingly
+name_depl_folder  = '2019_09_23'                                        # please adjust accordingly
 
-deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder       # please adjust accordingly
+deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
 
 #%% Create deployment folder
 os.mkdir(deployment_folder)
@@ -435,11 +435,11 @@ msg['Subject'] = "Verkaufsprognose: Excel-Listen"
 msg['From'] = Address("Predictive Analytics", "predictive_analytics", "apgsga.ch")
 msg['To'] = ', '.join(map(str,list(notify_emails.loc[:,"E_MAIL"])))
 
-msg.set_content(f"""\
+msg.set_content(fr"""
 Hallo zusammen,
 
 Im folgenden Verzeichnis findet ihr unter eurem Kürzel die aktuellen Excel-Listen:
-P:\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}
+\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}
 
 Zusätzliche Infos findet ihr auf Wiki:
 https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics
@@ -451,13 +451,13 @@ Euer Data Analytics Team
 # Add the html version.  This converts the message into a multipart/alternative
 # container, with the original text message as the first part and the new html
 # message as the second part.
-msg.add_alternative(f"""\
+msg.add_alternative(fr"""
 <html>
   <head></head>
   <body>
     <p>Hallo zusammen,</p>
     <p>Im folgenden Verzeichnis findet ihr unter eurem K&uuml;rzel die aktuellen Excel-Listen:</p>
-    <p style="padding-left: 30px;"><a href="P:\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">Verkaufsprognose: Excels</a></p>
+    <p style="padding-left: 30px;"><a href="\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">Verkaufsprognose: Excels</a></p>
     <p>&nbsp;</p>
     <p>Zus&auml;tzliche Infos findet ihr auf Wiki:</p>
     <p style="padding-left: 30px;"><a href="https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics">Wiki-Page</a></p>
