@@ -391,7 +391,6 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         # Write file into working folder
         writer.save()
 
-
 # %% Create Excels
 vb_sales_xlsx(vb_ek_map, 20)
 
