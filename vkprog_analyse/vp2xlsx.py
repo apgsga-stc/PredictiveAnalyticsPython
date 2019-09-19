@@ -16,21 +16,23 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 # %% Load modules
+import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from os import mkdir
 
 from pa_lib.log import info
 from pa_lib.util import excel_col
 
-<<<<<<< HEAD:vp2xlsx.py
-#%% Define data location
-gv_DIR_DATA = Path.home() / 'data/2019-09-09_4J_2W_KW37_Buchung/' # please adjust accordingly
-=======
-# %% Define data location
-gv_DIR_DATA = Path.home() / 'data' / '2019-08-26_4J_2W_KW35_Buchung'  # please adjust accordingly
->>>>>>> 51c7671abc448d716474c1070bf2c88191c61545:vkprog_analyse/vp2xlsx.py
+#%% Define data location and deployment folder
+gv_DIR_DATA       = Path.home() / 'data/2019-09-23_4J_2W_KW37_Buchung/' # please adjust accordingly
+name_depl_folder  = '2019_09_23'                                        # please adjust accordingly
 
+deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
+
+#%% Create deployment folder
+os.mkdir(deployment_folder)
 
 # %% Load Data: Active VBs, Complete scoring list
 
@@ -157,7 +159,7 @@ def overview_xlsx(df, file_name, sheet_name='df'):
     title_width = list(map(len, df.columns))
 
     # open file, create workbook & sheet
-    file_path = gv_DIR_DATA / file_name
+    file_path = deployment_folder / file_name
     info(f'Write file {file_path}')
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name=sheet_name)
@@ -246,10 +248,10 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
                     'error_title': 'Eingabe ungültig',
                     'error_message': 'Bitte auswählen:\n  - hilfreich\n  - nicht hilfreich\n  - nicht bearbeitet'}
 
-        info(f"Write file {gv_DIR_DATA / file_name_templ.format(vb)}")
+        info(f"Write file {deployment_folder / file_name_templ.format(vb)}")
 
         ## Create a Pandas Excel writer using XlsxWriter as the engine:
-        writer = pd.ExcelWriter(str(gv_DIR_DATA / file_name_templ.format(vb)),
+        writer = pd.ExcelWriter(str(deployment_folder / file_name_templ.format(vb)),
                                 # os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
                                 engine='xlsxwriter',
                                 datetime_format="dd.mm.yyyy")
@@ -389,9 +391,90 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         # Write file into working folder
         writer.save()
 
-
 # %% Create Excels
 vb_sales_xlsx(vb_ek_map, 20)
 
 overview_xlsx(vb_list, "vkber_potential.xlsx", sheet_name='VK')
 # %% End of file.
+
+#######################
+## Deployment Email! ##
+#######################
+
+##############
+# Email list #
+##############
+notify_emails = (vb_list.query('total_leads > 0')
+                        .loc[:, "E_MAIL"])
+notify_emails.at['STC'] = 'sam.truong@apgsga.ch'
+notify_emails.at['KPF'] = 'samcuong@gmx.ch'
+
+#notify_emails = notify_emails.iloc[-2:2] # for testing purposes!
+notify_emails = notify_emails.reset_index()
+
+notify_emails=notify_emails.iloc[36:,:]
+
+notify_emails.loc[:,"E_MAIL"]
+
+#########
+# libs ##
+#########
+
+from smtplib import SMTP
+
+from email.message import EmailMessage
+from email.headerregistry import Address
+
+######################
+# Define letter: msg #
+######################
+
+msg = EmailMessage()
+msg['Subject'] = "Verkaufsprognose: Excel-Listen"
+msg['From'] = Address("Predictive Analytics", "predictive_analytics", "apgsga.ch")
+msg['To'] = ', '.join(map(str,list(notify_emails.loc[:,"E_MAIL"])))
+
+msg.set_content(fr"""
+Hallo zusammen,
+
+Im folgenden Verzeichnis findet ihr unter eurem Kürzel die aktuellen Excel-Listen:
+\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}
+
+Zusätzliche Infos findet ihr auf Wiki:
+https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics
+
+Lieben Gruss,
+Euer Data Analytics Team
+""")
+
+# Add the html version.  This converts the message into a multipart/alternative
+# container, with the original text message as the first part and the new html
+# message as the second part.
+msg.add_alternative(fr"""
+<html>
+  <head></head>
+  <body>
+    <p>Hallo zusammen,</p>
+    <p>Im folgenden Verzeichnis findet ihr unter eurem K&uuml;rzel die aktuellen Excel-Listen:</p>
+    <p style="padding-left: 30px;"><a href="\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">Verkaufsprognose: Excels</a></p>
+    <p>&nbsp;</p>
+    <p>Zus&auml;tzliche Infos findet ihr auf Wiki:</p>
+    <p style="padding-left: 30px;"><a href="https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics">Wiki-Page</a></p>
+    <p>&nbsp;</p>
+    <p>Lieben Gruss,</p>
+    <p>Euer Data Analytics Team</p>
+  </body>
+</html>
+""", subtype='html')
+
+print(msg.as_string())
+
+###############
+# Send emails #
+###############
+
+with SMTP(host='mailint.apgsga.ch') as mail_gateway:
+    mail_gateway.set_debuglevel(True)
+    mail_gateway.send_message(msg)
+    
+# End of file.
