@@ -118,33 +118,12 @@ def aggregate_bookings(df, period):
     info("aggregate_bookings: Done.")
     return df_aggr
 
-
-## Apply functions ##
-
-bd_aggr_2w = aggregate_bookings(bd, 'KW_2')
-
 ######################
 ## Global Variables ##
 ######################
 
 import datetime as dt
 from dateutil.relativedelta import relativedelta
-
-#date_now      = dt.datetime.now() # only works for odd calendar weeks!!!
-date_now      = dt.datetime(2019,9,23) # only works for odd calendar weeks!!!
-
-date_training = date_now - relativedelta(years=1) 
-number_years  = 4 # how many years should be featured
-
-current_year_kw_day = date_now.isocalendar()
-current_yyyykw = current_year_kw_day[0]*100+current_year_kw_day[1] # Current calender week in format: YYYYKW
-
-global_variables = dict({"date_now": date_now, 
-                         "current_year_kw_day": current_year_kw_day,
-                         "current_yyyykw"     : current_yyyykw,
-                         "number_years"       : number_years,
-                         "date_training"      : date_training}
-                       )
 
 #############################
 ## Data Prep: Booking Data ##
@@ -261,34 +240,6 @@ def booking_data(YYYYKW, year_span):
     return pd.merge(bd_flattened, yearly_totals, on="Endkunde_NR", how="left")
 
 
-## Apply functions ##
-
-print("Creating: scoring_bd")
-scoring_bd  = booking_data(current_yyyykw,4)
-
-print("Creating: training_bd")
-training_bd = booking_data(current_yyyykw-100,4)
-
-# Check if both tables have the same columns names
-print("[", list(scoring_bd.columns) == list(training_bd.columns), "] Both sets have same columns")
-
-# Show me the first few lines
-print("training_bd:")
-training_bd.head(4)
-
-#########################
-## Set feature columns ##
-#########################
-
-feature_colnames_bd = list(training_bd.columns)   
-# Don't scale the following columns:
-feature_colnames_bd.remove("Endkunde_NR")
-feature_colnames_bd.remove("Target_Aus_flg")
-feature_colnames_bd.remove("Target_Res_flg")
-
-display(feature_colnames_bd)
-
-
 #######################
 ## Reservation Dates ##
 #######################
@@ -337,54 +288,11 @@ def dates_bd(view_date):
     
     return final_selection
 
+################
+## Scale Data ##
+################
 
-## Apply function ##
-
-
-print("Creating: training_dates")
-training_dates = dates_bd(date_training)
-print("Creating: scoring_dates")
-scoring_dates  = dates_bd(date_now)
-
-# Check if both tables have the same columns names
-print("[", list(scoring_dates.columns) == list(training_dates.columns), "] Both sets have same columns")
-
-##  Store date-feature names in a list ##
-
-feature_colnames_dates = list(training_dates.columns)
-feature_colnames_dates.remove("Endkunde_NR")
-feature_colnames_dates.remove("Kampagne_Erfass_Datum_min")
-feature_colnames_dates.remove("Kampagne_Erfass_Datum_max")
-print(feature_colnames_dates)
-
-####################
-## Merge Datasets ##
-####################
-
-# 1. Reservation Dates
-# 2. Booking data
-
-# <div class="alert alert-block alert-info">
-# <b>Remark:</b> Merge via INNER-JOIN, to apply all necessary filtration criteria.
-# </div>
-
-training_all = pd.merge(training_dates,training_bd,on="Endkunde_NR", how="inner")
-scoring_all  = pd.merge(scoring_dates,  scoring_bd, on="Endkunde_NR", how="inner")
-
-# Check if both tables have the same columns names
-print("[", list(scoring_all.columns) == list(training_all.columns), "] Both sets have same columns")
-
-
-# ## Scale Data
-
-# <div class="alert alert-block alert-info">
-# <b>Remark:</b> Scaling has to take place after all filtrations have taken place!
-# </div>
-
-# In[48]:
-
-
-def _scaling_bd(dataset,col_bookings=[], col_dates=[]):
+def scaling_bd(dataset,col_bookings=[], col_dates=[]):
     """
     Booking columns are heavily right-skewed:
      1. log-transform all columns => achieving approx. gaussian distribution
@@ -403,7 +311,7 @@ def _scaling_bd(dataset,col_bookings=[], col_dates=[]):
         transformed = dataset.loc[:,x]
         min_ = np.min(transformed)
         max_ = np.max(transformed)
-        dataset[x] = (transformed-min_)/ (max_-min_)  
+        dataset[x] = (transformed-min_) / (max_-min_)  
         
     
     return dataset
@@ -420,7 +328,48 @@ scaled_training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
 
 
 ########################################################################################################
-def bd_train_scoring(ref_date, years):
-    data = load_booking_data()
 
-    return (train, scoring)
+def bd_train_scoring(day, month, year_score, year_train, year_span) :
+    
+    date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
+    date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
+    
+    current_yyyykw  = year_score*100+day
+    training_yyyykw = year_train*100+day
+    
+    global bd
+    global bd_aggr_2w
+    
+    bd          = load_booking_data()
+    bd_aggr_2w  = aggregate_bookings(bd, 'KW_2')
+    scoring_bd  = booking_data(current_yyyykw, year_span )
+    training_bd = booking_data(training_yyyykw, year_span)
+
+    ##  Store date-feature names in a list ##
+    feature_colnames_bd = list(training_bd.columns)   
+    feature_colnames_bd.remove("Endkunde_NR")
+    feature_colnames_bd.remove("Target_Aus_flg")
+    feature_colnames_bd.remove("Target_Res_flg")
+    
+    training_dates = dates_bd(date_training)
+    scoring_dates  = dates_bd(date_now)
+
+    ##  Store date-feature names in a list ##
+    feature_colnames_dates = list(training_dates.columns)
+    feature_colnames_dates.remove("Endkunde_NR")
+    feature_colnames_dates.remove("Kampagne_Erfass_Datum_min")
+    feature_colnames_dates.remove("Kampagne_Erfass_Datum_max")
+
+    training_all = pd.merge(training_dates,training_bd, on="Endkunde_NR", how="inner")
+    scoring_all  = pd.merge(scoring_dates,  scoring_bd, on="Endkunde_NR", how="inner")
+    
+    info("Done.")
+    return (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates)
+
+(training_all, scoring_all, feature_colnames_bd, feature_colnames_dates) = bd_train_scoring(9,9,2019,2018,4)
+
+#check
+training_all.head(3)
+scoring_all.head(3)
+feature_colnames_bd
+feature_colnames_dates
