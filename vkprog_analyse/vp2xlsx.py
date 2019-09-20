@@ -26,8 +26,8 @@ from pa_lib.log import info
 from pa_lib.util import excel_col
 
 #%% Define data location and deployment folder
-gv_DIR_DATA       = Path.home() / 'data/2019-09-09_4J_2W_KW37_Buchung/' # please adjust accordingly
-name_depl_folder  = '2019_09_09_finaltest'                              # please adjust accordingly
+gv_DIR_DATA       = Path.home() / 'data/2019-09-23_4J_2W_KW39_Buchung/' # please adjust accordingly
+name_depl_folder  = '2019_09_23'                                        # please adjust accordingly
 
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
 
@@ -407,13 +407,8 @@ overview_xlsx(vb_list, "vkber_potential.xlsx", sheet_name='VK')
 notify_emails = (vb_list.query('total_leads > 0')
                         .loc[:, "E_MAIL"])
 notify_emails.at['STC'] = 'sam.truong@apgsga.ch'
-notify_emails.at['KPF'] = 'samcuong@gmx.ch'
-
-#notify_emails = notify_emails.iloc[-2:2] # for testing purposes!
+notify_emails.at['KPF'] = 'kaspar.pflugshaupt@apgsga.ch'
 notify_emails = notify_emails.reset_index()
-
-notify_emails=notify_emails.iloc[36:,:]
-
 notify_emails.loc[:,"E_MAIL"]
 
 #########
@@ -421,7 +416,6 @@ notify_emails.loc[:,"E_MAIL"]
 #########
 
 from smtplib import SMTP
-
 from email.message import EmailMessage
 from email.headerregistry import Address
 
