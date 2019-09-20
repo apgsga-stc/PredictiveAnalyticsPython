@@ -8,16 +8,16 @@
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-#matplotlib inline
-import sklearn
-import seaborn as sns
 
 #######################
 ## Datenaufbereitung ##
 #######################
 
 ## Libraries & Settings ##
+from pa_lib.file import load_bin
+from pa_lib.util import cap_words
+from pa_lib.log import time_log, info
+
 
 # make imports from pa_lib possible (parent directory of file's directory)
 import sys
@@ -27,28 +27,12 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
-import pandas as pd
-import numpy as np
-import qgrid
-from datetime import datetime as dtt
 
-from pa_lib.file import data_files, load_bin, store_bin, load_csv, write_xlsx, load_xlsx
+
 from pa_lib.data import (
-    calc_col_partitioned,
     clean_up_categoricals,
     unfactorize,
-    flatten,
-    replace_col,
-    cond_col,
-    desc_col,
-    unfactorize,
-    as_dtype,
-    flatten_multi_index_cols,
 )
-from pa_lib.util import obj_size, cap_words, normalize_rows, clear_row_max
-from pa_lib.log import time_log, info
-from pa_lib.vis import dive
-
 
 ###################
 ## Load raw data ##
@@ -319,6 +303,9 @@ def scaling_bd(dataset,col_bookings=[], col_dates=[]):
 ########################################################################################################
 
 def bd_train_scoring(day, month, year_score, year_train, year_span, scale_features = False) :
+    """
+    Creates scoring-dataset, training-dataset, feature columns name lists for bookings and booking-dates
+    """
     
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
     date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
@@ -334,7 +321,7 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
     scoring_bd  = booking_data(current_yyyykw, year_span )
     training_bd = booking_data(training_yyyykw, year_span)
 
-    ##  Store date-feature names in a list ##
+    ##  Store booking-feature names in a list ##
     feature_colnames_bd = list(training_bd.columns)   
     feature_colnames_bd.remove("Endkunde_NR")
     feature_colnames_bd.remove("Target_Aus_flg")
@@ -364,25 +351,23 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
     
     return (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates)
 
-(training_all, scoring_all, feature_colnames_bd, feature_colnames_dates) = bd_train_scoring(day=9,month=9,year_score=2019,year_train=2018,year_span=4,scale_features=True)
+#####################################################################
+
+(training_all, scoring_all, feature_colnames_bd, feature_colnames_dates) = bd_train_scoring(
+    day=9,
+    month=9,
+    year_score=2019,
+    year_train=2018,
+    year_span=4,
+    scale_features=True)
+
 
 #check
 training_all.head(3)
+training_all.describe()
 scoring_all.head(3)
 feature_colnames_bd
 feature_colnames_dates
 
 
-
-
-
-## Apply functions ##
-
-
-scaled_training_all = scaling_bd(training_all,col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
-scaled_scoring_all  = scaling_bd(scoring_all, col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
-
-scaled_scoring_all
-
-
-scaled_training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
+#training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
