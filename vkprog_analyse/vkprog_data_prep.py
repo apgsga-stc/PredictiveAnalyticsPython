@@ -316,20 +316,9 @@ def scaling_bd(dataset,col_bookings=[], col_dates=[]):
     
     return dataset
 
-
-## Apply functions ##
-
-
-scaled_training_all = scaling_bd(training_all,col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
-scaled_scoring_all  = scaling_bd(scoring_all, col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
-
-scaled_training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
-
-
-
 ########################################################################################################
 
-def bd_train_scoring(day, month, year_score, year_train, year_span) :
+def bd_train_scoring(day, month, year_score, year_train, year_span, scale_features = False) :
     
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
     date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
@@ -363,13 +352,37 @@ def bd_train_scoring(day, month, year_score, year_train, year_span) :
     training_all = pd.merge(training_dates,training_bd, on="Endkunde_NR", how="inner")
     scoring_all  = pd.merge(scoring_dates,  scoring_bd, on="Endkunde_NR", how="inner")
     
+    if scale_features == True:
+        info("Scaling features")
+        training_all = scaling_bd(training_all,col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
+        scoring_all  = scaling_bd(scoring_all, col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
+        
+    else:
+        info("Unscaled features")
+        
     info("Done.")
+    
     return (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates)
 
-(training_all, scoring_all, feature_colnames_bd, feature_colnames_dates) = bd_train_scoring(9,9,2019,2018,4)
+(training_all, scoring_all, feature_colnames_bd, feature_colnames_dates) = bd_train_scoring(day=9,month=9,year_score=2019,year_train=2018,year_span=4,scale_features=True)
 
 #check
 training_all.head(3)
 scoring_all.head(3)
 feature_colnames_bd
 feature_colnames_dates
+
+
+
+
+
+## Apply functions ##
+
+
+scaled_training_all = scaling_bd(training_all,col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
+scaled_scoring_all  = scaling_bd(scoring_all, col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
+
+scaled_scoring_all
+
+
+scaled_training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
