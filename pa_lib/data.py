@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 
 from pa_lib.util import format_size, flatten
 from pa_lib.types import dtFactor, dtKW, dtYear
@@ -224,7 +225,7 @@ def make_period_diff(
     )
 
 
-def boxplot_histogram(x, bins=None, figsize=(15,10)):
+def boxplot_histogram(x=np.random.normal(loc=1.5, scale=2, size=10000), bins=None, figsize=(15,10)):
     """Creates two plots stacked underneath each other. Upper plot: Boxplot. Lower plot: Histogram. Input is any array."""
     sns.set(style="ticks")
     f, (ax_box, ax_hist) = plt.subplots(2, sharex=True, 
