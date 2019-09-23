@@ -347,7 +347,7 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
     else:
         info("Unscaled features")
         
-    info("Done.")
+    info("Finished.")
     
     return (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates)
 
