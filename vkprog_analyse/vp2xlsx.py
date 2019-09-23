@@ -408,6 +408,7 @@ notify_emails = (vb_list.query('total_leads > 0')
                         .loc[:, "E_MAIL"])
 notify_emails.at['STC'] = 'sam.truong@apgsga.ch'
 notify_emails.at['KPF'] = 'kaspar.pflugshaupt@apgsga.ch'
+notify_emails.at['RPE'] = 'reto.pensa@apgsga.ch'
 notify_emails = notify_emails.reset_index()
 notify_emails.loc[:,"E_MAIL"]
 
