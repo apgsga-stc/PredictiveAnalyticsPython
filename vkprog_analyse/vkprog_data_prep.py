@@ -13,11 +13,6 @@ import pandas as pd
 ## Datenaufbereitung ##
 #######################
 
-## Libraries & Settings ##
-from pa_lib.file import load_bin
-from pa_lib.util import cap_words
-from pa_lib.log import time_log, info
-
 
 # make imports from pa_lib possible (parent directory of file's directory)
 import sys
@@ -28,6 +23,14 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 
+
+## Libraries & Settings ##
+from pa_lib.file import load_bin
+from pa_lib.util import cap_words
+from pa_lib.log import time_log, info
+
+import datetime as dt
+from dateutil.relativedelta import relativedelta
 
 from pa_lib.data import (
     clean_up_categoricals,
@@ -205,7 +208,7 @@ def booking_data(YYYYKW, year_span):
                             .replace(")","") for x in bd_flattened.columns]
     
     # Label target variables:
-    KW = "KW_"+str(int(YYYYKW- np.floor(YYYYKW/100)*100))
+    KW = "KW_"+str(int(YYYYKW- (YYYYKW//100)*100))
     bd_flattened.rename(columns={"Netto_Sum_Res_RY_0_"+KW: "Target_Sum_Res_RY_0_"+KW,
                                  "Netto_Sum_Aus_RY_0_"+KW: "Target_Sum_Aus_RY_0_"+KW},
                         inplace=True)
@@ -310,14 +313,21 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
     date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
     
-    current_yyyykw  = year_score*100+day
-    training_yyyykw = year_train*100+day
+    kw_now        = date_now.isocalendar()[1]
+    
+    global current_yyyykw
+    global training_yyyykw
+    
+    current_yyyykw  = year_score*100+kw_now
+    training_yyyykw = year_train*100+kw_now
     
     global bd
     global bd_aggr_2w
     
     bd          = load_booking_data()
     bd_aggr_2w  = aggregate_bookings(bd, 'KW_2')
+    info(f"current_yyyykw: {current_yyyykw}")
+    info(f"training_yyyykw:{training_yyyykw}")
     scoring_bd  = booking_data(current_yyyykw, year_span )
     training_bd = booking_data(training_yyyykw, year_span)
 
@@ -353,8 +363,9 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
 
 #####################################################################
 
+"""
 (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates) = bd_train_scoring(
-    day=9,
+    day=23,
     month=9,
     year_score=2019,
     year_train=2018,
@@ -371,3 +382,5 @@ feature_colnames_dates
 
 
 #training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
+
+"""

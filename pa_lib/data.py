@@ -8,6 +8,7 @@ Data frame related functions
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import matplotlib.pyplot as plt
 
 from pa_lib.util import format_size, flatten
 from pa_lib.types import dtFactor, dtKW, dtYear
@@ -221,7 +222,6 @@ def make_period_diff(
         f"{diff_col} = ({year_col_2} - {year_col_1}) * (52 // {round_by}) \
                                 + ({period_col_2} - {period_col_1})"
     )
-
 
 
 def boxplot_histogram(x, bins=None, figsize=(15,10)):
