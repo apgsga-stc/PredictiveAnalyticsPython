@@ -7,6 +7,7 @@ Data frame related functions
 """
 import pandas as pd
 import numpy as np
+import seaborn as sns
 
 from pa_lib.util import format_size, flatten
 from pa_lib.types import dtFactor, dtKW, dtYear
@@ -220,3 +221,28 @@ def make_period_diff(
         f"{diff_col} = ({year_col_2} - {year_col_1}) * (52 // {round_by}) \
                                 + ({period_col_2} - {period_col_1})"
     )
+
+
+
+def boxplot_histogram(x, bins=None, figsize=(15,10)):
+    """Creates two plots stacked underneath each other. Upper plot: Boxplot. Lower plot: Histogram. Input is any array."""
+    sns.set(style="ticks")
+    f, (ax_box, ax_hist) = plt.subplots(2, sharex=True, 
+                                        gridspec_kw={"height_ratios": (.15, .85)},
+                                        figsize=figsize)
+
+    sns.boxplot(x, notch=True,ax=ax_box)
+    sns.distplot(x, ax=ax_hist,bins=bins)
+    ax_hist.grid(True)
+    ax_hist.set_title('Historgram')
+    ax_hist.set_ylabel('Percentage')
+    ax_hist.set_xlabel('Value Range')
+
+    ax_box.set(yticks=[])
+    ax_box.set_title('Boxplot')
+    ax_box.grid(True)
+    sns.despine(ax=ax_hist)
+    sns.despine(ax=ax_box, left=True)
+    
+    plt.show()
+    
