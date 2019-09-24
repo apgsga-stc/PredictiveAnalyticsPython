@@ -262,7 +262,7 @@ def graph_jahresverlauf(PvNr, typ='aushang'):
 ```
 
 ```python
-graph_jahresverlauf(pv_liste[:20], 'resserv').display()
+graph_jahresverlauf(pv_liste[:20], 'reserv').display()
 ```
 
 # Aushang per Vertrag per Datum
