@@ -214,9 +214,7 @@ def make_isoweek_rd(df, kw_col, round_by=()):
 
 
 def make_period_diff(
-    df, year_col_1, period_col_1, 
-    year_col_2, period_col_2, 
-    diff_col="diff", round_by=2
+    df, year_col_1, period_col_1, year_col_2, period_col_2, diff_col="diff", round_by=2
 ):
     """Calculates difference (in periods) between two year/period column pairs"""
     return df.eval(
@@ -225,25 +223,53 @@ def make_period_diff(
     )
 
 
-def boxplot_histogram(x=np.random.normal(loc=1.5, scale=2, size=10000), bins=None, figsize=(15,10)):
+def boxplot_histogram(
+    x=np.random.normal(loc=1.5, scale=2, size=10000), bins=None, figsize=(15, 10)
+):
     """Creates two plots stacked underneath each other. Upper plot: Boxplot. Lower plot: Histogram. Input is any array."""
     sns.set(style="ticks")
-    f, (ax_box, ax_hist) = plt.subplots(2, sharex=True, 
-                                        gridspec_kw={"height_ratios": (.15, .85)},
-                                        figsize=figsize)
+    f, (ax_box, ax_hist) = plt.subplots(
+        2, sharex=True, gridspec_kw={"height_ratios": (0.15, 0.85)}, figsize=figsize
+    )
 
-    sns.boxplot(x, notch=True,ax=ax_box)
-    sns.distplot(x, ax=ax_hist,bins=bins)
+    sns.boxplot(x, notch=True, ax=ax_box)
+    sns.distplot(x, bins=bins, ax=ax_hist)
     ax_hist.grid(True)
-    ax_hist.set_title('Historgram')
-    ax_hist.set_ylabel('Percentage')
-    ax_hist.set_xlabel('Value Range')
+    ax_hist.set_title("Histogram")
+    ax_hist.set_ylabel("Percentage")
+    ax_hist.set_xlabel("Value Range")
 
     ax_box.set(yticks=[])
-    ax_box.set_title('Boxplot')
+    ax_box.set_title("Boxplot")
     ax_box.grid(True)
     sns.despine(ax=ax_hist)
     sns.despine(ax=ax_box, left=True)
-    
+
     plt.show()
-    
+
+
+def lookup(
+    src_df, src_id_col, target_df, *, target_id_col=None, target_col, new_col=None
+):
+    """Create new column in df from other_df.target_col, by matching src_id_col with target_id_col.
+       If target_id_col is not specified, src_id_col is used.
+       Name for new column can be supplied in new_col. Otherwise, it's named like target_col.
+    """
+    if target_id_col is None:
+        target_id_col = src_id_col
+    if new_col is None:
+        new_col = target_col
+    if target_col in src_df.columns:
+        target_col += "_new"
+    result = src_df.assign(
+        **{
+            new_col: src_df.merge(
+                target_df,
+                how="left",
+                left_on=src_id_col,
+                right_on=target_id_col,
+                suffixes=("", "_new"),
+            )[target_col].values
+        }
+    )
+    return result
