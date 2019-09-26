@@ -17,6 +17,7 @@ import sys
 from datetime import datetime as dtt
 from itertools import chain
 from collections import OrderedDict, deque
+from contextlib import contextmanager
 
 
 ###############################################################################
@@ -193,6 +194,13 @@ def iso_year(date):
 
 
 ###############################################################################
+@contextmanager
+def value(expr):
+    """Allows 'with(expr) as result:' blocks"""
+    yield expr
+
+
+###############################################################################
 def normalize_rows(df):
     return df.div(df.sum(axis="columns"), axis="index")
 
@@ -232,6 +240,7 @@ def excel_col(nr):
 
 ###############################################################################
 def max_is_outlier(series):
+    """Tukey's outlier test on the series' maximum"""
     q25 = series.quantile(0.25)
     q75 = series.quantile(0.75)
     return series.max() >= (q25 + 1.5 * (q75 - q25))
@@ -249,6 +258,11 @@ def peaks(series):
 def non_repeated(series):
     """Strip value repetitions from a series"""
     return series.loc[series.diff() != 0]
+
+
+def collect(series, sep=","):
+    """Sorted string concatenation of a series' unique values"""
+    return sep.join(map(str, series[series.notna()].unique()))
 
 
 ###############################################################################

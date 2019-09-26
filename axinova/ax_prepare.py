@@ -12,9 +12,8 @@ sys.path.append(str(parent_dir))
 import pandas as pd
 import numpy as np
 
-from pa_lib.types import Record
-from pa_lib.file import store_bin, project_dir, data_files, load_csv
-from pa_lib.data import as_dtype, dtFactor
+from pa_lib.file import store_bin, project_dir, data_files, load_csv, load_xlsx
+from pa_lib.data import as_dtype, dtFactor, lookup, cut_categorical, merge_categories
 from pa_lib.log import time_log
 
 
@@ -69,22 +68,48 @@ def load_ax_data(source_dir):
     return all_data, var_labels
 
 
+def convert_ax_data(data, var_labels):
+    # Add columns: logValue, Variable description
+    result = data.assign(
+        logValue=np.log(data["Value"]),
+        VarDesc=lookup(var_labels, target_col_name="Label", match_col=data["Variable"]),
+    ).pipe(as_dtype, to_dtype=dtFactor, incl_dtype="object")
+
+    # Order weekdays correctly
+    result["DayOfWeek"] = (
+        result["DayOfWeek"]
+        .astype("category")
+        .cat.reorder_categories(
+            "Monday Tuesday Wednesday Thursday Friday Saturday Sunday".split(),
+            ordered=True,
+        )
+    )
+
+    # Add column: Time Slots
+    result["TimeSlot"] = (
+        result["Time"]
+        .pipe(
+            cut_categorical,
+            left_limits="00:00 06:15 08:45 11:30 12:30 15:30 18:30 23:00".split(),
+            labels="Nacht Morgen-Rush Morgen Mittag Nachmittag Abend-Rush Abend Nacht_spät".split(),
+            cat_convert=lambda x: x[:5],  # match start time of interval in 'Time'
+        )
+        .pipe(merge_categories, cat="Nacht_spät", into_cat="Nacht")
+    )
+
+    result = result.sort_values(
+        by=["Station", "DayOfWeek", "Time", "Variable", "Code"]
+    ).reset_index(drop=True)
+    return result
+
+
 ########################################################################################
 # MAIN CODE
 ########################################################################################
-ax_data, ax_var_labels = load_ax_data(source_dir="axinova_20190906")
+ax_data, ax_var_labels = load_ax_data(source_dir="axinova_20190924")
+
 with time_log("converting data"):
-    ax_data = ax_data.assign(
-        logValue=np.log(ax_data['Value']),
-        Station_Time=ax_data['Station'].str.cat(ax_data['Time'], sep=" "),
-        VarDesc=(ax_data.merge(ax_var_labels, how="left", on="Variable")["Label"]).values,
-    ).pipe(as_dtype, to_dtype=dtFactor, incl_dtype="object")
-    ax_data.DayOfWeek = ax_data.DayOfWeek.astype("category").cat.reorder_categories(
-        "Monday Tuesday Wednesday Thursday Friday Saturday Sunday".split(), ordered=True
-    )
-    ax_data = ax_data.sort_values(
-        by=["Station", "DayOfWeek", "Variable", "Code"]
-    ).reset_index(drop=True)
+    ax_data = convert_ax_data(ax_data, ax_var_labels)
 
 with project_dir("axinova"):
     store_bin(ax_data, "ax_data.feather")

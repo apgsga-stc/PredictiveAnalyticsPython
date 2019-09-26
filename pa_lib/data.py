@@ -5,16 +5,16 @@ Created on Wed Mar  6 15:33:01 2019
 Data frame related functions
 @author: kpf
 """
-import pandas as pd
-import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 
-from pa_lib.util import format_size, flatten
 from pa_lib.types import dtFactor, dtKW, dtYear
+from pa_lib.util import format_size, flatten
 
 
+########################################################################################
 def desc_col(df, det=False):
     if det:
         return df.apply(
@@ -46,6 +46,7 @@ def flatten_multi_index_cols(df, sep="_"):
     return df
 
 
+########################################################################################
 def select_columns(df, incl_col=None, incl_pattern=None, incl_dtype=None):
     """Filter column list. Specify column names, patterns, or source dtypes"""
     col_list = list()
@@ -128,6 +129,7 @@ def clean_up_categoricals(df, **selectors):
     return df
 
 
+########################################################################################
 def replace_col(df, col, with_col, where):
     """Replace values of columns 'col' with values from columns 'with_col'
        where 'where' is True"""
@@ -173,6 +175,7 @@ def make_sumcurve(df, sum_col_name, crv_col_name, on, part_by):
     return df
 
 
+########################################################################################
 def make_isoyear(df, dt_col, yr_col="YEAR"):
     df.loc[:, yr_col] = df[dt_col].dt.strftime("%G").astype("int16")
     return df
@@ -223,53 +226,85 @@ def make_period_diff(
     )
 
 
-def boxplot_histogram(
-    x=np.random.normal(loc=1.5, scale=2, size=10000), bins=None, figsize=(15, 10)
-):
-    """Creates two plots stacked underneath each other. Upper plot: Boxplot. Lower plot: Histogram. Input is any array."""
+########################################################################################
+def boxplot_histogram(x=None, bins=None, figsize=(15, 10)):
+    """Creates two plots stacked underneath each other.
+       Upper plot: Boxplot. Lower plot: Histogram. Input is any array."""
+    if x is None:
+        x = np.random.normal(loc=1.5, scale=2, size=10000)
+
     sns.set(style="ticks")
     f, (ax_box, ax_hist) = plt.subplots(
-        2, sharex=True, gridspec_kw={"height_ratios": (0.15, 0.85)}, figsize=figsize
+        nrows=2,
+        ncols=1,
+        sharex="row",
+        gridspec_kw={"height_ratios": (0.15, 0.85)},
+        figsize=figsize,
     )
 
+    # Boxplot
     sns.boxplot(x, notch=True, ax=ax_box)
+    ax_box.set(yticks=[])
+    ax_box.set_title("Boxplot")
+    ax_box.grid(True)
+    sns.despine(ax=ax_box, left=True)
+
+    # Histogram
     sns.distplot(x, bins=bins, ax=ax_hist)
     ax_hist.grid(True)
     ax_hist.set_title("Histogram")
     ax_hist.set_ylabel("Percentage")
     ax_hist.set_xlabel("Value Range")
-
-    ax_box.set(yticks=[])
-    ax_box.set_title("Boxplot")
-    ax_box.grid(True)
     sns.despine(ax=ax_hist)
-    sns.despine(ax=ax_box, left=True)
 
     plt.show()
 
 
-def lookup(
-    src_df, src_id_col, target_df, *, target_id_col=None, target_col, new_col=None
-):
-    """Create new column in df from other_df.target_col, by matching src_id_col with target_id_col.
-       If target_id_col is not specified, src_id_col is used.
-       Name for new column can be supplied in new_col. Otherwise, it's named like target_col.
+########################################################################################
+def lookup(target_df, target_col_name, match_col, target_match_col_name=None):
+    """Create new column from target_df.target_col, by matching src_id_col with target_id_col.
+       If target_id_col is not specified, src_id_col.name is used.
     """
-    if target_id_col is None:
-        target_id_col = src_id_col
-    if new_col is None:
-        new_col = target_col
-    if target_col in src_df.columns:
-        target_col += "_new"
-    result = src_df.assign(
-        **{
-            new_col: src_df.merge(
-                target_df,
-                how="left",
-                left_on=src_id_col,
-                right_on=target_id_col,
-                suffixes=("", "_new"),
-            )[target_col].values
-        }
+    if target_match_col_name is None:
+        target_match_col_name = match_col.name
+    new_col = (
+        target_df.set_index(target_match_col_name)
+        .reindex(match_col)[target_col_name]
+        .values
     )
-    return result
+    return new_col
+
+
+########################################################################################
+def merge_categories(series, cat, into_cat):
+    """On a categorical series, merge all instances of cat into into_cat and remove cat from categories"""
+    series[series == cat] = into_cat
+    return series.cat.remove_unused_categories()
+
+
+def cut_categorical(series, left_limits, labels=None, cat_convert=lambda x: x):
+    """Cuts an ordered categorical series into bins specified by 'left_limits' and named as 'labels' 
+       (defaults to 'left_limits').
+       'cat_convert' allows to specify 'left_limits' in terms of a function on the series' categories
+       (defaults to identity).
+    """
+    if not pd.api.types.is_categorical_dtype(series) or not series.cat.ordered:
+        raise TypeError("Series must be an ordered categorical")
+    if labels is None:
+        labels = left_limits
+    elif len(labels) != len(left_limits):
+        raise ValueError("'labels' and 'left_limits' must have the same length")
+
+    # pd.cut works on numeric columns only. So, we cut the codes of our categorical
+    codes = series.cat.codes
+
+    # apply cat_convert to our categories
+    categories = map(cat_convert, series.cat.categories)
+
+    # get bins by mapping left_limits to corresponding codes, adding an upper maximum limit
+    limit_code = {category: code for code, category in enumerate(categories)}
+    bins = list(map(lambda limit: limit_code[limit], left_limits)) + [
+        max(limit_code.values()) + 1
+    ]
+
+    return pd.cut(codes, bins=bins, labels=labels, right=False)
