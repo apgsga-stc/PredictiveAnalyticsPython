@@ -97,6 +97,7 @@ def convert_ax_data(data, var_labels):
         )
         .pipe(merge_categories, cat="Nacht_spät", into_cat="Nacht")
     )
+
     # Add column: Hour
     result['Hour'] = (
         result['Time'].str[:2]
