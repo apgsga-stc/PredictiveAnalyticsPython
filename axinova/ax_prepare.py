@@ -15,6 +15,7 @@ import numpy as np
 from pa_lib.file import store_bin, project_dir, data_files, load_csv, load_xlsx
 from pa_lib.data import as_dtype, dtFactor, lookup, cut_categorical, merge_categories
 from pa_lib.log import time_log
+from pa_lib.types import dtFactor
 
 
 ########################################################################################
@@ -96,6 +97,10 @@ def convert_ax_data(data, var_labels):
         )
         .pipe(merge_categories, cat="Nacht_spät", into_cat="Nacht")
     )
+    # Add column: Hour
+    result['Hour'] = (
+        result['Time'].str[:2]
+    ).astype(dtFactor)
 
     result = result.sort_values(
         by=["Station", "DayOfWeek", "Time", "Variable", "Code"]
