@@ -122,7 +122,7 @@ vb_list = (
         Vorname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[2]),
         Nachname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[0])
     )
-        .loc[:, ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]]
+        .loc[vb_list['KAM'] == False, ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]]
         .set_index("KURZZEICHEN")
 )
 
