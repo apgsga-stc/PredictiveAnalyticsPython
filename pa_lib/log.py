@@ -68,6 +68,7 @@ class time_log(ContextDecorator):
     def __enter__(self):
         self.start_time = time.perf_counter()
         self.start_cpu = time.process_time()
+        info(f"Started {self.name}")
 
     def __exit__(self, exc_type, exc, exc_tb):
         elapsed = time.perf_counter() - self.start_time

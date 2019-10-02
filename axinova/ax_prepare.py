@@ -23,7 +23,9 @@ def load_ax_data(source_dir):
     # how to find & read our data files
     data_pattern = "*Bahnhof_Uhrzeit_*.csv"
     data_params = dict(encoding="cp1252")
-    label_pattern = "*VariablenBeschreibung.xlsx"
+    label_pattern = (
+        "[!~]*VariablenBeschreibung.xlsx"
+    )  # if file is open in Excel, there's a ~ shadow file
 
     data_by_month = {}
     with project_dir(source_dir):
@@ -39,19 +41,37 @@ def load_ax_data(source_dir):
             data_by_month[yearmonth] = load_csv(data_file, **data_params)
 
         # read label file
+        correct_columns = ["Variable", "Label", "Bemerkung"]
         file_list = data_files(label_pattern)
         if file_list.shape[0] == 0:
             raise FileNotFoundError(
-                f"No label file matches '{data_pattern}' in data subdirectory '{source_dir}'"
+                f"No label file matches '{label_pattern}' in data subdirectory '{source_dir}'"
             )
         elif file_list.shape[0] > 1:
             raise Exception(
-                f"Multiple label files match '{data_pattern}' in data subdirectory '{source_dir}'"
+                f"Multiple label files match '{label_pattern}' in data subdirectory '{source_dir}'"
             )
         label_file = file_list.index[0]
+
         var_labels = load_xlsx(
             label_file, sheet_name="Variablenbeschreibung", usecols=[0, 1, 2], header=0
         )
+        assert (
+            var_labels.columns.to_list() == correct_columns
+        ), f"Wrong variable labels columns: {var_labels.columns.to_list()}"
+        code_labels = load_xlsx(
+            label_file,
+            sheet_name="Wertelabels",
+            usecols=[0, 2, 3],  # col 1 holds a numeric code
+            header=0,
+        )
+        assert (
+            code_labels.columns.to_list() == correct_columns
+        ), f"Wrong code label columns: {code_labels.columns.to_list()}"
+        code_labels["Variable_Label"] = lookup(
+            var_labels, target_col_name="Label", match_col=code_labels["Variable"]
+        )
+        var_struct = code_labels.loc[:, "Variable Variable_Label Label".split()]
 
     with time_log("merging data"):
         all_data = pd.DataFrame(
@@ -66,14 +86,14 @@ def load_ax_data(source_dir):
                 ignore_index=True,
             )
 
-    return all_data, var_labels
+    return all_data, var_struct
 
 
-def convert_ax_data(data, var_labels):
+def convert_ax_data(data, var_struct):
     # Add columns: logValue, Variable description
     result = data.assign(
         logValue=np.log(data["Value"]),
-        VarDesc=lookup(var_labels, target_col_name="Label", match_col=data["Variable"]),
+        VarDesc=lookup(var_struct, target_col_name="Variable_Label", match_col=data["Variable"]),
     ).pipe(as_dtype, to_dtype=dtFactor, incl_dtype="object")
 
     # Order weekdays correctly
@@ -99,9 +119,7 @@ def convert_ax_data(data, var_labels):
     )
 
     # Add column: Hour
-    result['Hour'] = (
-        result['Time'].str[:2]
-    ).astype(dtFactor)
+    result["Hour"] = (result["Time"].str[:2]).astype(dtFactor)
 
     result = result.sort_values(
         by=["Station", "DayOfWeek", "Time", "Variable", "Code"]
@@ -112,11 +130,11 @@ def convert_ax_data(data, var_labels):
 ########################################################################################
 # MAIN CODE
 ########################################################################################
-ax_data, ax_var_labels = load_ax_data(source_dir="axinova_20190924")
+ax_data, var_struct = load_ax_data(source_dir="axinova_20190924")
 
 with time_log("converting data"):
-    ax_data = convert_ax_data(ax_data, ax_var_labels)
+    ax_data = convert_ax_data(ax_data, var_struct)
 
 with project_dir("axinova"):
     store_bin(ax_data, "ax_data.feather")
-    store_bin(ax_var_labels, "ax_var_labels.feather")
+    store_bin(var_struct, "ax_var_struct.feather")
