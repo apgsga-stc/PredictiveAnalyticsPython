@@ -55,7 +55,7 @@ store_bin(crm_data, 'crm_data.feather')
 
 info('Model-specific Data Management: Verkaufsprognose (VKProg)')
 end_date = pd.Timestamp.today().normalize()
-start_date = end_date.replace(year=end_date.year - 4)
+start_date = end_date.replace(year=end_date.year - 6)
 crm_data_vkprog = (crm_data
     .rename({'STARTTERMIN': 'DATUM'}, axis='columns')
     # filter
