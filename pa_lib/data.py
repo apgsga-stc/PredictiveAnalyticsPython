@@ -262,14 +262,17 @@ def boxplot_histogram(x=None, bins=None, figsize=(15, 10)):
 
 ########################################################################################
 def lookup(target_df, target_col_name, match_col, target_match_col_name=None):
-    """Create new column from target_df.target_col, by matching src_id_col with target_id_col.
-       If target_id_col is not specified, src_id_col.name is used.
+    """Create new column from target_df["target_col"], by matching match_col with 
+       target_df["target_match_col_name"].
+       If target_match_col_name is not specified, match_col.name is used.
     """
     if target_match_col_name is None:
         target_match_col_name = match_col.name
+
+    lookup_df = target_df.set_index(target_match_col_name)
     new_col = (
-        target_df.set_index(target_match_col_name)
-        .reindex(match_col)[target_col_name]
+        lookup_df.loc[~lookup_df.index.duplicated(), target_col_name]
+        .reindex(match_col)
         .values
     )
     return new_col
