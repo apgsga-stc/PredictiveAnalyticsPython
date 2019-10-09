@@ -275,6 +275,58 @@ def dates_bd(view_date):
     
     return final_selection
 
+
+##############
+## Branchen ##
+##############
+
+def branchen_data(date_view):
+    
+    #bd = load_booking_data()
+    
+    kunden_branchen_df  = bd.loc[:,["Endkunde_NR",
+                                    "Kampagne_Erfassungsdatum",
+                                    "Endkunde_Branchengruppe_ID"] ]
+
+    auftrag_branchen_df = bd.loc[:,["Endkunde_NR",
+                                    "Kampagne_Erfassungsdatum",
+                                    "Auftrag_Branchengruppe_ID"] ]
+
+    kunden_branchen_df.columns  = ["Endkunde_NR",
+                                   "Kampagne_Erfassungsdatum",
+                                   "Branchen_ID"]
+    
+    auftrag_branchen_df.columns = kunden_branchen_df.columns
+
+    branchen_df = (kunden_branchen_df.append(auftrag_branchen_df)
+                                     .dropna()
+                                     .drop_duplicates() )
+    
+    # Define filter (boolean pd.Series) based on view_date
+    filter_boolean = (bd.loc[:,"Kampagne_Erfassungsdatum"] < date_view)
+    
+    # Span pivot table with filter:
+    branchen_df = (branchen_df
+                   .loc[filter_boolean,:]
+                   .pivot_table(
+                        index      = ["Endkunde_NR"],
+                        columns    = ["Branchen_ID"],
+                        values     = ["Branchen_ID"],
+                        aggfunc    = "count",
+                        fill_value = 0) )
+    
+    #Flatten and rename:
+    branchen_df = pd.DataFrame(branchen_df.to_records(index=True))
+    new_col_names = [x.replace("('Kampagne_Erfassungsdatum',","B").replace(" '","").replace("')","") for x in branchen_df.columns]
+    branchen_df.columns = new_col_names
+    
+    #Decode into 0/1:
+    for branche in branchen_df.columns[1:]:
+        branchen_df.loc[:,branche] = branchen_df.loc[:,branche].apply(lambda x: min(x,1))
+        
+    return branchen_df
+
+
 ################
 ## Scale Data ##
 ################
@@ -305,7 +357,7 @@ def scaling_bd(dataset,col_bookings=[], col_dates=[]):
 
 ########################################################################################################
 
-def bd_train_scoring(day, month, year_score, year_train, year_span, scale_features = False) :
+def bd_train_scoring(day, month, year_score, year_train, year_span, scale_features = True) :
     """
     Creates scoring-dataset, training-dataset, feature columns name lists for bookings and booking-dates
     """
@@ -337,6 +389,7 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
     feature_colnames_bd.remove("Target_Aus_flg")
     feature_colnames_bd.remove("Target_Res_flg")
     
+    ## Relative Dates
     training_dates = dates_bd(date_training)
     scoring_dates  = dates_bd(date_now)
 
@@ -345,9 +398,33 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
     feature_colnames_dates.remove("Endkunde_NR")
     feature_colnames_dates.remove("Kampagne_Erfass_Datum_min")
     feature_colnames_dates.remove("Kampagne_Erfass_Datum_max")
-
-    training_all = pd.merge(training_dates,training_bd, on="Endkunde_NR", how="inner")
-    scoring_all  = pd.merge(scoring_dates,  scoring_bd, on="Endkunde_NR", how="inner")
+    
+    ## Branchen:
+    training_branchen = branchen_data(date_training)
+    scoring_branchen  = branchen_data(date_now)
+    
+    ## Store branchen-feature names in a list:
+    feature_colnames_branchen = list(set(training_branchen.columns) & set(scoring_branchen.columns))
+    feature_colnames_branchen.sort()
+    feature_colnames_branchen.remove("Endkunde_NR")
+    
+    
+    ## Merge all data
+    training_all = pd.merge(training_dates,
+                            training_bd,
+                            on="Endkunde_NR", how="inner")
+    
+    training_all = pd.merge(training_all,
+                            training_branchen,
+                            on="Endkunde_NR", how="left")
+    
+    scoring_all  = pd.merge(scoring_dates,
+                            scoring_bd,
+                            on="Endkunde_NR", how="inner")
+    
+    scoring_all  = pd.merge(scoring_all,
+                            scoring_branchen,
+                            on="Endkunde_NR", how="left")
     
     if scale_features == True:
         info("Scaling features")
@@ -359,7 +436,7 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
         
     info("Finished.")
     
-    return (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates)
+    return (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates,feature_colnames_branchen)
 
 #####################################################################
 
