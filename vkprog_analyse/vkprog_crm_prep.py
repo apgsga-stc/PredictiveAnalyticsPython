@@ -147,7 +147,7 @@ def crm_train_scoring(day, month, year_score, year_train, year_span):
     
     crm_train_df = crm_prep(date_view=date_training, year_span=year_span)
     crm_score_df = crm_prep(date_view=date_now,      year_span=year_span)
-    info{"Finished.}
+    info{"Finished."}
     return (crm_train_df, crm_score_df)
 
 
