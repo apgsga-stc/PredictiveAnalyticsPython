@@ -15,6 +15,7 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
+from pa_lib.log import time_log, info
 import pandas as pd
 pd.options.display.max_columns = None
 
@@ -44,7 +45,7 @@ def load_crm_data():
     raw_data = load_bin("vkprog\\crm_data_vkprog.feather").rename(
         mapper=lambda name: cap_words(name, sep="_"), axis="columns"
     )
-    return raw_data.astype({"Year": "int64", "KW_2": "int64"})
+    return raw_data.astype({"Endkunde_NR": "int64", "Year": "int64", "KW_2": "int64"})
 
 ####################################################
 ## Yearly aggregation per ``Kanal`` group element ##
@@ -115,6 +116,7 @@ def delta_contact(date_view,kanal_grps):
 #######################################################
 
 def crm_train_scoring(day, month, year_score, year_train, year_span):
+    info("Start.")
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
     date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
     
@@ -147,7 +149,8 @@ def crm_train_scoring(day, month, year_score, year_train, year_span):
     
     crm_train_df = crm_prep(date_view=date_training, year_span=year_span)
     crm_score_df = crm_prep(date_view=date_now,      year_span=year_span)
-    info{"Finished."}
+    
+    info("Finished.")
     return (crm_train_df, crm_score_df)
 
 
