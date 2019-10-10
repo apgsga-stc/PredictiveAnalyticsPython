@@ -99,7 +99,7 @@ def delta_contact(date_view,kanal_grps):
         columns    = ["Kanal_Grps"],
         values     = ["delta_days"],
         aggfunc    = "min",
-        fill_value = np.inf # for the moment!
+        #fill_value = np.inf # Do not fill them!
     
     ).reset_index(inplace=False)
     
@@ -151,8 +151,10 @@ def crm_train_scoring(day, month, year_score, year_train, year_span):
     crm_train_df = crm_prep(date_view=date_training, year_span=year_span)
     crm_score_df = crm_prep(date_view=date_now,      year_span=year_span)
     
+    feature_colnames_crm = list(crm_train_df.columns[1:])
+    
     info("Finished.")
-    return (crm_train_df, crm_score_df)
+    return (crm_train_df, crm_score_df, feature_colnames_crm)
 
 
 ##################
