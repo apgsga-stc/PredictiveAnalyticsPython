@@ -45,7 +45,8 @@ def load_crm_data():
     raw_data = load_bin("vkprog\\crm_data_vkprog.feather").rename(
         mapper=lambda name: cap_words(name, sep="_"), axis="columns"
     )
-    return raw_data.astype({"Endkunde_NR": "int64", "Year": "int64", "KW_2": "int64"})
+    #return raw_data.astype({"Endkunde_NR": "int64", "Year": "int64", "KW_2": "int64"})
+    return raw_data.astype({"Year": "int64", "KW_2": "int64"})
 
 ####################################################
 ## Yearly aggregation per ``Kanal`` group element ##
@@ -145,7 +146,7 @@ def crm_train_scoring(day, month, year_score, year_train, year_span):
                                                       kanal_grps=kanal_grps,
                                                       year_span=year_span)
 
-        return pd.merge(grpd_yrly_contacts_df,last_contacts_df,on="Endkunde_NR",how="inner")
+        return pd.merge(grpd_yrly_contacts_df,last_contacts_df,on="Endkunde_NR",how="inner").astype({"Endkunde_NR" : "int64"})
     
     crm_train_df = crm_prep(date_view=date_training, year_span=year_span)
     crm_score_df = crm_prep(date_view=date_now,      year_span=year_span)
