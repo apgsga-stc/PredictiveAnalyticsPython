@@ -46,25 +46,6 @@ def load_crm_data():
     )
     return raw_data.astype({"Year": "int64", "KW_2": "int64"})
 
-
-###################
-## Define Groups ##
-###################
-
-all_kanal =set(raw_crm_data.loc[:,"Kanal"])
-kanal_grps = {}
-
-kanal_grps["Besprechung"]         = {"Besprechung"}
-kanal_grps["Besuch"]              = {"Besuch"}
-kanal_grps["Brief_Dankeskarte"]   = {"Brief","Dankeskarte"}
-kanal_grps["E-Mail"]              = {"E-Mail"}
-kanal_grps["Event_Veranstaltung"] = {"Event","Veranstaltung"}
-kanal_grps["Telefon"]             = {"Telefon"}
-
-# Stuff all the rest into "Anderes":
-kanal_grps["Anderes"]             =  all_kanal - reduce(set.union,kanal_grps.values())  
-
-
 ####################################################
 ## Yearly aggregation per ``Kanal`` group element ##
 ####################################################
@@ -137,7 +118,23 @@ def crm_train_scoring(day, month, year_score, year_train, year_span):
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
     date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
     
+    global raw_crm_data
     raw_crm_data = load_crm_data()
+    
+    ## Define groups for Kanal ##
+    all_kanal =set(raw_crm_data.loc[:,"Kanal"])
+    kanal_grps = {}
+
+    kanal_grps["Besprechung"]         = {"Besprechung"}
+    kanal_grps["Besuch"]              = {"Besuch"}
+    kanal_grps["Brief_Dankeskarte"]   = {"Brief","Dankeskarte"}
+    kanal_grps["E-Mail"]              = {"E-Mail"}
+    kanal_grps["Event_Veranstaltung"] = {"Event","Veranstaltung"}
+    kanal_grps["Telefon"]             = {"Telefon"}
+
+    # Stuff all the rest into "Anderes":
+    kanal_grps["Anderes"]             =  all_kanal - reduce(set.union,kanal_grps.values()) 
+    ## End of definition
     
     def crm_prep(date_view,year_span):
         last_contacts_df      = delta_contact(date_view=date_view,
@@ -150,7 +147,10 @@ def crm_train_scoring(day, month, year_score, year_train, year_span):
     
     crm_train_df = crm_prep(date_view=date_training, year_span=year_span)
     crm_score_df = crm_prep(date_view=date_now,      year_span=year_span)
-    
+    info{"Finished.}
     return (crm_train_df, crm_score_df)
-    
-    
+
+
+##################
+## End of file. ##
+##################
