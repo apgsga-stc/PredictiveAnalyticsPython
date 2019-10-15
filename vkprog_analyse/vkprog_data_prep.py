@@ -52,9 +52,14 @@ def load_booking_data():
 ## Booking Data (Beträge: Reservationen & Aushänge) ##
 ######################################################
 
-def sum_calc(df, col_year, col_week):
+def sum_calc(df, col_year, col_week, keine_annulierten=True):
+    if keine_annulierten == True:
+        filter_spalte = pd.Series(df.loc[:,"Vertrag"] == "Ja")
+    else:
+        filter_spalte = pd.Series(df.loc[:,"Vertrag"] != np.NaN)
+        
     return (
-        df.loc[:, ["Endkunde_NR", col_year, col_week, "Netto"]]
+        df.loc[filter_spalte, ["Endkunde_NR", col_year, col_week, "Netto"]]
         .pipe(unfactorize)
         .groupby(["Endkunde_NR", col_year, col_week], observed=True, as_index=False)
         .agg({"Netto": ["sum"]})
@@ -68,9 +73,9 @@ def sum_calc(df, col_year, col_week):
 def aggregate_bookings(df, period):
     info(f"Period: {period}")
     info("Calculate Reservation...")
-    df_res = sum_calc(df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}")
+    df_res = sum_calc(df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}",keine_annulierten=False)
     info("Calculate Aushang...")
-    df_aus = sum_calc(df, "Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}")
+    df_aus = sum_calc(df, "Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}",keine_annulierten=True)
 
     info("Merge Results...")
     df_aggr = df_res.merge(
