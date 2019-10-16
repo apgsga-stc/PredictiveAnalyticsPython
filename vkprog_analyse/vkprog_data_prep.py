@@ -55,11 +55,12 @@ def load_booking_data():
 def sum_calc(df, col_year, col_week, keine_annulierten=True):
     if keine_annulierten == True:
         filter_spalte = pd.Series(df.loc[:,"Vertrag"] == "Ja")
+        #filter_spalte = pd.Series(df.loc[:,"Vertrag"] != "Larum Ipsum") # Series of "True", no filter.
     else:
-        filter_spalte = pd.Series(df.loc[:,"Vertrag"] != np.NaN)
+        filter_spalte = pd.Series(df.loc[:,"Vertrag"] != "Larum Ipsum") # Series of "True", no filter.
         
     return (
-        df.loc[filter_spalte, ["Endkunde_NR", col_year, col_week, "Netto"]]
+        df.loc[:, ["Endkunde_NR", col_year, col_week, "Netto"]]
         .pipe(unfactorize)
         .groupby(["Endkunde_NR", col_year, col_week], observed=True, as_index=False)
         .agg({"Netto": ["sum"]})
@@ -349,13 +350,19 @@ def scaling_bd(dataset,col_bookings=[], col_dates=[]):
         logtransformed = np.log(dataset.loc[:,x]+1) # bookings are heavily right-skewed. log-transform to get approx. gaussian distribution
         min_ = np.min(logtransformed)
         max_ = np.max(logtransformed)
-        dataset[x] = (logtransformed-min_)/(max_-min_) # standardise into floats in [0,1]
+        if min_ != max_:
+            dataset[x] = (logtransformed-min_)/(max_-min_) # standardise into floats in [0,1]
+        else:
+            dataset[x] = 0
     
     for x in col_dates:
         transformed = dataset.loc[:,x]
         min_ = np.min(transformed)
         max_ = np.max(transformed)
-        dataset[x] = (transformed-min_) / (max_-min_)  
+        if min_ != max_:
+            dataset[x] = (transformed-min_) / (max_-min_)  
+        else:
+            dataset[x] = 0
         
     
     return dataset
