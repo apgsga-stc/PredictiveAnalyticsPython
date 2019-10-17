@@ -89,6 +89,7 @@ def load_ax_data(source_dir):
     return all_data, var_struct
 
 
+########################################################################################
 def convert_ax_data(data, var_struct):
     # Add columns: logValue, Variable description
     result = data.assign(
@@ -111,7 +112,7 @@ def convert_ax_data(data, var_struct):
         result["Time"]
         .pipe(
             cut_categorical,
-            left_limits="00:00 06:15 08:45 11:30 12:30 15:30 18:30 23:00".split(),
+            left_limits="00:00 06:00 09:00 11:00 13:00 16:00 19:00 23:00".split(),
             labels="Nacht Morgen-Rush Morgen Mittag Nachmittag Abend-Rush Abend Nacht_spät".split(),
             cat_convert=lambda x: x[:5],  # match start time of interval in 'Time'
         )
@@ -130,7 +131,7 @@ def convert_ax_data(data, var_struct):
 ########################################################################################
 # MAIN CODE
 ########################################################################################
-ax_data, var_struct = load_ax_data(source_dir="axinova_20190924")
+ax_data, var_struct = load_ax_data(source_dir="axinova_month_files")
 
 with time_log("converting data"):
     ax_data = convert_ax_data(ax_data, var_struct)
