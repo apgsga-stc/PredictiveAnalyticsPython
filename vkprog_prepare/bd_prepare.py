@@ -166,6 +166,7 @@ info(f"Cleaned data: {bd_data.shape}, size is {obj_size(bd_data)}")
 store_bin(bd_data, "bd_data.feather")
 
 ################################################################################
+"""
 info("Model-specific Data Management: Verkaufsprognose (VKProg)")
 info("Data Filtering")
 end_date = last_monday(pd.Timestamp.today())
@@ -189,4 +190,5 @@ bd_data_vkprog = (
 
 store_bin(bd_data_vkprog, "bd_data_vkprog.feather")
 
+"""
 del (bd_data_raw, bd_data, bd_data_vkprog)

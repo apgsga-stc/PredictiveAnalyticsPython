@@ -35,6 +35,7 @@ from dateutil.relativedelta import relativedelta
 from pa_lib.data import (
     clean_up_categoricals,
     unfactorize,
+    clean_up_categoricals
 )
 
 ###################
@@ -47,6 +48,18 @@ def load_booking_data():
     bd = bd_raw.loc[(bd_raw.Netto > 0)].pipe(clean_up_categoricals)
     return bd
 
+######################################
+## Filter criteria defined by Sales ##
+######################################
+
+def filter_dataset(dataframe):
+    container_df = (dataframe.query("Dauer < 62")
+                 .query('Auftragsart != ["Eigenwerbung APG|SGA", "Aushangauftrag Partner", "Logistik für Dritte", "Politisch"]')
+                 .query('not Segment == "Airport" and not KV_Typ == "KPGL"')
+                 .pipe(clean_up_categoricals)
+                 .reset_index(drop=True)
+                )
+    return container_df
 
 ######################################################
 ## Booking Data (Beträge: Reservationen & Aushänge) ##
@@ -55,11 +68,12 @@ def load_booking_data():
 def sum_calc(df, col_year, col_week, keine_annulierten=True):
     if keine_annulierten == True:
         filter_spalte = pd.Series(df.loc[:,"Vertrag"] == "Ja")
+        #filter_spalte = pd.Series(df.loc[:,"Vertrag"] != "Larum Ipsum") # Series of "True", no filter.
     else:
-        filter_spalte = pd.Series(df.loc[:,"Vertrag"] != np.NaN)
+        filter_spalte = pd.Series(df.loc[:,"Vertrag"] != "Larum Ipsum") # Series of "True", no filter.
         
     return (
-        df.loc[filter_spalte, ["Endkunde_NR", col_year, col_week, "Netto"]]
+        df.loc[:, ["Endkunde_NR", col_year, col_week, "Netto"]]
         .pipe(unfactorize)
         .groupby(["Endkunde_NR", col_year, col_week], observed=True, as_index=False)
         .agg({"Netto": ["sum"]})
@@ -349,20 +363,26 @@ def scaling_bd(dataset,col_bookings=[], col_dates=[]):
         logtransformed = np.log(dataset.loc[:,x]+1) # bookings are heavily right-skewed. log-transform to get approx. gaussian distribution
         min_ = np.min(logtransformed)
         max_ = np.max(logtransformed)
-        dataset[x] = (logtransformed-min_)/(max_-min_) # standardise into floats in [0,1]
+        if min_ != max_:
+            dataset[x] = (logtransformed-min_)/(max_-min_) # standardise into floats in [0,1]
+        else:
+            dataset[x] = 0
     
     for x in col_dates:
         transformed = dataset.loc[:,x]
         min_ = np.min(transformed)
         max_ = np.max(transformed)
-        dataset[x] = (transformed-min_) / (max_-min_)  
+        if min_ != max_:
+            dataset[x] = (transformed-min_) / (max_-min_)  
+        else:
+            dataset[x] = 0
         
     
     return dataset
 
 ########################################################################################################
 
-def bd_train_scoring(day, month, year_score, year_train, year_span, scale_features = True) :
+def bd_train_scoring(day, month, year_score, year_train, year_span, sales_filter=True, scale_features = True) :
     """
     Creates scoring-dataset, training-dataset, feature columns name lists for bookings and booking-dates
     """
@@ -382,6 +402,12 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, scale_featur
     global bd_aggr_2w
     
     bd          = load_booking_data()
+    if sales_filter == True:
+        bd          = filter_dataset(bd)
+        info("True: Filters applied, defined by Sales")
+    else:
+        info("False: Filters applied, defined by Sales")
+        
     bd_aggr_2w  = aggregate_bookings(bd, 'KW_2')
     info(f"current_yyyykw: {current_yyyykw}")
     info(f"training_yyyykw:{training_yyyykw}")
