@@ -262,7 +262,8 @@ def non_repeated(series):
 
 def collect(series, sep=","):
     """Sorted string concatenation of a series' unique values"""
-    return sep.join(map(str, series[series.notna()].unique()))
+    values = series[series.notna()].unique().sort_values()
+    return sep.join(map(str, values))
 
 
 ###############################################################################

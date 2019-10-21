@@ -152,7 +152,7 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
     cust_data["PLZ"] = (
         pd.to_numeric(cust_data["PLZ"], errors="coerce").fillna(-1).astype("int64")
     )
-    # remap special names to the closest town
+    # remap special names to the closest known town
     cust_data["NAME"] = cust_data["NAME"].replace(
         {
             "Schönbühl Einkaufszentrum": "Urtenen-Schönbühl",
