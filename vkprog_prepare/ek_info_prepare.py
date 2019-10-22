@@ -57,6 +57,8 @@ def aggregate_per_customer(bookings):
                 "Kampagne_Erfassungsdatum": "max",
                 "Kamp_Erfass_Jahr": ["min", "max"],
                 "Kampagne_Beginn": "max",
+                "EK_HB_Apg_Kurzz": last_notna,  # added by STC
+                "AG_Hauptbetreuer": last_notna, # added by STC
             }
         )
     )
@@ -64,7 +66,7 @@ def aggregate_per_customer(bookings):
     customer_info.set_axis(
         labels="""Endkunde_NR Endkunde EK_Aktiv EK_Kam_Betreut EK_Land EK_Plz EK_Ort Agentur EK_BG 
                   EK_BG_ID Auftrag_BG_ID Auftrag_BG_Anz Last_Res_Date First_Res_Year 
-                  Last_Res_Year Last_Aus_Date""".split(),
+                  Last_Res_Year Last_Aus_Date EK_HB_Apg_Kurzz AG_Hauptbetreuer""".split(),
         axis="columns",
         inplace=True,
     )
