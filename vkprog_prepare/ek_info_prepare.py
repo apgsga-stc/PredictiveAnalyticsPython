@@ -81,7 +81,7 @@ def load_region_data():
                 "PLZ4": "PLZ",
                 "%_IN_GDE": "PRC",
                 "KTKZ": "KANTON",
-                "GDENAMK": "NAME",
+                "GDENAMK": "GEMEINDE",
             }
         )
         region_raw = load_xlsx(
@@ -104,10 +104,10 @@ def load_region_data():
 
     # make PLZ mapping unique (best match by max PRC)
     def main_features(df):
-        return df.loc[df.PRC.idxmax(), ["PLZ", "KANTON", "GDENR", "NAME"]]
+        return df.loc[df.PRC.idxmax(), ["PLZ", "KANTON", "GDENR", "GEMEINDE"]]
 
     plz_unique = plz_raw.groupby("PLZ", as_index=False).apply(main_features)
-    name_unique = plz_raw.groupby("NAME", as_index=False).apply(main_features)
+    name_unique = plz_raw.groupby("GEMEINDE", as_index=False).apply(main_features)
     plz_name_unique = (
         pd.concat([plz_unique, name_unique]).drop_duplicates().reset_index(drop=True)
     )
@@ -144,7 +144,7 @@ def load_region_data():
 ########################################################################################
 def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
     cust_data = df_cust.copy()
-    cust_data.rename(columns={"EK_Plz": "PLZ", "EK_Ort": "NAME"}, inplace=True)
+    cust_data.rename(columns={"EK_Plz": "PLZ", "EK_Ort": "GEMEINDE"}, inplace=True)
 
     def first_words(s):
         s = s.fillna("")
@@ -155,7 +155,7 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
         pd.to_numeric(cust_data["PLZ"], errors="coerce").fillna(-1).astype("int64")
     )
     # remap special names to the closest known town
-    cust_data["NAME"] = cust_data["NAME"].replace(
+    cust_data["GEMEINDE"] = cust_data["GEMEINDE"].replace(
         {
             "Schönbühl Einkaufszentrum": "Urtenen-Schönbühl",
             "Emmenbrücke 1": "Emmen",
@@ -169,7 +169,7 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
         }
     )
     # Disambiguate problem cases: Gossau, Buchs, Wil
-    cust_data["NAME"] = cust_data["NAME"].replace(
+    cust_data["GEMEINDE"] = cust_data["GEMEINDE"].replace(
         {
             "Gossau SG": "Gossau (SG)",
             "Gossau ZH": "Gossau (ZH)",
@@ -187,7 +187,7 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
         }
     )
     # prepare a column with the first word of the NAME
-    cust_data["FIRST_NAME"] = first_words(cust_data["NAME"])
+    cust_data["FIRST_NAME"] = first_words(cust_data["GEMEINDE"])
 
     swiss = cust_data.EK_Land == "SCHWEIZ"
 
@@ -195,8 +195,8 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
     #
     # First, match by PLZ and town name
     cust_data.loc[swiss, "GDENR"] = (
-        cust_data.loc[swiss, ["PLZ", "NAME"]]
-        .merge(df_plz_names, on=["PLZ", "NAME"], how="left")["GDENR"]
+        cust_data.loc[swiss, ["PLZ", "GEMEINDE"]]
+        .merge(df_plz_names, on=["PLZ", "GEMEINDE"], how="left")["GDENR"]
         .values
     )
 
@@ -211,8 +211,8 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
     # Then, match by town name
     missing = cust_data.GDENR.isnull() & swiss
     cust_data.loc[missing, "GDENR"] = (
-        cust_data.loc[missing, ["NAME"]]
-        .merge(df_names, on="NAME", how="left")["GDENR"]
+        cust_data.loc[missing, ["GEMEINDE"]]
+        .merge(df_names, on="GEMEINDE", how="left")["GDENR"]
         .values
     )
 
@@ -223,7 +223,7 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
         .merge(
             pd.DataFrame(
                 {
-                    "FIRST_NAME": first_words(df_names["NAME"]),
+                    "FIRST_NAME": first_words(df_names["GEMEINDE"]),
                     "GDENR": df_names["GDENR"],
                 }
             ).drop_duplicates(),
@@ -234,7 +234,7 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
     )
 
     # Check that we matched every swiss (PLZ, Ort) to a GDENR
-    not_matched = cust_data.loc[cust_data.GDENR.isnull() & swiss, ["PLZ", "NAME"]]
+    not_matched = cust_data.loc[cust_data.GDENR.isnull() & swiss, ["PLZ", "GEMEINDE"]]
     not_matched_count = not_matched.shape[0]
     if not_matched_count > 0:
         err(
