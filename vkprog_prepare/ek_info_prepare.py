@@ -57,7 +57,7 @@ def aggregate_per_customer(bookings):
                 "Kampagne_Erfassungsdatum": "max",
                 "Kamp_Erfass_Jahr": ["min", "max"],
                 "Kampagne_Beginn": "max",
-                "EK_HB_Apg_Kurzz": last_notna,  # added by STC
+                "EK_HB_Apg_Kurzz":  last_notna, # added by STC
                 "AG_Hauptbetreuer": last_notna, # added by STC
             }
         )
