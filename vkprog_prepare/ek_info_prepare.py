@@ -25,6 +25,13 @@ def load_bookings():
     bookings = bookings_raw.loc[(bookings_raw.Netto > 0)].pipe(clean_up_categoricals)
     return bookings
 
+########################################################################################
+def load_plz():
+    #get the raw data
+    with project_dir("vkprog"):
+        plz_data = load_bin("plz_data.feather")
+        plz_data.loc[:,"PLZ"] = plz_data.loc[:,"PLZ"].astype("int64")
+    return plz_data
 
 ########################################################################################
 def aggregate_per_customer(bookings):
@@ -247,6 +254,168 @@ def match_regions(df_cust, df_plz_names, df_plz, df_names, df_regions):
     )
     return cust_data
 
+########################################################################################
+## VERKAUFGEBIETE
+
+########################################################################################
+def plz_data_olap_counter(column):
+    agg_counter = (plz_data.groupby(column)
+                        .agg({"VERKAUFS_GEBIETS_CODE": "count"})
+                        .reset_index()
+                        .rename(columns={"VERKAUFS_GEBIETS_CODE": "CNT"})) # COUNT
+    return agg_counter
+########################################################################################
+def collect(s, sep=","):
+        return sep.join(map(str, s[s.notna()].unique()))
+########################################################################################
+def endkunde2vkgeb():
+    ## Our basis table with our customers
+    col_list = """Endkunde_NR
+                  PLZ
+                  GEMEINDE
+                  KANTON
+                  EK_Land""".split()
+
+    cust_current = ek_info.loc[:,col_list]
+
+    ## International customers get mapped to MAT, INTERNATIONAL
+
+    # find the internationl customers
+    row_select = (cust_current.loc[:,"EK_Land"] != "SCHWEIZ")
+    cust_matched_international = cust_current.loc[row_select,:]
+
+    # map international customers to (MAT, INTERNATIONAL)
+    cust_matched_international.loc[:,"VERKAUFS_GEBIETS_CODE"] = "INTERNATIONAL"
+    cust_matched_international.loc[:,"VB_VKGEB"] = "MAT"
+
+    # matched, cleanup
+    col_list     = """Endkunde_NR VERKAUFS_GEBIETS_CODE VB_VKGEB""".split()
+    cust_matched = cust_matched_international.loc[:,col_list].copy()
+
+    # unmatched, cleanup
+    row_select = (pd.merge(cust_current,
+                          cust_matched_international,
+                          on="Endkunde_NR",
+                          how="left")
+                  .loc[:,"VERKAUFS_GEBIETS_CODE"]
+                  .isna()
+                 )
+    cust_unmatched = cust_current.loc[row_select,:]
+
+    #print("INTERNATIONAL")
+    #report_success()
+
+    ## Taking care of all the Swiss Customers:
+
+    fraktion_cnt = plz_data_olap_counter("FRAKTION")
+    plz_cnt      = plz_data_olap_counter("PLZ")
+    ort_cnt      = plz_data_olap_counter("ORT")
+
+    max_iters = max(fraktion_cnt.loc[:,"CNT"]
+                    .append(plz_cnt.loc[:,"CNT"])
+                    .append(ort_cnt.loc[:,"CNT"])
+                   )+1
+
+    for unique_by in range(1,max_iters):
+
+        ## Match by FRAKTION
+        plz_unique_fraktion = (pd.merge(plz_data,
+                                        fraktion_cnt,
+                                        left_on="FRAKTION",
+                                        right_on="FRAKTION",
+                                        how="left"
+                                       )
+                                 .query(f"CNT =={unique_by}") # only unique ones
+                                 .groupby("FRAKTION")
+                                 .agg(
+                                     {"VERKAUFS_GEBIETS_CODE": collect,
+                                      "VB_VKGEB": collect,
+                                     }
+                                 )
+                                 .reset_index()
+                              )
+
+        cust_container_fraktion = (pd.merge(cust_unmatched,
+                                          plz_unique_fraktion.loc[:,"""FRAKTION VERKAUFS_GEBIETS_CODE  VB_VKGEB""".split()],
+                                          left_on="GEMEINDE",
+                                          right_on="FRAKTION",
+                                          how="left"
+                                         )
+                                 )
+
+        row_select = cust_container_fraktion.loc[:,"VERKAUFS_GEBIETS_CODE"].isna() # unmatched rows!
+        cust_matched_fraktion = cust_container_fraktion.loc[~row_select,"""Endkunde_NR VERKAUFS_GEBIETS_CODE VB_VKGEB""".split()]
+
+        cust_matched          = cust_matched.append(cust_matched_fraktion).drop_duplicates()
+        cust_unmatched        = cust_container_fraktion.loc[ row_select,"""Endkunde_NR PLZ GEMEINDE KANTON EK_Land""".split()]
+
+        ## Match by PLZ
+        plz_unique_plz = (pd.merge(plz_data,
+                                        plz_cnt,
+                                        left_on="PLZ",
+                                        right_on="PLZ",
+                                        how="left"
+                                       )
+                                 .query(f"CNT == {unique_by}") # only unique ones
+                                 .groupby("PLZ")
+                                 .agg(
+                                     {"VERKAUFS_GEBIETS_CODE": collect,
+                                      "VB_VKGEB": collect,
+                                     }
+                                 )
+                                 .reset_index()
+                              )
+
+        cust_container_plz = (pd.merge(cust_unmatched,
+                                       plz_unique_plz.loc[:,"""PLZ VERKAUFS_GEBIETS_CODE  VB_VKGEB""".split()],
+                                       left_on="PLZ",
+                                       right_on="PLZ",
+                                       how="left"
+                                      )
+                             )
+
+        row_select = cust_container_plz.loc[:,"VERKAUFS_GEBIETS_CODE"].isna() # unmatched rows!
+        cust_matched_plz = cust_container_plz.loc[~row_select,"""Endkunde_NR VERKAUFS_GEBIETS_CODE VB_VKGEB""".split()]
+
+        cust_matched     = cust_matched.append(cust_matched_plz).drop_duplicates()
+        cust_unmatched   = cust_container_plz.loc[ row_select,"""Endkunde_NR PLZ GEMEINDE KANTON EK_Land""".split()]
+
+        ## Match by ORT
+        plz_unique_ort = (pd.merge(plz_data,
+                                        ort_cnt,
+                                        left_on="ORT",
+                                        right_on="ORT",
+                                        how="left"
+                                       )
+                                 .query(f"CNT == {unique_by}") # only unique ones
+                                 .groupby("ORT")
+                                 .agg(
+                                     {"VERKAUFS_GEBIETS_CODE": collect,
+                                      "VB_VKGEB": collect,
+                                     }
+                                 )
+                                 .reset_index()
+                              )
+
+        cust_container_ort = (pd.merge(cust_unmatched,
+                                       plz_unique_ort.loc[:,"""ORT VERKAUFS_GEBIETS_CODE  VB_VKGEB""".split()],
+                                       left_on="GEMEINDE",
+                                       right_on="ORT",
+                                       how="left"
+                                      )
+                             )
+
+        row_select = cust_container_ort.loc[:,"VERKAUFS_GEBIETS_CODE"].isna()
+        cust_matched_ort = cust_container_ort.loc[~row_select,"""Endkunde_NR VERKAUFS_GEBIETS_CODE VB_VKGEB""".split()]
+
+        cust_matched     = cust_matched.append(cust_matched_plz).drop_duplicates()
+        cust_unmatched   = cust_container_ort.loc[ row_select,"""Endkunde_NR PLZ GEMEINDE KANTON EK_Land""".split()]
+        
+        # End of one iteration
+
+        
+    info(f"Verkaufsgebiete Matched: {cust_matched.shape[0]/cust_current.shape[0]}")
+    return cust_matched
 
 ########################################################################################
 # MAIN CODE
@@ -266,6 +435,17 @@ ek_info = match_regions(
     df_names=names,
     df_regions=regions,
 )
+
+info("\nLoad PLZ data: Verkaufsgebiete")
+plz_data = load_plz()
+
+info("Get Verkaufsgebiete data")
+cust_vkgeb = endkunde2vkgeb()
+ek_info = pd.merge(ek_info,
+                   cust_vkgeb,
+                   on="Endkunde_NR",
+                   how="left"
+                  )
 
 info("Write out result")
 with project_dir("vkprog"):
