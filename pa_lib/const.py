@@ -15,6 +15,7 @@ from pa_lib.types import ConnectPar, Record
 PA_BASE_DIR = Path.home()
 PA_LOG_DIR = PA_BASE_DIR / "logs"
 PA_DATA_DIR = PA_BASE_DIR / "data"
+PA_JOB_DIR = PA_BASE_DIR / "jobs"
 
 # Database connections
 PA_ORA_DSN_TEMPL = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST={}.apgsga.ch)(PORT=1521)))(CONNECT_DATA=(SID={})))"
