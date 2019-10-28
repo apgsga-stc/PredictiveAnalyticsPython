@@ -477,6 +477,53 @@ def crm_info():
     container_crm = pd.merge(container_crm, crm_letzte_vbs, on="Endkunde_NR",how="left")
 
     return container_crm
+
+########################################################################################
+def booking_nettos_vbs(booking_raw):
+    today = pd.Timestamp.now()
+    booking_raw = booking_raw.astype({"Kamp_Erfass_Jahr": "int64"})
+
+    ##
+    row_select = ((booking_raw.loc[:,"Vertrag"] == "Ja") &
+                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] <= today.isocalendar()[0]) &
+                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-4) 
+                 )
+
+    booking_nettos = pd.pivot_table(
+        booking_raw.loc[row_select,:],
+        values  = ["Netto"],
+        aggfunc = {"Netto": np.nansum},
+        columns = ["Kamp_Erfass_Jahr"],
+        index   = ["Endkunde_NR"],
+        fill_value= 0
+        )
+
+    booking_nettos_flattened = pd.DataFrame(booking_nettos.to_records(index=False))
+    booking_nettos_flattened.loc[:,"Endkunde_NR"] = pd.Series(booking_nettos.index)
+    col_names = ["Net_"+str(x) for x in range(today.isocalendar()[0]-4, today.isocalendar()[0]+1)] + ["Endkunde_NR"]
+    booking_nettos_flattened.columns = col_names
+
+    ##
+    row_select = ((booking_raw.loc[:,"Vertrag"] == "Ja") &
+                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] <= today.isocalendar()[0]) &
+                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-2) 
+                 )
+
+    booking_letzte_vbs = (booking_raw
+        .loc[row_select,:]
+        .groupby("Endkunde_NR", as_index=False)
+        .agg({"Verkaufsberater": collect})
+        .rename({"Verkaufsberater": "Letzte_VBs"})
+        )
+
+    ## merge
+    ek_booking = pd.merge(
+        booking_nettos_flattened,
+        booking_letzte_vbs,
+        on="Endkunde_NR",
+        how="left")
+    return ek_booking
+
 ########################################################################################
 # MAIN CODE
 ########################################################################################
@@ -519,6 +566,17 @@ ek_info = pd.merge(ek_info,
                    on="Endkunde_NR",
                    how="left"
                   )
+
+###
+info("Get Netto Sum & last succesful VBs")
+ek_nettos_vbs = booking_nettos_vbs(booking_raw=bd)
+
+ek_info = pd.merge(ek_info,
+                   ek_nettos_vbs,
+                   on="Endkunde_NR",
+                   how="left"
+                  )
+
 
 ###
 info("Write out result")
