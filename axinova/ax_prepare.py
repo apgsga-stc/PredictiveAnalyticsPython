@@ -236,7 +236,7 @@ def fix_code_order(var_struct):
 
     # Assign new ordered codes to var_struct for all ordered variables
     # Catch exceptions resulting from data mismatches for manual cleanup
-    for var, subset in var_struct.groupby("Variable"):
+    for var, _ in var_struct.groupby("Variable"):
         if var in var_codes_ordered:
             try:
                 new_codes = (
@@ -253,11 +253,11 @@ def fix_code_order(var_struct):
             except:
                 print(f"Problem reordering variable {var}: new codes = \n{new_codes}")
                 print("Old structure:")
-                display(
+                print(
                     var_struct.loc[var_struct["Variable"] == var, ["Label", "Label_Nr"]]
                 )
                 raise
-                
+
     return var_struct.sort_values(["Variable", "Label_Nr"])
 
 

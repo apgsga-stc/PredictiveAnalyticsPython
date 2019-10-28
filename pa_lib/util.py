@@ -52,7 +52,8 @@ def seq_join(seq, sep=" "):
 ###############################################################################
 def is_seq(obj):
     """Strings are not classed as sequences (this would cause flatten() 
-       to recurse indefinitely, as single-character strings are still strings)"""
+       to recurse indefinitely, as single-character strings are still strings).
+       Other than these, anything that is iterable counts as a sequence."""
     if isinstance(obj, (str, bytes)):
         return False
     try:
@@ -72,6 +73,12 @@ def flatten(obj):
             yield from flatten(element)
     else:
         yield obj
+
+
+###############################################################################
+def list_items(lst, seq=()):
+    """Returns a sub-list of lst as defined by numeric indexes in seq (any iterable)"""
+    return [lst[idx] for idx in flatten(seq)] 
 
 
 ###############################################################################
@@ -243,7 +250,7 @@ def max_is_outlier(series):
     """Tukey's outlier test on the series' maximum"""
     q25 = series.quantile(0.25)
     q75 = series.quantile(0.75)
-    return series.max() >= (q25 + 1.5 * (q75 - q25))
+    return series.max() >= (q75 + 1.5 * (q75 - q25))
 
 
 def peaks(series):
