@@ -34,15 +34,33 @@ def load_plz():
     return plz_data
 
 ########################################################################################
+def load_crm():
+    #get the raw data
+    with project_dir("vkprog"):
+        crm_data = load_bin("crm_data.feather").astype({"ENDKUNDE_NR": "int64"})
+    return crm_data
+
+########################################################################################
+def collect(s, sep=","):
+        return sep.join(map(str, s[s.notna()].unique()))
+
+########################################################################################
+def last_notna(s):
+    try:
+        return s.loc[s.notnull()].iat[-1]
+    except IndexError:
+        return np.NaN
+    
+########################################################################################
 def aggregate_per_customer(bookings):
-    def last_notna(s):
+    """def last_notna(s):
         try:
             return s.loc[s.notnull()].iat[-1]
         except IndexError:
             return np.NaN
 
     def collect(s, sep=","):
-        return sep.join(map(str, s[s.notna()].unique()))
+        return sep.join(map(str, s[s.notna()].unique()))"""
 
     # this takes around 90 seconds
     customer_info = (
@@ -264,9 +282,7 @@ def plz_data_olap_counter(column):
                         .reset_index()
                         .rename(columns={"VERKAUFS_GEBIETS_CODE": "CNT"})) # COUNT
     return agg_counter
-########################################################################################
-def collect(s, sep=","):
-        return sep.join(map(str, s[s.notna()].unique()))
+
 ########################################################################################
 def endkunde2vkgeb():
     ## Our basis table with our customers
@@ -418,6 +434,50 @@ def endkunde2vkgeb():
     return cust_matched
 
 ########################################################################################
+def crm_info():
+    today = pd.Timestamp.now()
+
+    ## Information about last contact: Kanal, VB, Betreff
+    row_select = (crm_data.loc[:,"STARTTERMIN"] <= today)
+    container_crm = (crm_data.loc[row_select,:]
+                             .sort_values(["ENDKUNDE_NR","STARTTERMIN"])
+                             .groupby("ENDKUNDE_NR", as_index=False)
+                             .agg(
+                                 {"KUERZEL": last_notna,
+                                  "KANAL": last_notna,
+                                  "BETREFF": last_notna,
+                                  #"STARTTERMIN": last_notna,
+                                 }
+                             )
+                             .rename(columns={
+                                 "KUERZEL": "Letzter_Kontakt",
+                                 "KANAL": "Kanal",
+                                 "BETREFF": "Betreff",
+                                 "ENDKUNDE_NR": "Endkunde_NR",
+                             })
+                    )
+
+    # Letzte CRM-Kontakte (alle der letzten zwei Kalendarjahre)
+    row_select = (crm_data.loc[:,"STARTTERMIN"]
+                          .apply(lambda x: 2 >= today.isocalendar()[0] - x.isocalendar()[0])
+                  & (crm_data.loc[:,"STARTTERMIN"] <= today)
+                 )
+
+    crm_letzte_vbs = (crm_data.loc[row_select,:]
+                              .groupby("ENDKUNDE_NR", as_index=False)
+                              .agg(
+                                  {"KUERZEL": collect,
+                                  }
+                              )
+                              .rename(columns={
+                                  "KUERZEL": "Letzte_CRM_Ktkts",
+                                  "ENDKUNDE_NR": "Endkunde_NR",})
+                     )
+    # Combine
+    container_crm = pd.merge(container_crm, crm_letzte_vbs, on="Endkunde_NR",how="left")
+
+    return container_crm
+########################################################################################
 # MAIN CODE
 ########################################################################################
 info("Load booking data")
@@ -436,6 +496,7 @@ ek_info = match_regions(
     df_regions=regions,
 )
 
+###
 info("\nLoad PLZ data: Verkaufsgebiete")
 plz_data = load_plz()
 
@@ -446,7 +507,22 @@ ek_info = pd.merge(ek_info,
                    on="Endkunde_NR",
                    how="left"
                   )
+###
+info("\nLoad CRM data")
+crm_data = load_crm()
 
+info("Get CRM data, aggregation")
+cust_crm = crm_info()
+
+ek_info = pd.merge(ek_info,
+                   cust_crm,
+                   on="Endkunde_NR",
+                   how="left"
+                  )
+
+###
 info("Write out result")
+info(f"ek_info.shape: {ek_info.shape}")
+
 with project_dir("vkprog"):
     store_bin(ek_info, "ek_info.feather")
