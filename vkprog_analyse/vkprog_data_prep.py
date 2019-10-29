@@ -86,7 +86,7 @@ def sum_calc(df, col_year, col_week, keine_annulierten=True):
 def aggregate_bookings(df, period):
     info(f"Period: {period}")
     info("Calculate Reservation...")
-    df_res = sum_calc(df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}",keine_annulierten=False)
+    df_res = sum_calc(df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}",keine_annulierten=True)
     info("Calculate Aushang...")
     df_aus = sum_calc(df, "Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}",keine_annulierten=True)
 
