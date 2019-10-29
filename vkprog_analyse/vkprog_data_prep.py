@@ -67,10 +67,9 @@ def filter_dataset(dataframe):
 
 def sum_calc(df, col_year, col_week, keine_annulierten=True):
     if keine_annulierten == True:
-        filter_spalte = pd.Series(df.loc[:,"Vertrag"] == "Ja")
-        #filter_spalte = pd.Series(df.loc[:,"Vertrag"] != "Larum Ipsum") # Series of "True", no filter.
+        filter_spalte = pd.Series(df.loc[:,"Kampagnen_Status"] != 3)
     else:
-        filter_spalte = pd.Series(df.loc[:,"Vertrag"] != "Larum Ipsum") # Series of "True", no filter.
+        filter_spalte = pd.Series(df.loc[:,"Kampagnen_Status"] != 99999999999999 ) # Series of "True", no filter.
         
     return (
         df.loc[:, ["Endkunde_NR", col_year, col_week, "Netto"]]
