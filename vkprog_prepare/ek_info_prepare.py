@@ -14,6 +14,7 @@ from pa_lib.data import clean_up_categoricals
 from pa_lib.util import cap_words
 from pa_lib.log import err, info
 
+import copy
 
 ########################################################################################
 def load_bookings():
@@ -484,7 +485,7 @@ def booking_nettos_vbs(booking_raw):
     booking_raw = booking_raw.astype({"Kamp_Erfass_Jahr": "int64"})
 
     ##
-    row_select = ((booking_raw.loc[:,"Vertrag"] == "Ja") &
+    row_select = ((booking_raw.loc[:,"Kampagnen_Status"] != 3) & # nur nicht-annulierte Kampagnen
                   (booking_raw.loc[:,"Kamp_Erfass_Jahr"] <= today.isocalendar()[0]) &
                   (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-4) 
                  )
@@ -504,7 +505,7 @@ def booking_nettos_vbs(booking_raw):
     booking_nettos_flattened.columns = col_names
 
     ##
-    row_select = ((booking_raw.loc[:,"Vertrag"] == "Ja") &
+    row_select = ((booking_raw.loc[:,"Kampagnen_Status"] != 3) & # nur nicht-annulierte Kampagnen
                   (booking_raw.loc[:,"Kamp_Erfass_Jahr"] <= today.isocalendar()[0]) &
                   (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-2) 
                  )
@@ -521,7 +522,8 @@ def booking_nettos_vbs(booking_raw):
         booking_nettos_flattened,
         booking_letzte_vbs,
         on="Endkunde_NR",
-        how="left")
+        how="outer")
+    
     return ek_booking
 
 ########################################################################################
@@ -529,6 +531,7 @@ def booking_nettos_vbs(booking_raw):
 ########################################################################################
 info("Load booking data")
 bd = load_bookings()
+bd_copy = copy.deepcopy(bd)
 
 info("Aggregate per customer")
 customer_bd = aggregate_per_customer(bookings=bd)
@@ -569,7 +572,7 @@ ek_info = pd.merge(ek_info,
 
 ###
 info("Get Netto Sum & last succesful VBs")
-ek_nettos_vbs = booking_nettos_vbs(booking_raw=bd)
+ek_nettos_vbs = booking_nettos_vbs(booking_raw=bd_copy)
 
 ek_info = pd.merge(ek_info,
                    ek_nettos_vbs,
