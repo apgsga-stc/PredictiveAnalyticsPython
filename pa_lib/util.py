@@ -78,7 +78,7 @@ def flatten(obj):
 ###############################################################################
 def list_items(lst, seq=()):
     """Returns a sub-list of lst as defined by numeric indexes in seq (any iterable)"""
-    return [lst[idx] for idx in flatten(seq)] 
+    return [lst[idx] for idx in flatten(seq)]
 
 
 ###############################################################################
@@ -170,7 +170,7 @@ def week_txt(date_txt):
 def iso_week(date):
     """ISO week nr of a date in native datetime format"""
     date = pd.to_datetime(date)
-    return int(dtt.strftime(date, "%V"))
+    return dtt.isocalendar(date)[1]
 
 
 def iso_week_txt(date_txt):
