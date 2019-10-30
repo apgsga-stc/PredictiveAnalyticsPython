@@ -13,7 +13,7 @@ from contextlib import ContextDecorator
 from pa_lib.const import PA_LOG_DIR
 
 # Globals
-_log_file_path = ""
+_log_file_path = PA_LOG_DIR
 _use_log_file = False
 
 
