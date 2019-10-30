@@ -146,7 +146,7 @@ def request_job(job_name, current=None):
 ########################################################################################
 # MAIN CODE
 ########################################################################################
-set_log_file(f"{dtt.today().strftime('%Y%m%d')}_pa_job_log.log")
+set_log_file(f"{dtt.today().strftime('%Y%m%d')}_pa_job_log.txt")
 _job_tree = _load_job_struct()
 
 

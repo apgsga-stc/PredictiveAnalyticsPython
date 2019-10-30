@@ -8,7 +8,9 @@ sys.path.append(str(_parent_dir))
 
 # Imports
 from pa_lib.job import request_job
+from pa_lib.log import info
 
+info("We're in jobtest_2")
 request_job("jobtest_4.py")
 
 print("Hello from jobtest_2.py!")
