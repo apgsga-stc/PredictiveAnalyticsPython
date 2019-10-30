@@ -448,6 +448,8 @@ def crm_info():
                                   "KANAL": last_notna,
                                   "BETREFF": last_notna,
                                   "STARTTERMIN": last_notna,
+                                  "VB_FILTER_VON": np.nanmax,
+                                  "VB_FILTER_BIS": np.nanmax,
                                  }
                              )
                              .rename(columns={
