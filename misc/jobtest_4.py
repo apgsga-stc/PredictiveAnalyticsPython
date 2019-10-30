@@ -6,7 +6,6 @@ _file_dir = Path.cwd()
 _parent_dir = _file_dir.parent
 sys.path.append(str(_parent_dir))
 
-print("Hello from jobtest_4!")
-print("Hello again from jobtest_4!")
+print("Hello from jobtest_4.py!")
 
 sys.exit()
