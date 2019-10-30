@@ -527,6 +527,14 @@ def booking_nettos_vbs(booking_raw):
     return ek_booking
 
 ########################################################################################
+def insolvenz(bd_raw):
+    """Get Insolvenz information for every customer"""
+    row_select = (bd_raw.loc[:,"EK_Boni"] == "keine Verkäufe")
+    insolvenz  = bd_raw.loc[row_select,["Endkunde_NR", "EK_Boni"]].drop_duplicates()
+    insolvenz.loc[:,"Insolvenz"] = True
+    return insolvenz.loc[:,["Endkunde_NR", "Insolvenz"]]
+
+########################################################################################
 # MAIN CODE
 ########################################################################################
 info("Load booking data")
@@ -582,6 +590,17 @@ ek_info = pd.merge(ek_info,
 
 
 ###
+info("Get dataframe with insolvent customers ,aggregated")
+insolvenz = insolvenz(bd_copy)
+
+ek_info = pd.merge(ek_info,
+                   insolvenz,
+                   on="Endkunde_NR",
+                   how="left"
+                  )
+
+
+
 info("Write out result")
 info(f"ek_info.shape: {ek_info.shape}")
 
