@@ -447,7 +447,7 @@ def crm_info():
                                  {"KUERZEL": last_notna,
                                   "KANAL": last_notna,
                                   "BETREFF": last_notna,
-                                  #"STARTTERMIN": last_notna,
+                                  "STARTTERMIN": last_notna,
                                  }
                              )
                              .rename(columns={
@@ -455,6 +455,7 @@ def crm_info():
                                  "KANAL": "Kanal",
                                  "BETREFF": "Betreff",
                                  "ENDKUNDE_NR": "Endkunde_NR",
+                                 "STARTTERMIN": "last_CRM_Ktkt_date",
                              })
                     )
 
