@@ -9,9 +9,7 @@ sys.path.append(str(_parent_dir))
 # Imports
 from pa_lib.job import request_job
 
-request_job("jobtest_2")
-request_job("jobtest_3")
+request_job("jobtest_2.py")
+request_job("jobtest_3.py")
 
-print("Hello from jobtest_1!")
-
-sys.exit()
+print("Hello from jobtest_1.py!")
