@@ -58,14 +58,27 @@ br_wbt_kw_params.update(
 
 # Read export files using parameter sets, store as binary files
 with project_dir("MediaFocus"):
-    br_kw = load_csv("Branchen_KW_10y.csv", **br_kw_params).pipe(
-        as_dtype, dtFactor, incl_dtype="object"
+    br_kw = (
+        load_csv("Branchen_KW_10y.csv", **br_kw_params)
+        .pipe(as_dtype, dtFactor, incl_dtype="object")
+        .melt(id_vars=["Jahr", "Branche"], var_name="KW", value_name="Brutto")
     )
-    br_pg_kw = load_csv("BranchenProdgrp_KW_10y.csv", **br_pg_kw_params).pipe(
-        as_dtype, dtFactor, incl_dtype="object"
+    br_pg_kw = (
+        load_csv("BranchenProdgrp_KW_10y.csv", **br_pg_kw_params)
+        .pipe(as_dtype, dtFactor, incl_dtype="object")
+        .melt(
+            id_vars=["Jahr", "Branche", "Produktgruppe"],
+            var_name="KW",
+            value_name="Brutto",
+        )
     )
-    br_wbt_kw = load_csv("BranchenWbt_KW_4y.csv", **br_wbt_kw_params).pipe(
-        as_dtype, dtFactor, incl_dtype="object"
+
+    br_wbt_kw = (
+        load_csv("BranchenWbt_KW_4y.csv", **br_wbt_kw_params)
+        .pipe(as_dtype, dtFactor, incl_dtype="object")
+        .melt(
+            id_vars=["Branche", "Werbungtreibender"], var_name="KW", value_name="Brutto"
+        )
     )
     store_bin(br_kw, "branchen_kw_10y.feather")
     store_bin(br_pg_kw, "branchen_pg_kw_10y.feather")
