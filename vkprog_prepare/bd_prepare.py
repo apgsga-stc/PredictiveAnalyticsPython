@@ -191,4 +191,4 @@ bd_data_vkprog = (
 store_bin(bd_data_vkprog, "bd_data_vkprog.feather")
 
 """
-del (bd_data_raw, bd_data, bd_data_vkprog)
+del (bd_data_raw, bd_data)#, bd_data_vkprog)
