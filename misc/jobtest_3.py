@@ -8,11 +8,10 @@ sys.path.append(str(_parent_dir))
 
 # Imports
 from pa_lib.job import request_job
+from pa_lib.log import info
 
-sys.exit(1)
+info(f"Starting jobtest_3.py")
 
 request_job("jobtest_4.py")
 
-print("Hello from jobtest_3.py!")
-
-sys.exit()
+info("Ending jobtest_3.py!")

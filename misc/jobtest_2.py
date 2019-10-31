@@ -10,9 +10,7 @@ sys.path.append(str(_parent_dir))
 from pa_lib.job import request_job
 from pa_lib.log import info
 
-info("We're in jobtest_2")
-request_job("jobtest_4.py")
+info(f"Starting jobtest_2.py")
+request_job("jobtest_4.py", current="Today")
 
-print("Hello from jobtest_2.py!")
-
-sys.exit()
+info("Ending jobtest_2.py!")
