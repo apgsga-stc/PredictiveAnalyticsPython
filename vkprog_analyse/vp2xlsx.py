@@ -34,6 +34,15 @@ deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder
 #%% Create deployment folder
 os.mkdir(deployment_folder)
 
+# Lazy Recursive Job Dependency Request:
+from pa_lib.job import request_job
+
+################################################################################
+## Recursive Dependency Check:
+request_job(job_name="vkber_prepare.py", current= "Today") # output: vkber_data.csv
+
+################################################################################
+
 # %% Load Data: Active VBs, Complete scoring list
 
 def load_csv(file_name, **params):
