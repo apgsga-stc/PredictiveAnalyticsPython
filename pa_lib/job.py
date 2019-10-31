@@ -132,6 +132,8 @@ def request_job(job_name, current=None):
         info(f"{this_script}: Running job '{job_name}': {run_reason}")
         (success, stdout, stderr) = _run_job(job_name)
         if not success:
+            for line in stderr.split("\n"):
+                err(f"{job_name} STDERR: {line}")
             err(
                 f"{this_script}: Error requesting job '{job_name}': Job failed, exiting."
             )
