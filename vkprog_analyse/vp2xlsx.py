@@ -26,8 +26,8 @@ from pa_lib.log import info
 from pa_lib.util import excel_col
 
 #%% Define data location and deployment folder
-gv_DIR_DATA       = Path.home() / 'data/2019-09-23_4J_2W_KW39_Buchung/' # please adjust accordingly
-name_depl_folder  = '2019_09_23'                                        # please adjust accordingly
+gv_DIR_DATA       = Path.home() / 'data/2019-10-21_4J_2W_KW43_Buchung/' # please adjust accordingly
+name_depl_folder  = '2019_10_21'                                        # please adjust accordingly
 
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
 
