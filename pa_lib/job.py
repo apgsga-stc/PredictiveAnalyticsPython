@@ -16,7 +16,7 @@ from pa_lib.log import info, err, set_log_file
 
 # Global variables
 _job_data_dir = PA_JOB_DIR
-_job_struct_file_path = _job_data_dir / "job_struct.json"
+_job_struct_file_path = _parent_dir / "pa_lib" / "jobs" / "job_struct.json"
 _job_attributes = ["script_dir", "project_dir", "result"]
 
 

@@ -1,0 +1,22 @@
+{
+	"jobtest_1.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_1.txt"
+	},
+	"jobtest_2.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_2.txt"
+	},
+	"jobtest_3.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_3.txt"
+	},
+	"jobtest_4.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_4.csv"
+	}
+}
