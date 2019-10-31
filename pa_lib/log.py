@@ -6,59 +6,60 @@ Writing to PA log file and STDOUT
 @author: kpf
 """
 
+# Imports
 import time
-import logging as lg
-from logging.handlers import WatchedFileHandler
+import sys
 from contextlib import ContextDecorator
-
 from pa_lib.const import PA_LOG_DIR
 
-
-def _init():
-    log_path = PA_LOG_DIR.resolve()
-    log_file = "pa_log.txt"
-
-    logger = lg.getLogger("pa_log")
-    logger.setLevel(lg.INFO)
-
-    # # File handler
-    # file_hdl = WatchedFileHandler(log_path / log_file)
-    # file_hdl.setLevel(lg.INFO)
-
-    # Stream handler (writes to STDERR)
-    stream_hdl = lg.StreamHandler()
-    stream_hdl.setLevel(lg.INFO)
-
-    # Define format, add to file handler
-    log_fmt = lg.Formatter(
-        fmt="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    # file_hdl.setFormatter(log_fmt)
-    stream_hdl.setFormatter(log_fmt)
-
-    # Add handlers (only once)
-    if not logger.hasHandlers():
-        # logger.addHandler(file_hdl)
-        logger.addHandler(stream_hdl)
-
-    return logger
+# Globals
+_log_file_path = PA_LOG_DIR
+_use_log_file = False
 
 
-pa_logger = _init()
+########################################################################################
+def set_log_file(file_name):
+    """
+    Activate file logging into file 'file_name' in directory PA_LOG_DIR.
+    Set to None to deactivate file logging.
+    """
+    global _log_file_path, _use_log_file
+    if file_name is not None:
+        _log_file_path = PA_LOG_DIR / file_name
+        _use_log_file = True
+        PA_LOG_DIR.mkdir(exist_ok=True, parents=True)
+        _log_file_path.touch()
+
+    else:
+        _use_log_file = False
+
+
+########################################################################################
+def _log(msg):
+    if _use_log_file:
+        with _log_file_path.open(mode="a") as log_file:
+            print(msg, file=log_file)
+    print(msg, file=sys.stderr)
+
+
+def _format(msg, level):
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    return f"{timestamp} [{level.upper()}] {msg}"
 
 
 def info(msg):
-    pa_logger.info(msg)
+    _log(_format(msg, level="INFO"))
 
 
 def warn(msg):
-    pa_logger.warning(msg)
+    _log(_format(msg, level="WARN"))
 
 
 def err(msg):
-    pa_logger.error(msg)
+    _log(_format(msg, level="ERROR"))
 
 
+########################################################################################
 class time_log(ContextDecorator):
     def __init__(self, name):
         self.name = name
@@ -76,20 +77,19 @@ class time_log(ContextDecorator):
         info(f"Finished {self.name} in {round(elapsed, 2)}s ({round(cpu, 2)}s CPU)")
 
 
-###############################################################################
+########################################################################################
 # TESTING CODE
-###############################################################################
-
+########################################################################################
 if __name__ == "__main__":
     info("-- Testing pa_log module - info")
     warn("-- Testing pa_log module - warn")
     err("-- Testing pa_log module - err")
 
     @time_log("decorated function")
-    def test_function():
+    def _test_function():
         time.sleep(0.2)
 
-    test_function()
+    _test_function()
 
     with time_log("timed context"):
         time.sleep(0.3)
