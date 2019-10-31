@@ -35,28 +35,28 @@ def set_log_file(file_name):
 
 
 ########################################################################################
-def _log(msg):
+def _log(msg, stream):
     if _use_log_file:
         with _log_file_path.open(mode="a") as log_file:
             print(msg, file=log_file)
-    print(msg, file=sys.stderr)
+    print(msg, file=stream)
 
 
 def _format(msg, level):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = time.strftime("%H:%M:%S")
     return f"{timestamp} [{level.upper()}] {msg}"
 
 
 def info(msg):
-    _log(_format(msg, level="INFO"))
+    _log(_format(msg, level="INFO"), stream=sys.stdout)
 
 
 def warn(msg):
-    _log(_format(msg, level="WARN"))
+    _log(_format(msg, level="WARN"), stream=sys.stderr)
 
 
 def err(msg):
-    _log(_format(msg, level="ERROR"))
+    _log(_format(msg, level="ERR"), stream=sys.stderr)
 
 
 ########################################################################################

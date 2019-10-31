@@ -12,6 +12,8 @@ from pa_lib.log import info
 
 info(f"Starting jobtest_3.py")
 
+nr = 1 / 0
+
 request_job("jobtest_4.py")
 
 info("Ending jobtest_3.py!")
