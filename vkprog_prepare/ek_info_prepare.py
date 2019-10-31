@@ -19,9 +19,9 @@ from pa_lib.log import err, info
 from pa_lib.job import request_job
 ########################################################################################
 ## Recursive Dependency Check:
-request_job(job_name="plz_prepare.py")# ,current= "Today") # output: plz_data.feather
+request_job(job_name="plz_prepare.py", current= "Today") # output: plz_data.feather
 request_job(job_name="crm_prepare.py", current= "Today") # output: crm_data.feather
-request_job(job_name="bd_prepare.py")#,  current= "Today") # output: bd_data.feather
+request_job(job_name="bd_prepare.py",  current= "Today") # output: bd_data.feather
 
 ########################################################################################
 def load_bookings():
