@@ -115,3 +115,5 @@ pivottablejs.html
 vkprog_analyse/this_is_a_test.png
 *.html
 *.png
+*.xlsx
+*.feather
