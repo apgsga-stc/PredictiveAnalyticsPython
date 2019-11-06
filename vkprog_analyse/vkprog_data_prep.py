@@ -154,7 +154,8 @@ def booking_yearly_totals(YYYYKW, year_span):
     container_df = pd.DataFrame()
     container_df.loc[:,"Endkunde_NR"] =pd.Series(list(set(bd_aggr_2w.loc[:,"Endkunde_NR"])))
     #bd_aggr_2w.eval("YYYYKW_2 = Jahr * 100 + KW_2", inplace=True)
-    info("Computing: Yearly total sums")
+    
+    #info("Computing: Yearly total sums")
     for ry in list(range(year_span)):
         #bd_aggr_2w.loc[:,"YYYYKW_2"] = bd_aggr_2w.Jahr.map(lambda x: x*100) + bd_aggr_2w.KW_2
                 
@@ -187,7 +188,7 @@ def booking_yearly_totals(YYYYKW, year_span):
                                 .replace("'","") for x in bd_flattened.columns]
         
         # Left-Join to the container
-        info("Merging: Left-Join to Container dataframe")
+        #info("Merging: Left-Join to Container dataframe")
         container_df = pd.merge(container_df, bd_flattened, on="Endkunde_NR", how="left")
     
     # Replace all NaN with Zero
@@ -298,7 +299,8 @@ def dates_bd(view_date):
         min_max_erfass_dt
         .loc[min_max_erfass_dt
              .loc[:,"Kampagne_Erfass_Datum_max"]
-             .apply(lambda x: x + relativedelta(weeks=2) < view_date),:])
+             #.apply(lambda x: x + relativedelta(weeks=2) < view_date),:])
+             .apply(lambda x: x <= view_date),:])
     
     return final_selection
 
