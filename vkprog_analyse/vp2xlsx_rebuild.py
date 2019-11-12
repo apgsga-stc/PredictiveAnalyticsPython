@@ -40,7 +40,7 @@ from pa_lib.file import (
 gv_DIR_DATA       = Path.home() / 'data/vkprog/predictions/' 
 
 # please adjust accordingly:
-name_depl_folder  = '2019_11_18_test_04' #'2019_10_21'
+name_depl_folder  = '2019_11_18_test_06' #'2019_10_21'
 
 #%% Create deployment folder
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
@@ -432,7 +432,7 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         worksheet.insert_textbox('B' + str(gv_VB_TOP_N + 2 + 1),
                                  info_text,
                                  {'width': 480,
-                                  'height': 100,
+                                  'height': 120,
                                   'fill': {'color': '#ddd9c3'},
                                   'line': {'width': 3.25}})
 
