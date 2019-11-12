@@ -4,9 +4,6 @@
 Für jeden aktiven Verkaufsberater mit mindestens 1 lead, wird ein Excel
 erstellt.
 """
-# %% Reset
-# %reset -f
-
 ################################################################################
 # make imports from pa_lib possible (parent directory of file's directory)
 import sys
@@ -40,7 +37,7 @@ from pa_lib.file import (
 gv_DIR_DATA       = Path.home() / 'data/vkprog/predictions/' 
 
 # please adjust accordingly:
-name_depl_folder  = '2019_11_18_test_06' #'2019_10_21'
+name_depl_folder  = '2019_11_18_test_08' #'2019_10_21'
 
 #%% Create deployment folder
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
@@ -76,7 +73,7 @@ def select_columns(df, pattern):
 
 # Column selection:
 
-_col_selection = ("""ENDKUNDE_NR 
+_col_selection = ("""Endkunde_NR 
                     Endkunde 
                     HB_APG 
                     Agentur 
@@ -166,42 +163,35 @@ ek_list = (ek_list.loc[pauschale_filter , _col_selection])
 prob_KW = [col for col in ek_list.columns if col.startswith("prob_KW")][0]
 ek_list.loc[:,prob_KW] = 100 * ek_list.loc[:,prob_KW] # shows percentage
 
-
-def parse_dates(df, columns, format):
-    result = df.copy()
-    for col in columns:
-        result.loc[:, col] = pd.to_datetime(result.loc[:, col], format=format)
-    return result
-
-
 def parse_ints(df, columns):
     result = df.copy()
     result.loc[:, columns] = result.loc[:, columns].fillna(0).astype('int64')
     return result
 
-
-date_columns = ['letzter_Kontakt', 'letzte_Kamp_erfasst', 'letzte_Kamp_Beginn']
-int_columns = ["PLZ", "ENDKUNDE_NR"] + select_columns(ek_list, pattern='^Net_')
+int_columns  = ["PLZ", "Endkunde_NR"] + select_columns(ek_list, pattern='^Net_')
 
 ek_list = (ek_list
-           #.pipe(parse_dates, date_columns, format='%Y-%m-%d') # NOT NEEDED?
            .pipe(parse_ints, int_columns)
            )
 
 ################################################################################
 # %% Data Preparation: Active VB-list
 # %% Zuteilung und die einzelnen VBs
+
 vb_list = (
     vb_list.assign(
         Vorname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[2]),
         Nachname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[0])
-    )
-        .loc[vb_list['KAM'] == False, ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]]
+        )
+        .loc[vb_list['KAM'] == False,
+             ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]
+            ]
         .set_index("KURZZEICHEN")
-)
+    )
 
 ################################################################################
 # %% Data Preparation:
+
 vb_ek_map = {}
 
 for vb_kuerz in vb_list.index:
@@ -209,19 +199,23 @@ for vb_kuerz in vb_list.index:
         ek_list.loc[
             (ek_list.HB_APG == vb_kuerz) |  # VB Endkunde
             (ek_list.HB_Agentur == vb_kuerz)  # VB Agentur
-            ].sort_values(select_columns(ek_list, pattern='^prob_KW'), ascending=False)  # highest probability first.
+            ].sort_values(
+                select_columns(ek_list,pattern='^prob_KW'),
+                ascending=False
+                )  # highest probability first.
     )
 
 ################################################################################
 # %% Create VB overview with number of potential leads
-vb_nleads = pd.DataFrame.from_records(columns=['total_leads'],
-                                      data=[(vb_ek_map[kuerz].shape[0],)
-                                            for kuerz in vb_ek_map.keys()],
-                                      index=vb_ek_map.keys())
+vb_nleads = pd.DataFrame.from_records(
+    columns = ['total_leads'],
+    data    = [(vb_ek_map[kuerz].shape[0],) for kuerz in vb_ek_map.keys()],
+    index   = vb_ek_map.keys()
+    )
 
 vb_list = vb_list.merge(vb_nleads,
-                        left_index=True,
-                        right_index=True)
+                        left_index  = True,
+                        right_index = True)
 
 ################################################################################
 # %% Define overview-excel creator
@@ -231,7 +225,12 @@ def overview_xlsx(df, file_name, sheet_name='df'):
     """
 
     # column widths as max strlength of column's contents
-    col_width = df.astype('str').apply(lambda col: max(col.str.len())).to_list()
+    col_width = (
+        df.astype('str')
+          .apply(lambda col: max(col.str.len()))
+          .to_list()
+        )
+    
     title_width = list(map(len, df.columns))
 
     # open file, create workbook & sheet
@@ -239,7 +238,7 @@ def overview_xlsx(df, file_name, sheet_name='df'):
     info(f'Write file {file_path}')
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name=sheet_name)
-    workbook = writer.book
+    workbook  = writer.book
     worksheet = writer.sheets[sheet_name]
 
     # add formatting
@@ -262,7 +261,7 @@ def overview_xlsx(df, file_name, sheet_name='df'):
 xlsx_col_names = dict(zip(ek_list.keys(),
                           ek_list.keys()))
 xlsx_col_names.update(
-    {'ENDKUNDE_NR': 'Gepard-Nr. Endkunde',
+    {'Endkunde_NR': 'Gepard-Nr. Endkunde',
      'HB_APG': 'VB Endkunde',
      'HB_Agentur': 'VB Agentur',
      'letzte_VBs': 'VBs letzte Kampagnen',
@@ -277,6 +276,8 @@ for x in xlsx_col_names.keys():
     if 'prob_' in x:
         xlsx_col_names[x] = 'Chance'
         break
+
+        
 ################################################################################
 # %% Excel Info text: This will be displayed in every Excel sheet.
 info_text = """Liste von potenziell interessanten Kundenkontakten.
@@ -328,10 +329,12 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         info(f"Write file {deployment_folder / file_name_templ.format(vb)}")
 
         ## Create a Pandas Excel writer using XlsxWriter as the engine:
-        writer = pd.ExcelWriter(str(deployment_folder / file_name_templ.format(vb)),
-                                # os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
-                                engine='xlsxwriter',
-                                datetime_format="dd.mm.yyyy")
+        writer = pd.ExcelWriter(
+            str(deployment_folder / file_name_templ.format(vb)),
+            # os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
+            engine='xlsxwriter',
+            datetime_format="dd.mm.yyyy"
+            )
 
         ## Convert the dataframe to an XlsxWriter Excel object:
         df_vb.to_excel(writer,
@@ -431,7 +434,7 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         # Info-text box, should be vsible under the list on the left side:
         worksheet.insert_textbox('B' + str(gv_VB_TOP_N + 2 + 1),
                                  info_text,
-                                 {'width': 480,
+                                 {'width':  480,
                                   'height': 120,
                                   'fill': {'color': '#ddd9c3'},
                                   'line': {'width': 3.25}})
@@ -447,7 +450,11 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
             worksheet.write(feedback_col + str(i),
                             '',
                             column_format_dropdown)
-        worksheet.data_validation(feedback_col + '2:' + feedback_col + str(gv_VB_TOP_N + 2), feedback)
+            
+        worksheet.data_validation(
+            feedback_col + '2:' + feedback_col + str(gv_VB_TOP_N + 2),
+            feedback
+            )
 
         # General feedback, below list, aligned with Feedback-column W:
         begin_merge_cell = excel_col(len(column_names) - 4) + str(gv_VB_TOP_N + 3)
@@ -456,13 +463,18 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
                               'hier ein generelles Feedback wählen:',
                               cell_color_blue)
         worksheet.data_validation(feedback_col + str(gv_VB_TOP_N + 3), feedback)
-        worksheet.write(feedback_col + str(gv_VB_TOP_N + 3), '', column_format_dropdown)
+        
+        worksheet.write(feedback_col + str(gv_VB_TOP_N + 3),
+                        '',
+                        column_format_dropdown
+                       )
         # => Leave empty cell, so VBs have to fill out.
 
         # Comment column:
         worksheet.write(comment_col + '1',
                         'falls nicht hilfreich, bitte hier einen kurzen Kommentar angeben - entweder pro Zeile oder für die Gesamt-Liste',
                         cell_color_norot)
+        
         worksheet.set_column(comment_col + ':' + comment_col,
                              44,
                              column_format_txt_wrap)
@@ -472,9 +484,18 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
 
 ################################################################################
 # %% Create Excels
-vb_sales_xlsx(vb_ek_map, 20)
 
-overview_xlsx(vb_list, "vkber_potential.xlsx", sheet_name='VK')
+vb_sales_xlsx(
+    vb_lists=    vb_ek_map,
+    gv_VB_TOP_N= 20
+    )
+
+overview_xlsx(
+    df=         vb_list,
+    file_name=  "vkber_potential.xlsx",
+    sheet_name= 'VK'
+    )
+
 # %% End of file.
 ################################################################################
 
