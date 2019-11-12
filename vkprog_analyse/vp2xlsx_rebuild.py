@@ -40,7 +40,7 @@ from pa_lib.file import (
 gv_DIR_DATA       = Path.home() / 'data/vkprog/predictions/' 
 
 # please adjust accordingly:
-name_depl_folder  = '2019_11_18_test_01' #'2019_10_21'
+name_depl_folder  = '2019_11_18_test_04' #'2019_10_21'
 
 #%% Create deployment folder
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
@@ -65,9 +65,8 @@ with project_dir("vkprog/predictions"):
     ek_list = load_bin("20191118_ek_list.feather")
 
 ################################################################################
-
 # %% Data Preparation:Complete Scoring Table
-# %% Column & Row Selection:
+
 def select_columns(df, pattern):
     return (df.columns
             .to_series()
@@ -75,15 +74,7 @@ def select_columns(df, pattern):
             .to_list()
             )
 
-
-# _row_selection = (pd.isna(ek_list.Kleinkunde) &
-#                   pd.isna(ek_list.Neukunde) &
-#                   pd.isna(ek_list.Insolvenz) &
-#                   pd.isna(ek_list.Umsatz_erreicht) &
-#                   pd.isna(ek_list.kuerzlich_gebucht) &
-#                   pd.isna(ek_list.kuerzlich_im_aushang) &
-#                   pd.isna(ek_list.kuerzlich_im_kontakt) &
-#                   pd.isna(ek_list.VB_FILTER_AKTIV))
+# Column selection:
 
 _col_selection = ("""ENDKUNDE_NR 
                     Endkunde 
@@ -104,10 +95,77 @@ _col_selection = ("""ENDKUNDE_NR
                      VB_VK_Geb""".split() +
                   select_columns(ek_list, pattern='^prob_KW'))
 
-ek_list = ek_list.loc[:, _col_selection] # removed row-filters
 
+# Row selection/filter:
 
+net_columns = [col for col in ek_list.columns if col.startswith("Net_")]
+pauschale_filter = (
+    # Insolvenz:
+    (ek_list.loc[:,"Insolvenz"] 
+         != True
+    ) &
+    
+    # kuerzlich_gebucht (in den letzten 2 Monaten erfasste Kampagnen):
+    (ek_list.loc[:,"letzte_Kamp_erfasst"] 
+        < pd.Timestamp.now() - pd.DateOffset(months=2)
+    ) &
+    
+    # kuerzlich_im_aushang (Aushangbeginn vor 1 Monat oder später):
+    (ek_list.loc[:,"letzte_Kamp_Beginn"] 
+        < pd.Timestamp.now() - pd.DateOffset(months=1)
+    ) &
+    
+    # keine Kleinkunden (Ueber die letzten 4 Jahre nie mehr als 3'000 pro Jahr):
+    (ek_list.loc[:,net_columns].max(axis=1).fillna(0) 
+        > 3000
+    ) &
+    
+    # keine Neukunden (Alle, die erst im aktuellen Jahr Umsatz hatten):
+    ((ek_list.loc[:,sorted(net_columns, reverse=True)[1:]]
+             .max(axis=1)
+             .fillna(0))
+        > 0
+    ) &
+    
+    # Umsatz_erreicht (80% Netto-Umsatz gem. Vorjahr erreicht) 
+    ((ek_list.loc[:,sorted(net_columns, reverse=True)[0]]
+             .fillna(0))
+         <= 0.8*(ek_list.loc[:,sorted(net_columns, reverse=True)[1]]
+                        .fillna(0))
+    ) &
+    
+    # kuerzlich_im_kontakt (keine Kunden, mit CRM-Kontakt in den letzten 4 Wochen)
+    (ek_list.loc[:,"last_CRM_Ktkt_date"].fillna(pd.Timestamp.now() - pd.DateOffset(years=100)) 
+        < pd.Timestamp.now() - pd.DateOffset(months=1)
+    ) &
+    
+    # VB_FILTER_AKTIV (in CRM ist eine gültige Sperre für Kunden erfasst)
+     ~(# We define the evil ones, and take the boolean opposite:
+    
+         # Both entries exist: Customer is right now within "Sperre"
+        ((ek_list.loc[:,"VB_FILTER_VON"] < pd.Timestamp.now()) &
+         (pd.Timestamp.now() <= ek_list.loc[:,"VB_FILTER_BIS"]))
+
+        |# No end date, but begin date exists: 
+        ((ek_list.loc[:,"VB_FILTER_VON"] < pd.Timestamp.now()) &
+         (ek_list.loc[:,"VB_FILTER_BIS"].isna() ))
+
+        |# No begin date, but end date exists:
+        (ek_list.loc[:,"VB_FILTER_VON"].isna() & 
+         (ek_list.loc[:,"VB_FILTER_BIS"] <= pd.Timestamp.now() )) 
+     )
+    
+    )
+
+# Apply: Row-Selection & Column Selection
+ek_list = (ek_list.loc[pauschale_filter , _col_selection])
+
+################################################################################
 # %% Data-Type Clean Up:
+
+prob_KW = [col for col in ek_list.columns if col.startswith("prob_KW")][0]
+ek_list.loc[:,prob_KW] = 100 * ek_list.loc[:,prob_KW] # shows percentage
+
 
 def parse_dates(df, columns, format):
     result = df.copy()
@@ -130,6 +188,7 @@ ek_list = (ek_list
            .pipe(parse_ints, int_columns)
            )
 
+################################################################################
 # %% Data Preparation: Active VB-list
 # %% Zuteilung und die einzelnen VBs
 vb_list = (
@@ -141,6 +200,7 @@ vb_list = (
         .set_index("KURZZEICHEN")
 )
 
+################################################################################
 # %% Data Preparation:
 vb_ek_map = {}
 
@@ -152,6 +212,7 @@ for vb_kuerz in vb_list.index:
             ].sort_values(select_columns(ek_list, pattern='^prob_KW'), ascending=False)  # highest probability first.
     )
 
+################################################################################
 # %% Create VB overview with number of potential leads
 vb_nleads = pd.DataFrame.from_records(columns=['total_leads'],
                                       data=[(vb_ek_map[kuerz].shape[0],)
@@ -162,7 +223,7 @@ vb_list = vb_list.merge(vb_nleads,
                         left_index=True,
                         right_index=True)
 
-
+################################################################################
 # %% Define overview-excel creator
 def overview_xlsx(df, file_name, sheet_name='df'):
     """
@@ -194,7 +255,7 @@ def overview_xlsx(df, file_name, sheet_name='df'):
         worksheet.set_column(col, col, max(col_width[col], title_width[col]) + 1)
     writer.save()
 
-
+################################################################################
 # %% Excel column names
 # map all names on itself, then adjust those which need to be adjusted:
 
@@ -216,7 +277,7 @@ for x in xlsx_col_names.keys():
     if 'prob_' in x:
         xlsx_col_names[x] = 'Chance'
         break
-
+################################################################################
 # %% Excel Info text: This will be displayed in every Excel sheet.
 info_text = """Liste von potenziell interessanten Kundenkontakten.
 Die Liste wird alle 2 Wochen bereitgestellt.\n
@@ -224,6 +285,7 @@ Bitte in den letzten 2 Spalten Feedback eintragen, auch Vorschläge für die Ver
 Vielen Dank."""
 
 
+################################################################################
 # %% Define Excel Function
 def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
     """
@@ -401,16 +463,20 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         worksheet.write(comment_col + '1',
                         'falls nicht hilfreich, bitte hier einen kurzen Kommentar angeben - entweder pro Zeile oder für die Gesamt-Liste',
                         cell_color_norot)
-        worksheet.set_column(comment_col + ':' + comment_col, 44, column_format_txt_wrap)
+        worksheet.set_column(comment_col + ':' + comment_col,
+                             44,
+                             column_format_txt_wrap)
 
         # Write file into working folder
         writer.save()
 
+################################################################################
 # %% Create Excels
 vb_sales_xlsx(vb_ek_map, 20)
 
 overview_xlsx(vb_list, "vkber_potential.xlsx", sheet_name='VK')
 # %% End of file.
+################################################################################
 
 #######################
 ## Deployment Email! ##
