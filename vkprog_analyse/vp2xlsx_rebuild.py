@@ -506,6 +506,103 @@ overview_xlsx(
 # %% End of file.
 ################################################################################
 
-#######################
-## Deployment Email! ##
-#######################
+# #######################
+# ## Deployment Email! ##
+# #######################
+
+
+# ##############
+# # Email list #
+# ##############
+# notify_emails = (vb_list.query('total_leads > 0')
+#                         .loc[:, "E_MAIL"])
+# notify_emails.at['STC'] = 'sam.truong@apgsga.ch'
+# notify_emails.at['KPF'] = 'kaspar.pflugshaupt@apgsga.ch'
+# notify_emails.at['RPE'] = 'reto.pensa@apgsga.ch'
+# notify_emails = notify_emails.reset_index()
+# notify_emails.loc[:,"E_MAIL"]
+
+# #########
+# # libs ##
+# #########
+
+# from smtplib import SMTP
+# from email.message import EmailMessage
+# from email.headerregistry import Address
+
+# ######################
+# # Define letter: msg #
+# ######################
+
+# msg = EmailMessage()
+# msg['Subject'] = "Verkaufsprognose: Excel-Listen"
+# msg['From'] = Address("Predictive Analytics", "predictive_analytics", "apgsga.ch")
+# msg['To'] = ', '.join(map(str,list(notify_emails.loc[:,"E_MAIL"])))
+
+# msg.set_content(fr"""
+# Guten Tag miteinander,
+
+# Im folgenden Verzeichnis findet ihr unter eurem Kürzel die aktuellen Verkaufsprognose-Listen
+# \\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}
+
+# Zusätzliche Infos findet ihr auf https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics
+
+# Bitte denkt daran, eure Feedbacks zu den Inhalten direkt in die Excel Liste zu schreiben.
+
+# Beste Grüsse
+# Euer Data Analytics Team
+
+# -----
+
+# Bonjour Toutes et Tous,
+# Dans le classeur suivant vous trouverez, sous vos initiales,  Les listes actualisées concernant les prévisions de vente.
+# \\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}
+
+# Des informations complémentaires à ce sujet sont disponibles dans Wiki 
+# https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics
+# Pensez à ajouter votre feedback directement dans la liste Excel (colonne jaune + X).
+
+
+# Avec nos remerciements anticipés et meilleures salutations.
+# Votre Data Analytics Team
+# """)
+
+# # Add the html version.  This converts the message into a multipart/alternative
+# # container, with the original text message as the first part and the new html
+# # message as the second part.
+# msg.add_alternative(fr"""
+# <html>
+#   <head></head>
+#   <body>
+#     <p>Guten Tag miteinander,</p>
+#     <p>Im folgenden Verzeichnis findet ihr unter eurem K&uuml;rzel <a href="\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">die aktuellen Verkaufsprognose-Listen.</a></p>
+#     <p>Zus&auml;tzliche Infos findet ihr <a href="https://wiki.apgsga.ch/display/ohit21/Predictive+Analytics">hier auf Wiki</a></p>
+#     <p>Bitte denkt daran, eure Feedbacks zu den Inhalten direkt in die Excel Liste zu schreiben.</p>
+#     <p>&nbsp;</p>
+#     <p>Beste Gr&uuml;sse</p>
+#     <p>Euer Data Analytics Team</p>
+#     <p>&nbsp;</p>
+#     <hr />
+#     <p>&nbsp;</p>
+#     <p>Bonjour Toutes et Tous,</p>
+#     <p>Dans le classeur suivant vous trouverez, sous vos initiales,&nbsp; <a href="\\fppwi01\daten$\Service\Kennzahlen\Verkauf\PredictiveAnalytics\{name_depl_folder}">Les listes actualis&eacute;es concernant les pr&eacute;visions de vente</a>.</p>
+#     <p>Des informations compl&eacute;mentaires &agrave; ce sujet sont disponibles <a href="https://wiki.apgsga.ch/x/5pG8Ag">dans Wiki.</a></p>
+#     <p>Pensez &agrave; ajouter votre feedback directement dans la liste Excel (colonne jaune + X).</p>
+#     <p>&nbsp;</p>
+#     <p>Avec nos remerciements anticip&eacute;s et meilleures salutations.</p>
+#     <p>Votre Data Analytics Team</p>
+#   </body>
+# </html>
+# """, subtype='html')
+
+# print(msg.as_string())
+
+# ###############
+# # Send emails #
+# ###############
+
+# with SMTP(host='mailint.apgsga.ch') as mail_gateway:
+#     mail_gateway.set_debuglevel(True)
+#     mail_gateway.send_message(msg)
+    
+# # End of file.
