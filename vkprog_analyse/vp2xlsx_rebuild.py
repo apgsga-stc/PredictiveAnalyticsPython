@@ -33,19 +33,15 @@ from pa_lib.file import (
 #%% Define data location and deployment folder
 
 # please adjust accordingly:
-#gv_DIR_DATA       = Path.home() / 'data/2019-10-21_4J_2W_KW43_Buchung/' 
-gv_DIR_DATA       = Path.home() / 'data/vkprog/predictions/' 
+name_depl_folder  = '2019_11_18_test_01' # Example: '2019_10_21'
 
-# please adjust accordingly:
-name_depl_folder  = '2019_11_18_test_08' #'2019_10_21'
-
-#%% Create deployment folder
+#%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
 os.mkdir(deployment_folder)
 
 ################################################################################
 ## Recursive Dependency Check:
-request_job(job_name="vkber_prepare.py", current= "Today") 
+request_job(job_name="vkber_prepare.py", current= "This Week") 
 # output: vkber_data.csv
 
 ################################################################################
@@ -251,7 +247,10 @@ def overview_xlsx(df, file_name, sheet_name='df'):
 
     # Column autowidth: set each to max(col_width, title_width) + 1
     for col in range(ncols):
-        worksheet.set_column(col, col, max(col_width[col], title_width[col]) + 1)
+        worksheet.set_column(col, 
+                             col,
+                             max(col_width[col], title_width[col]) + 1
+                            )
     writer.save()
 
 ################################################################################
