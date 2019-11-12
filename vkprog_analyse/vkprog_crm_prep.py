@@ -37,6 +37,14 @@ from pa_lib.data import boxplot_histogram
 import numpy as np
 from functools import reduce
 
+## Lazy Recursive Job Dependency Request:
+from pa_lib.job import request_job
+
+################################################################################
+## Recursive Dependency Check:
+request_job(job_name="crm_prepare.py", current= "Today") # output: bd_data.feather
+
+################################################################################
 ###################
 ## Load CRM data ##
 ###################

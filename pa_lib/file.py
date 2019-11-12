@@ -180,6 +180,24 @@ def load_bin(file_name, **params):
     return df
 
 
+@time_log("storing text file")
+def store_txt(txt, file_name, **params):
+    file_path = (_project_dir / file_name).resolve()
+    info(f"Writing to file {file_path}")
+    with file_path.open("w") as file:
+        file.write(txt)
+    info(f"Written {file_size(file_path)}")
+
+
+@time_log("loading text file")
+def load_txt(file_name, **params):
+    file_path = (_project_dir / file_name).resolve()
+    info(f"Reading from file {file_path}")
+    with file_path.open("r") as file:
+        txt = file.read()
+    return txt
+
+
 def rm_file(file_name):
     file_path = Path(file_name).resolve()
     info(f"Removing file {file_path}")

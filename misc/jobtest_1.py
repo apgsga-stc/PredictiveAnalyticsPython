@@ -8,8 +8,11 @@ sys.path.append(str(_parent_dir))
 
 # Imports
 from pa_lib.job import request_job
+from pa_lib.log import info
+
+info("Starting jobtest_1.py!")
 
 request_job("jobtest_2.py")
 request_job("jobtest_3.py")
 
-print("Hello from jobtest_1.py!")
+info("Ending jobtest_1.py!")

@@ -16,7 +16,7 @@ from pa_lib.log import info, err, set_log_file
 
 # Global variables
 _job_data_dir = PA_JOB_DIR
-_job_struct_file_path = _job_data_dir / "job_struct.json"
+_job_struct_file_path = _parent_dir / "pa_lib" / "jobs" / "job_struct.json"
 _job_attributes = ["script_dir", "project_dir", "result"]
 
 
@@ -110,15 +110,17 @@ def _run_job(job_name):
 
 
 ########################################################################################
-def request_job(job_name, current=None):
+def request_job(job_name, current=None, show_stdout=False):
     """
     Make sure that job 'job_name' has been run recently.
     'current' can be set to any of ["Today", "This Week"], or to None (default)
     If set to None, the job is started immediately.
+    In case of job failure, STDERR from the job is shown.
+    In case of job success, STDOUT from the job is only shown if show_stdout=True.
     """
     _check_job_name(job_name)
     this_script = path.basename(sys.argv[0])
-    info(f"{this_script} ==> {job_name}")
+    info(f"[{this_script}] requests '{job_name}'")
     last_run_timestamp = _job_last_run_timestamp(job_name)
     run_reason = ""
     if current is None:
@@ -129,17 +131,22 @@ def request_job(job_name, current=None):
         run_reason = f"Run result is out of date ('{current}')"
 
     if run_reason:
-        info(f"{this_script}: Running job '{job_name}': {run_reason}")
+        info(f"[{this_script}]: Running job '{job_name}': {run_reason}")
         (success, stdout, stderr) = _run_job(job_name)
         if not success:
+            for line in stderr.splitlines():
+                err(f"{job_name} - {line}")
             err(
-                f"{this_script}: Error requesting job '{job_name}': Job failed, exiting."
+                f"[{this_script}]: Error requesting job '{job_name}': Job failed, exiting."
             )
             sys.exit(1)
-        info(f"{this_script}: Job '{job_name}' STDOUT: {stdout}")
+        if show_stdout:
+            for line in stdout.splitlines():
+                info(f"[{job_name}]: {line}")
+        info(f"[{this_script}]: Job '{job_name}' finished successfully!")
     else:
         info(
-            f"{this_script}: Not running job '{job_name}': result is current ('{current}') from {last_run_timestamp}."
+            f"[{this_script}]: Not running job '{job_name}': result is current ('{current}') from {last_run_timestamp}."
         )
 
 
@@ -154,4 +161,4 @@ _job_tree = _load_job_struct()
 # TESTING CODE
 ###############################################################################
 if __name__ == "__main__":
-    request_job("jobtest_1.py", current="Today")
+    request_job("jobtest_1.py", current="Today", show_stdout=False)

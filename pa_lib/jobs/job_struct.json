@@ -1,0 +1,47 @@
+{
+	"jobtest_1.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_1.txt"
+	},
+	"jobtest_2.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_2.txt"
+	},
+	"jobtest_3.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_3.txt"
+	},
+	"jobtest_4.py": {
+		"script_dir": "misc",
+		"project_dir": "jobtest",
+		"result": "jobtest_4.csv"
+	},
+	"plz_prepare.py": {
+	"script_dir": "vkprog_prepare",
+	"project_dir": "vkprog",
+	"result": "plz_data.feather"
+	},
+	"crm_prepare.py": {
+	"script_dir": "vkprog_prepare",
+	"project_dir": "vkprog",
+	"result": "crm_data.feather"
+	},
+	"bd_prepare.py": {
+	"script_dir": "vkprog_prepare",
+	"project_dir": "vkprog",
+	"result": "bd_data.feather"
+	},
+	"ek_info_prepare.py": {
+	"script_dir": "vkprog_prepare",
+	"project_dir": "vkprog",
+	"result": "ek_info.feather"
+	},
+	"vkber_prepare.py": {
+	"script_dir": "vkprog_prepare",
+	"project_dir": "vkprog",
+	"result": "vkber_data.csv"
+	}
+}
