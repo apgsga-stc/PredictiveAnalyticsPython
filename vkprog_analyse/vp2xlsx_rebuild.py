@@ -32,8 +32,11 @@ from pa_lib.file import (
 ################################################################################
 #%% Define data location and deployment folder
 
+# Entscheidungsschwelle für Vorhersage:
+gv_MIN_PROB = 0.01 # I don't know. Has been defined back in the days.
+
 # please adjust accordingly:
-name_depl_folder  = '2019_11_18_test_01' # Example: '2019_10_21'
+name_depl_folder  = '2019_11_18_test_03' # Example: '2019_10_21'
 
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
@@ -90,9 +93,14 @@ _col_selection = ("""Endkunde_NR
 
 
 # Row selection/filter:
-
+prob_KW     = [col for col in ek_list.columns if col.startswith("prob_KW")][0]
 net_columns = [col for col in ek_list.columns if col.startswith("Net_")]
+
 pauschale_filter = (
+    # Minimum Probability:
+    (ek_list.loc[:,prob_KW] > gv_MIN_PROB
+    ) &
+    
     # Insolvenz:
     (ek_list.loc[:,"Insolvenz"] 
          != True
@@ -156,7 +164,7 @@ ek_list = (ek_list.loc[pauschale_filter , _col_selection])
 ################################################################################
 # %% Data-Type Clean Up:
 
-prob_KW = [col for col in ek_list.columns if col.startswith("prob_KW")][0]
+
 ek_list.loc[:,prob_KW] = 100 * ek_list.loc[:,prob_KW] # shows percentage
 
 def parse_ints(df, columns):
