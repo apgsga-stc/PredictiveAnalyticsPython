@@ -7,6 +7,7 @@ erstellt.
 # %% Reset
 # %reset -f
 
+################################################################################
 # make imports from pa_lib possible (parent directory of file's directory)
 import sys
 from pathlib import Path
@@ -15,27 +16,35 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
+################################################################################
 # %% Load modules
 import os
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from os import mkdir
-
-from pa_lib.log import info
+import pandas    as pd
+import numpy     as np
+from pathlib     import Path
+from os          import mkdir
+from pa_lib.log  import info
 from pa_lib.util import excel_col
+from pa_lib.job  import request_job # lazy recursive job dependency request
+from pa_lib.file import (
+    project_dir,
+    load_bin,
+    load_csv,
+    )
 
+################################################################################
 #%% Define data location and deployment folder
-gv_DIR_DATA       = Path.home() / 'data/2019-10-21_4J_2W_KW43_Buchung/' # please adjust accordingly
-name_depl_folder  = '2019_11_18_test_01' #'2019_10_21'            # please adjust accordingly
 
-deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
+# please adjust accordingly:
+#gv_DIR_DATA       = Path.home() / 'data/2019-10-21_4J_2W_KW43_Buchung/' 
+gv_DIR_DATA       = Path.home() / 'data/vkprog/predictions/' 
+
+# please adjust accordingly:
+name_depl_folder  = '2019_11_18_test_01' #'2019_10_21'
 
 #%% Create deployment folder
+deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
 os.mkdir(deployment_folder)
-
-# Lazy Recursive Job Dependency Request:
-from pa_lib.job import request_job
 
 ################################################################################
 ## Recursive Dependency Check:
@@ -43,33 +52,7 @@ request_job(job_name="vkber_prepare.py", current= "Today")
 # output: vkber_data.csv
 
 ################################################################################
-
 # %% Load Data: Active VBs, Complete scoring list
-
-def load_csv(file_name, **params):
-    file_path = gv_DIR_DATA / file_name
-    df = pd.read_csv(file_path, low_memory=False, **params)
-    return df
-
-
-info('Load files')
-ek_list = load_csv('EK_LIST_2W_KOMPLETT.csv',
-                   sep=';',
-                   encoding='ISO-8859-1')
-vb_list = load_csv('vkber_data.csv',
-                   sep=',',
-                   encoding='UTF-8')
-
-
-
-################################################################################
-## NEW CODE: Beginning
-
-from pa_lib.file import (
-    project_dir,
-    load_bin,
-    load_csv,
-    )
 
 with project_dir("vkprog"):
     vb_list = load_csv(
@@ -78,7 +61,7 @@ with project_dir("vkprog"):
         encoding='UTF-8',
         )
 
-with project_dir("vkprog\\predictions"):
+with project_dir("vkprog/predictions"):
     ek_list = load_bin("20191118_ek_list.feather")
 
 #ek_list.head(3)
