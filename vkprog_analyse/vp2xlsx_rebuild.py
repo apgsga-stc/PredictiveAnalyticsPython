@@ -64,11 +64,6 @@ with project_dir("vkprog"):
 with project_dir("vkprog/predictions"):
     ek_list = load_bin("20191118_ek_list.feather")
 
-#ek_list.head(3)
-#ek_list.columns
-
-
-## NEW CODE: End
 ################################################################################
 
 # %% Data Preparation:Complete Scoring Table
@@ -81,14 +76,14 @@ def select_columns(df, pattern):
             )
 
 
-_row_selection = (pd.isna(ek_list.Kleinkunde) &
-                  pd.isna(ek_list.Neukunde) &
-                  pd.isna(ek_list.Insolvenz) &
-                  pd.isna(ek_list.Umsatz_erreicht) &
-                  pd.isna(ek_list.kuerzlich_gebucht) &
-                  pd.isna(ek_list.kuerzlich_im_aushang) &
-                  pd.isna(ek_list.kuerzlich_im_kontakt) &
-                  pd.isna(ek_list.VB_FILTER_AKTIV))
+# _row_selection = (pd.isna(ek_list.Kleinkunde) &
+#                   pd.isna(ek_list.Neukunde) &
+#                   pd.isna(ek_list.Insolvenz) &
+#                   pd.isna(ek_list.Umsatz_erreicht) &
+#                   pd.isna(ek_list.kuerzlich_gebucht) &
+#                   pd.isna(ek_list.kuerzlich_im_aushang) &
+#                   pd.isna(ek_list.kuerzlich_im_kontakt) &
+#                   pd.isna(ek_list.VB_FILTER_AKTIV))
 
 _col_selection = ("""ENDKUNDE_NR 
                     Endkunde 
