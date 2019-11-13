@@ -36,7 +36,7 @@ from pa_lib.file import (
 gv_MIN_PROB = 0.01 # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder  = '2019_11_18_test_03' # Example: '2019_10_21'
+name_depl_folder  = '2019_11_18_test_08' # Example: '2019_10_21'
 
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = Path('/mnt/predictiveanalytics/') / name_depl_folder      
@@ -163,7 +163,6 @@ ek_list = (ek_list.loc[pauschale_filter , _col_selection])
 
 ################################################################################
 # %% Data-Type Clean Up:
-
 
 ek_list.loc[:,prob_KW] = 100 * ek_list.loc[:,prob_KW] # shows percentage
 
