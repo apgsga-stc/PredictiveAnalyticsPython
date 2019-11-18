@@ -199,6 +199,13 @@ def iso_week_rd(date, rd_period=2):
 def iso_year(date):
     return dtt.isocalendar(date)[0]
 
+def iso_to_datetime(year, kw, day):
+    """
+    Return datetime based on (year,kw,day)
+    """
+    string = f"{year} {kw} {day}"
+    return dtt.strptime(string, "%G %V %u")
+
 
 ###############################################################################
 @contextmanager
