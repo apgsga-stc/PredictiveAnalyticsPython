@@ -26,7 +26,10 @@ sys.path.append(str(parent_dir))
 
 ## Libraries & Settings ##
 from pa_lib.file import load_bin
-from pa_lib.util import cap_words
+from pa_lib.util import (
+    cap_words,
+    iso_to_datetime
+    )
 from pa_lib.log import time_log, info
 
 import datetime as dt
@@ -398,9 +401,11 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, sales_filter
     """
     
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
-    date_training = dt.datetime(year_train,month,day) # This is wrong.
-    
     kw_now        = date_now.isocalendar()[1]
+    
+    date_training = iso_to_datetime(year=year_train,
+                                    kw=kw_now,
+                                    day=1)
     
     global current_yyyykw
     global training_yyyykw
