@@ -398,7 +398,7 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, sales_filter
     """
     
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
-    date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
+    date_training = dt.datetime(year_train,month,day) # This is wrong.
     
     kw_now        = date_now.isocalendar()[1]
     

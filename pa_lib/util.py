@@ -197,7 +197,7 @@ def iso_week_rd(date, rd_period=2):
 
 
 def iso_year(date):
-    return int(dtt.strftime(date, "%G"))
+    return dtt.isocalendar(date)[0]
 
 
 ###############################################################################
