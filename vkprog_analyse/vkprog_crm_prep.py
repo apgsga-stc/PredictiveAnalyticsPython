@@ -22,7 +22,11 @@ pd.options.display.max_columns = None
 
 ## Libraries & Settings ##
 from pa_lib.file import load_bin
-from pa_lib.util import cap_words
+from pa_lib.util import (
+    cap_words,
+    iso_to_datetime
+    )
+
 from pa_lib.log import time_log, info
 
 import datetime as dt
@@ -128,6 +132,11 @@ def crm_train_scoring(day, month, year_score, year_train, year_span):
     info("Start.")
     date_now      = dt.datetime(year_score,month,day) # only works for odd calendar weeks!!!
     date_training = dt.datetime(year_train,month,day) # only works for odd calendar weeks!!!
+    
+    date_training = iso_to_datetime(year= year_train,
+                                   kw   = date_now.isocalendar()[1],
+                                   day  = 1
+                                   )
     
     global raw_crm_data
     raw_crm_data = load_crm_data()
