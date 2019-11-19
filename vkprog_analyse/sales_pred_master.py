@@ -9,6 +9,7 @@
 ################################################################################
 
 # make imports from pa_lib possible (parent directory of file's directory)
+
 import sys
 from pathlib import Path
 
@@ -17,6 +18,8 @@ print(file_dir)
 parent_dir = file_dir.parent
 print(parent_dir)
 sys.path.append(str(parent_dir))
+
+from pa_lib.log import time_log, info
 
 import pandas as pd
 import seaborn as sns
@@ -31,8 +34,27 @@ from pa_lib.file import (
     load_xlsx,
     store_bin
     )
-################################################################################
 
+################################################################################
+info("sales_pred_master.py: START")
+################################################################################
+# Universal variables
+
+# Output: Name of scored list (saved in data/vkprog/predictions)
+ek_list_name = "20191202_ek_list_testing.feather"
+
+
+# date for prediction:
+day_predict   = 2 # Make sure it's a Monday
+month_predict = 12
+year_predict  = 2019
+
+
+# Year for training the model (Random Forest) on:
+year_training = 2018
+
+
+################################################################################
 # Lazy Recursive Job Dependency Request:
 from pa_lib.job import request_job
 
@@ -59,11 +81,11 @@ from vkprog_data_prep import bd_train_scoring
  feature_colnames_dates,
  feature_colnames_branchen
     ) = bd_train_scoring(
-            day            = 18, # a Monday
-            month          = 11,
-            year_score     = 2019,
-            year_train     = 2018,
-            year_span      = 4,
+            day            = day_predict, # a Monday
+            month          = month_predict,
+            year_score     = year_predict,
+            year_train     = year_training,
+            year_span      = 4,  # we take the last four years into account
             scale_features = True,
             sales_filter   = True
             #Sales Filter: Keine Langzeitverträge, Eigenwerbung, 
@@ -79,11 +101,11 @@ from vkprog_crm_prep  import crm_train_scoring
  crm_score_df,
  feature_colnames_crm
 ) = crm_train_scoring(
-    day        = 18,
-    month      = 11,
-    year_score = 2019,
-    year_train = 2018,
-    year_span  = 4
+    day        = day_predict,
+    month      = month_predict,
+    year_score = year_predict,
+    year_train = year_training,
+    year_span  = 4 # we take the last four years into account
     )
 
 ################################################################################
@@ -181,8 +203,8 @@ target_columns = pd.Series(training_all.columns).loc[feature_columns_boolean]
 
 del feature_columns_boolean
 
-print(f"Number of features:\n{len(feature_columns)}\n")
-print(f"Target columns:\n{target_columns}")
+info(f"Number of features: {len(feature_columns)}\n")
+info(f"Target columns: {target_columns}")
 
 ################################################################################
 # ## Split ``training_all`` into training-set (``X_train``,``y_train``) and test-set (``X_test``,``y_test``)
@@ -220,11 +242,11 @@ from sklearn.model_selection import train_test_split
     )
 
 
-print("X_train.shape:", X_train.shape)
-print("y_train.shape:", y_train.shape)
-print("X_test.shape.:", X_test.shape)
-print("y_test.shape:",  y_test.shape)
-print("\ndf_scoring_features.shape:", df_scoring_features.shape)
+info(f"X_train.shape: {X_train.shape}")
+info(f"y_train.shape: {y_train.shape}")
+info(f"X_test.shape.: {X_test.shape}")
+info(f"y_test.shape:  {y_test.shape}")
+info(f"df_scoring_features.shape: {df_scoring_features.shape}")
 
 ################################################################################
 
@@ -279,8 +301,8 @@ select.fit(
 
 mask = select.get_support() # boolean array.
 
-print(f"X_train_balanced.shape: {X_train_balanced.shape}")
-print(f"X_train_balanced[:,mask].shape: {X_train_balanced[:,mask].shape}")
+info(f"X_train_balanced.shape: {X_train_balanced.shape}")
+info(f"X_train_balanced[:,mask].shape: {X_train_balanced[:,mask].shape}")
 
 ################################################################################
 
@@ -316,9 +338,9 @@ forest_01.fit(
     )
 
 # %% Validate Accuracy
-print(f"Accuracy on balanced training set:   {forest_01.score(X_train_balanced, y_train_balanced)}"[:42])
-print(f"Accuracy on unbalanced training set: {forest_01.score(X_train,          y_train)}"[:42])
-print(f"Accuracy on test set (validation):   {forest_01.score(X_test,           y_test)}"[:42])
+info(f"Accuracy on balanced training set:   {forest_01.score(X_train_balanced, y_train_balanced)}"[:42])
+info(f"Accuracy on unbalanced training set: {forest_01.score(X_train,          y_train)}"[:42])
+info(f"Accuracy on test set (validation):   {forest_01.score(X_test,           y_test)}"[:42])
 
 ################################################################################
 
@@ -535,7 +557,7 @@ avg_precision_forest_01 = (
         )
     )
 
-print(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
+info(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
 
 ################################################################################
 # ## Receiver Operating Characteristics (ROC) and AUC
@@ -614,7 +636,7 @@ def roc_auc(X_test,y_test):
         forest_01.predict_proba(X_test)[:, 1]
         )
     
-    print("AUC for forest_01:    {:.3f}".format(forest_01_auc))
+    info("AUC for forest_01:    {:.3f}".format(forest_01_auc))
 
 ################################################################################
 
@@ -739,14 +761,19 @@ ek_list = (ek_list_raw
     })       
     )
 
-print(f"ek_list.shape: {ek_list.shape}")
+info(f"ek_list.shape: {ek_list.shape}")
 
 ################################################################################
 # ## Deployment for ``vp2xlsx.py``
 
 with project_dir("vkprog\\predictions"):
-    store_bin(ek_list, "20191118_ek_list_testing.feather")
+    store_bin(
+        ek_list,
+        ek_list_name # Output name.
+        )
 
 ################################################################################
 # End of file.
+info("Continue with: vp2xlsx_rebuild.py")
+info("sales_pred_master.py: END")
 ################################################################################
