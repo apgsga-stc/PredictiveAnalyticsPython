@@ -425,7 +425,10 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, sales_filter
         
     bd_aggr_2w  = aggregate_bookings(bd, 'KW_2')
     info(f"current_yyyykw: {current_yyyykw}")
+    info(f"date_now:       {date_now}")
     info(f"training_yyyykw:{training_yyyykw}")
+    info(f"date_training:  {date_training}")
+    
     scoring_bd  = booking_data(current_yyyykw, year_span )
     training_bd = booking_data(training_yyyykw, year_span)
 
