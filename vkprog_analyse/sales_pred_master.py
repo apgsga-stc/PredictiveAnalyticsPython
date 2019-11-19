@@ -25,7 +25,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
-from pa_lib.data import (boxplot_histogram)
+from pa_lib.vis import boxplot_histogram
 
 from pa_lib.file import (
     project_dir,

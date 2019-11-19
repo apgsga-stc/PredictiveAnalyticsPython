@@ -37,7 +37,7 @@ from pa_lib.data import (
     unfactorize,
 )
 from pa_lib.data import desc_col
-from pa_lib.data import boxplot_histogram
+from pa_lib.vis import boxplot_histogram
 import numpy as np
 from functools import reduce
 

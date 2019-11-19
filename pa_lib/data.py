@@ -5,10 +5,8 @@ Created on Wed Mar  6 15:33:01 2019
 Data frame related functions
 @author: kpf
 """
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 from pa_lib.types import dtFactor, dtKW, dtYear
 from pa_lib.util import format_size, flatten
@@ -224,40 +222,6 @@ def make_period_diff(
         f"{diff_col} = ({year_col_2} - {year_col_1}) * (52 // {round_by}) \
                                 + ({period_col_2} - {period_col_1})"
     )
-
-
-########################################################################################
-def boxplot_histogram(x=None, bins=None, figsize=(15, 10)):
-    """Creates two plots stacked underneath each other.
-       Upper plot: Boxplot. Lower plot: Histogram. Input is any array."""
-    if x is None:
-        x = np.random.normal(loc=1.5, scale=2, size=10000)
-
-    sns.set(style="ticks")
-    f, (ax_box, ax_hist) = plt.subplots(
-        nrows=2,
-        ncols=1,
-        sharex="row",
-        gridspec_kw={"height_ratios": (0.15, 0.85)},
-        figsize=figsize,
-    )
-
-    # Boxplot
-    sns.boxplot(x, notch=True, ax=ax_box)
-    ax_box.set(yticks=[])
-    ax_box.set_title("Boxplot")
-    ax_box.grid(True)
-    sns.despine(ax=ax_box, left=True)
-
-    # Histogram
-    sns.distplot(x, bins=bins, ax=ax_hist)
-    ax_hist.grid(True)
-    ax_hist.set_title("Histogram")
-    ax_hist.set_ylabel("Percentage")
-    ax_hist.set_xlabel("Value Range")
-    sns.despine(ax=ax_hist)
-
-    plt.show()
 
 
 ########################################################################################

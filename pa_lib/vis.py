@@ -5,8 +5,12 @@ Created on 4.7.2019
 Visualisation for PA data
 @author: kpf
 """
+import numpy as np
+import seaborn as sns
 
 from IPython.core.display import display, HTML
+from matplotlib import pyplot as plt
+
 from pa_lib.log import info
 
 
@@ -24,3 +28,37 @@ def dive(df, height=800):
             </script>"""
     info('Displaying data')
     display(HTML(html))
+
+
+########################################################################################
+def boxplot_histogram(x=None, bins=None, figsize=(15, 10)):
+    """Creates two plots stacked underneath each other.
+       Upper plot: Boxplot. Lower plot: Histogram. Input is any array."""
+    if x is None:
+        x = np.random.normal(loc=1.5, scale=2, size=10000)
+
+    sns.set(style="ticks")
+    f, (ax_box, ax_hist) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        sharex="row",
+        gridspec_kw={"height_ratios": (0.15, 0.85)},
+        figsize=figsize,
+    )
+
+    # Boxplot
+    sns.boxplot(x, notch=True, ax=ax_box)
+    ax_box.set(yticks=[])
+    ax_box.set_title("Boxplot")
+    ax_box.grid(True)
+    sns.despine(ax=ax_box, left=True)
+
+    # Histogram
+    sns.distplot(x, bins=bins, ax=ax_hist)
+    ax_hist.grid(True)
+    ax_hist.set_title("Histogram")
+    ax_hist.set_ylabel("Percentage")
+    ax_hist.set_xlabel("Value Range")
+    sns.despine(ax=ax_hist)
+
+    plt.show()
