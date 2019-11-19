@@ -32,21 +32,19 @@ from pa_lib.file import (
 ################################################################################
 #%% Define data location and deployment folder
 
-# Entscheidungsschwelle für Vorhersage:
+# Cutoff for predictions:
 gv_MIN_PROB = 0.01 # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
 name_depl_folder  = '2019_11_18' # Example: '2019_10_21'
+ek_list_name      = "20191118_ek_list.feather"
 
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = (
-    ## If you're working on the server:
+    ## Server or on your machine:
     #Path('/mnt/predictiveanalytics/') / name_depl_folder
-    
-    ## If you're working on your machine:
     Path('P:\Service\Kennzahlen\Verkauf\PredictiveAnalytics') / name_depl_folder
     )
-
 
 os.mkdir(deployment_folder)
 
@@ -66,7 +64,7 @@ with project_dir("vkprog"):
         )
 
 with project_dir("vkprog/predictions"):
-    ek_list = load_bin("20191118_ek_list.feather")
+    ek_list = load_bin(ek_list_name)
 
 ################################################################################
 # %% Data Preparation:Complete Scoring Table
