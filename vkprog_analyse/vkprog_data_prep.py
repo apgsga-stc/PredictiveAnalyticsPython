@@ -46,7 +46,8 @@ from pa_lib.job import request_job
 
 ################################################################################
 ## Recursive Dependency Check:
-request_job(job_name="bd_prepare.py",  current= "Today") # output: bd_data.feather
+request_job(job_name="bd_prepare.py",
+            current= "Today") # output: bd_data.feather
 
 ################################################################################
 
@@ -57,7 +58,8 @@ def load_booking_data():
     bd_raw = load_bin("vkprog\\bd_data.feather").rename(
         mapper=lambda name: cap_words(name, sep="_"), axis="columns"
     )
-    bd = bd_raw.loc[(bd_raw.Netto > 0)].pipe(clean_up_categoricals)
+    bd = (bd_raw.loc[(bd_raw.Netto > 0)]
+                .pipe(clean_up_categoricals))
     return bd
 
 ######################################
@@ -65,7 +67,8 @@ def load_booking_data():
 ######################################
 
 def filter_dataset(dataframe):
-    container_df = (dataframe.query("Dauer < 62")
+    container_df = (
+        dataframe.query("Dauer < 62")
                  .query('Auftragsart != ["Eigenwerbung APG|SGA", "Aushangauftrag Partner", "Logistik für Dritte", "Politisch"]')
                  .query('not Segment == "Airport" and not KV_Typ == "KPGL"')
                  .pipe(clean_up_categoricals)
@@ -98,9 +101,18 @@ def sum_calc(df, col_year, col_week, keine_annulierten=True):
 def aggregate_bookings(df, period):
     info(f"Period: {period}")
     info("Calculate Reservation...")
-    df_res = sum_calc(df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}",keine_annulierten=True)
+    df_res = sum_calc(df,
+                      "Kamp_Erfass_Jahr",
+                      f"Kamp_Erfass_{period}",
+                      keine_annulierten=True
+                     )
+    
     info("Calculate Aushang...")
-    df_aus = sum_calc(df, "Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}",keine_annulierten=True)
+    df_aus = sum_calc(df,
+                      "Kamp_Beginn_Jahr",
+                      f"Kamp_Beginn_{period}",
+                      keine_annulierten=True
+                     )
 
     info("Merge Results...")
     df_aggr = df_res.merge(
@@ -110,8 +122,10 @@ def aggregate_bookings(df, period):
         how="outer",
         suffixes=("_Res", "_Aus"),
     ).rename(
-        {"Kamp_Erfass_Jahr": "Jahr", f"Kamp_Erfass_{period}": period}, axis="columns"
-    )
+        {"Kamp_Erfass_Jahr": "Jahr", 
+         f"Kamp_Erfass_{period}": period},
+        axis="columns"
+        )
 
     df_aggr = (
         df_aggr.fillna(
@@ -192,7 +206,11 @@ def booking_yearly_totals(YYYYKW, year_span):
         
         # Left-Join to the container
         #info("Merging: Left-Join to Container dataframe")
-        container_df = pd.merge(container_df, bd_flattened, on="Endkunde_NR", how="left")
+        container_df = pd.merge(container_df,
+                                bd_flattened,
+                                on="Endkunde_NR",
+                                how="left"
+                               )
     
     # Replace all NaN with Zero
     container_df.fillna(0, inplace=True)
@@ -206,8 +224,10 @@ def booking_data(YYYYKW, year_span):
     Creates pivot table for time span between YYYYKW and back the selected amount of years year_span
     """
     # Select the last four years based on new reference-column
-    bd_filtered = bd_aggr_2w.loc[((bd_aggr_2w.loc[:,"YYYYKW_2"] <= YYYYKW) &
-                                  (bd_aggr_2w.loc[:,"YYYYKW_2"] >=  YYYYKW-year_span*100)),:].copy()
+    row_select = ((bd_aggr_2w.loc[:,"YYYYKW_2"] <= YYYYKW) &
+                  (bd_aggr_2w.loc[:,"YYYYKW_2"] >=  YYYYKW-year_span*100))
+    
+    bd_filtered = bd_aggr_2w.loc[row_select,:].copy()
     
     # Create new column containing names of the relative years: 
     #pd.options.mode.chained_assignment = None  # default='warn'
@@ -216,15 +236,13 @@ def booking_data(YYYYKW, year_span):
     #pd.options.mode.chained_assignment = 'warn'  # default='warn'
     
     # Computing Sums for each KW and customer
-    info("Computing: Pivot Table")
-    bd_pivot    = bd_filtered.pivot_table(
-        #index=["Endkunde_NR", "Jahr"],
-        index=["Endkunde_NR"],
-        #columns="KW_2",
-        columns = ["Jahr_relative","KW_2"],
-        values=["Netto_Sum_Res","Netto_Sum_Aus"] , # Cash amount of Resevation placed per in weeks of YYYYKW and YYYY(KW+1)
-        aggfunc="sum",
-        fill_value=0, # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
+    #info("Computing: Pivot Table")
+    bd_pivot = bd_filtered.pivot_table(
+        index      = ["Endkunde_NR"],
+        columns    = ["Jahr_relative","KW_2"],
+        values     = ["Netto_Sum_Res","Netto_Sum_Aus"] , # Cash amount of Resevation placed per in weeks of YYYYKW and YYYY(KW+1)
+        aggfunc    = "sum",
+        fill_value = 0, # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
     )
     # Flatten down dataframe
     bd_flattened = pd.DataFrame(bd_pivot.to_records(index=False))
@@ -250,11 +268,11 @@ def booking_data(YYYYKW, year_span):
     bd_flattened.sort_index(axis=1, inplace=True)
     
     # Compute yearly totals
-    info("Running: booking_yearly_totals(YYYYKW, year_span) ")
+    #info("Running: booking_yearly_totals(YYYYKW, year_span) ")
     yearly_totals = booking_yearly_totals(YYYYKW, year_span)
     
     # Left join yearly totals, and return it
-    info("Final merge")
+    #info("Final merge")
     return pd.merge(bd_flattened, yearly_totals, on="Endkunde_NR", how="left")
 
 
@@ -349,12 +367,17 @@ def branchen_data(date_view):
     
     #Flatten and rename:
     branchen_df = pd.DataFrame(branchen_df.to_records(index=True))
-    new_col_names = [x.replace("('Kampagne_Erfassungsdatum',","B").replace(" '","").replace("')","") for x in branchen_df.columns]
+    new_col_names = ([x.replace("('Kampagne_Erfassungsdatum',","B")
+                       .replace(" '","")
+                       .replace("')","") for x in branchen_df.columns]
+                    )
+    
     branchen_df.columns = new_col_names
     
     #Decode into 0/1:
     for branche in branchen_df.columns[1:]:
-        branchen_df.loc[:,branche] = branchen_df.loc[:,branche].apply(lambda x: min(x,1))
+        branchen_df.loc[:,branche] = (branchen_df.loc[:,branche]
+                                                 .apply(lambda x: min(x,1)))
         
     return branchen_df
 
@@ -416,14 +439,17 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, sales_filter
     global bd
     global bd_aggr_2w
     
-    bd          = load_booking_data()
+    bd = load_booking_data()
+    
     if sales_filter == True:
-        bd          = filter_dataset(bd)
+        bd = filter_dataset(bd)
         info("True: Filters applied, defined by Sales")
+        
     else:
         info("False: Filters applied, defined by Sales")
         
     bd_aggr_2w  = aggregate_bookings(bd, 'KW_2')
+    
     info(f"current_yyyykw: {current_yyyykw}")
     info(f"date_now:       {date_now}")
     info(f"training_yyyykw:{training_yyyykw}")
@@ -477,15 +503,24 @@ def bd_train_scoring(day, month, year_score, year_train, year_span, sales_filter
     
     if scale_features == True:
         info("Scaling features")
-        training_all = scaling_bd(training_all,col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
-        scoring_all  = scaling_bd(scoring_all, col_bookings=feature_colnames_bd, col_dates=feature_colnames_dates)
+        training_all = scaling_bd(training_all,
+                                  col_bookings = feature_colnames_bd,
+                                  col_dates    = feature_colnames_dates)
+        
+        scoring_all  = scaling_bd(scoring_all,
+                                  col_bookings = feature_colnames_bd,
+                                  col_dates    = feature_colnames_dates)
         
     else:
         info("Unscaled features")
         
     info("Finished.")
     
-    return (training_all, scoring_all, feature_colnames_bd, feature_colnames_dates,feature_colnames_branchen)
+    return (training_all,
+            scoring_all,
+            feature_colnames_bd,
+            feature_colnames_dates,
+            feature_colnames_branchen)
 
 #####################################################################
 
