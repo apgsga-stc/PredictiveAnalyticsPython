@@ -524,7 +524,7 @@ def booking_nettos_vbs(booking_raw):
         .loc[row_select,:]
         .groupby("Endkunde_NR", as_index=False)
         .agg({"Verkaufsberater": collect})
-        .rename({"Verkaufsberater": "Letzte_VBs"})
+        .rename(columns={"Verkaufsberater": "letzte_VBs"})
         )
 
     ## merge

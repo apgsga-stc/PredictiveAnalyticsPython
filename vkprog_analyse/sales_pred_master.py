@@ -38,7 +38,7 @@ from pa_lib.file import (
 ################################################################################
 info("sales_pred_master.py: START")
 ################################################################################
-# Universal variables
+# Global Variables
 
 # Output: Name of scored list (saved in data/vkprog/predictions)
 ek_list_name = "20191202_ek_list_testing.feather"
