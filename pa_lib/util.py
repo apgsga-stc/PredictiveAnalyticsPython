@@ -12,6 +12,7 @@ PA utility functions:
 @author: kpf
 """
 import pandas as pd
+import numpy as np
 import sys
 
 from datetime import datetime as dtt
@@ -276,7 +277,7 @@ def non_repeated(series):
 
 def collect(series, sep=","):
     """Sorted string concatenation of a series' unique values"""
-    values = series[series.notna()].unique().sort_values()
+    values = np.sort(series[series.notna()].unique())
     return sep.join(map(str, values))
 
 
