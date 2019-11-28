@@ -156,10 +156,11 @@ def cond_col(df, col, cond, true_col, else_col=None):
 
 
 def calc_col_partitioned(df, col, fun, on, part_by):
-    """Create new column 'col' in df by applying 'fun' to 'on'
+    """Create new column(s) 'col' in df by applying 'fun' to column(s) 'on'
        partitioned by 'part_by'"""
     new_col = df.groupby(part_by, observed=True)[on].transform(fun)
-    return df.assign(**{col: new_col})
+    new_col_names = list(flatten(col))
+    return df.assign(**new_col.set_axis(new_col_names, axis="columns", inplace=False))
 
 
 def make_sumcurve(df, sum_col_name, crv_col_name, on, part_by):
