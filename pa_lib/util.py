@@ -216,6 +216,10 @@ def value(expr):
 
 
 ###############################################################################
+def normalize_cols(df):
+    return df.div(df.sum(axis="index"), axis="columns")
+
+
 def normalize_rows(df):
     return df.div(df.sum(axis="columns"), axis="index")
 
