@@ -36,8 +36,8 @@ from pa_lib.file import (
 gv_MIN_PROB = 0.01 # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder  = '2019_11_18' # Example: '2019_10_21'
-ek_list_name      = "20191118_ek_list.feather"
+name_depl_folder  = '2019_12_02' # Example: '2019_10_21'
+ek_list_name      = "20191202_ek_list.feather"
 
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = (
