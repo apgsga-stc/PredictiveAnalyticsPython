@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from pa_lib.types import dtFactor, dtKW, dtYear
-from pa_lib.util import format_size, flatten
+from pa_lib.util import format_size, flatten, flat_list
 
 
 ########################################################################################
@@ -158,8 +158,8 @@ def cond_col(df, col, cond, true_col, else_col=None):
 def calc_col_partitioned(df, col, fun, on, part_by):
     """Create new column(s) 'col' in df by applying 'fun' to column(s) 'on'
        partitioned by 'part_by'"""
-    new_col = df.groupby(part_by, observed=True)[[on]].transform(fun)
-    new_col_names = list(flatten(col))
+    new_col = df.groupby(part_by, observed=True)[flat_list(on)].transform(fun)
+    new_col_names = flat_list(col)
     return df.assign(**new_col.set_axis(new_col_names, axis="columns", inplace=False))
 
 
