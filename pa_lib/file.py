@@ -250,7 +250,7 @@ def load_csv(file_name, **params):
 
 
 def store_hdf(df, file_name, **params):
-    """Store df as a 'csv' file in current project directory. **params go to df.to_hdf
+    """Store df as a 'hdf' file in current project directory. **params go to df.to_hdf
     (e.g. key="df", index=False)"""
     _store_df(df, file_name, type="hdf", **params)
 
