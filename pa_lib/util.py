@@ -51,7 +51,7 @@ def seq_join(seq, sep=" "):
 
 
 ###############################################################################
-def is_seq(obj):
+def _is_seq(obj):
     """Strings are not classed as sequences (this would cause flatten() 
        to recurse indefinitely, as single-character strings are still strings).
        Other than these, anything that is iterable counts as a sequence."""
@@ -67,13 +67,18 @@ def is_seq(obj):
 
 def flatten(obj):
     """Flatten complex object recursively to linear sequence.
-       Supports nesting levels up to the interpreter's recursion depth limit."""
-    # iterate over sub-elements
-    if is_seq(obj):
+       Supports nesting levels up to the interpreter's recursion depth limit.
+       Works as a generator."""
+    if _is_seq(obj):
         for element in obj:
             yield from flatten(element)
     else:
         yield obj
+
+
+def flat_list(obj):
+    """Turns object into a flat (non-hierarchical) list of its elements"""
+    return list(flatten(obj))
 
 
 ###############################################################################
@@ -199,6 +204,7 @@ def iso_week_rd(date, rd_period=2):
 
 def iso_year(date):
     return dtt.isocalendar(date)[0]
+
 
 def iso_to_datetime(year, kw, day):
     """
