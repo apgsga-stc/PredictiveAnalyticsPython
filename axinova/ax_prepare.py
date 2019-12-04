@@ -15,7 +15,6 @@ import numpy as np
 from pa_lib.file import store_bin, project_dir, data_files, load_csv, load_xlsx
 from pa_lib.data import (
     as_dtype,
-    dtFactor,
     lookup,
     cut_categorical,
     merge_categories,
@@ -23,6 +22,7 @@ from pa_lib.data import (
 )
 from pa_lib.log import time_log
 from pa_lib.types import dtFactor
+from pa_lib.util import list_items
 
 
 ########################################################################################
@@ -238,6 +238,7 @@ def fix_code_order(var_struct):
     # Catch exceptions resulting from data mismatches for manual cleanup
     for var, _ in var_struct.groupby("Variable"):
         if var in var_codes_ordered:
+            new_codes = ()
             try:
                 new_codes = (
                     pd.DataFrame.from_dict(
@@ -302,6 +303,74 @@ def convert_ax_data(data, var_struct):
     return result
 
 
+def enrich_ax_data(data):
+    enriched_data = data.copy()
+
+    # categorize weekdays
+    weekday_order = data["DayOfWeek"].cat.categories.to_list()
+    weekend = weekday_order[5:]
+    enriched_data["is_weekend"] = data["DayOfWeek"].isin(weekend)
+
+    # categorize time slots
+    time_slot_order = data["TimeSlot"].cat.categories.to_list()
+    day = time_slot_order[1:]
+    rush_hours = list_items(time_slot_order, [1, 5])
+    day_no_rush = list_items(time_slot_order, [2, 3, 4, 6])
+    enriched_data["is_day"] = data["TimeSlot"].isin(day)
+    enriched_data["is_rush"] = data["TimeSlot"].isin(rush_hours)
+    enriched_data["is_day_no_rush"] = data["TimeSlot"].isin(day_no_rush)
+    enriched_data.loc[enriched_data["is_rush"], "TimeSlot_cat"] = "Day: Rush Hours"
+    enriched_data.loc[
+        enriched_data["is_day_no_rush"], "TimeSlot_cat"
+    ] = "Day: no Rush Hours"
+    enriched_data["TimeSlot_cat"].fillna("Night", inplace=True)
+
+    # categorize stations
+    stations_d = [
+        "Aarau",
+        "Basel SBB",
+        "Bern",
+        "Biel/Bienne",
+        "Brig",
+        "Chur",
+        "Luzern",
+        "Olten",
+        "St. Gallen",
+        "Winterthur",
+        "Zug",
+        "Zürich Enge",
+        "Zürich Flughafen",
+        "Zürich Flughafen - Airside",
+        "Zürich Flughafen - Landside",
+        "Zürich HB",
+        "Zürich Hardbrücke",
+        "Zürich Oerlikon",
+        "Zürich Stadelhofen",
+    ]
+    stations_f = [
+        "Biel/Bienne",
+        "Fribourg",
+        "Genève Aéroport",
+        "Genève Cornavin",
+        "Lausanne",
+        "M2",
+        "Neuchatel",
+    ]
+    stations_i = ["Bellinzona", "Lugano"]
+    enriched_data.loc[
+        data["Station"].isin(stations_f), "StationSprache"
+    ] = "Französisch"
+    enriched_data.loc[
+        data["Station"].isin(stations_i), "StationSprache"
+    ] = "Italienisch"
+    enriched_data.loc[data["Station"].isin(stations_d), "StationSprache"] = "Deutsch"
+
+    # clean up data types
+    enriched_data = as_dtype(enriched_data, dtFactor, incl_dtype=["bool", "object"])
+
+    return enriched_data
+
+
 ########################################################################################
 # MAIN CODE
 ########################################################################################
@@ -312,6 +381,9 @@ var_struct = fix_code_order(var_struct)
 
 with time_log("converting data"):
     ax_data = convert_ax_data(ax_data, var_struct)
+
+with time_log("enriching data"):
+    ax_data = enrich_ax_data(ax_data)
 
 with project_dir("axinova"):
     store_bin(ax_data, "ax_data.feather")
