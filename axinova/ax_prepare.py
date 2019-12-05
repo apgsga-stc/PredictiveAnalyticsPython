@@ -62,9 +62,7 @@ def load_ax_data(source_dir):
 
 ########################################################################################
 def load_ax_var_struct(source_dir):
-    label_pattern = (
-        "[!~]*VariablenBeschreibung.xlsx"
-    )  # if file is open in Excel, there's a ~ shadow file
+    label_pattern = "[!~]*VariablenBeschreibung.xlsx"  # if file is open in Excel, there's a ~ shadow file
 
     with project_dir(source_dir):
         # identify label file
@@ -303,6 +301,7 @@ def convert_ax_data(data, var_struct):
     return result
 
 
+########################################################################################
 def enrich_ax_data(data):
     enriched_data = data.copy()
 
