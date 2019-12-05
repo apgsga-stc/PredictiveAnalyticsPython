@@ -38,10 +38,11 @@ def desc_col(df, det=False):
 
 
 def flatten_multi_index_cols(df, sep="_"):
-    if isinstance(df.columns, pd.MultiIndex):
-        col_names = list(map(sep.join, df.columns.to_flat_index()))
-        df = df.set_axis(col_names, axis="columns", inplace=False)
-    return df
+    df_flattened = df.copy()
+    if isinstance(df_flattened.columns, pd.MultiIndex):
+        col_names = list(map(sep.join, df_flattened.columns.to_flat_index()))
+        df_flattened.set_axis(col_names, axis="columns", inplace=True)
+    return df_flattened
 
 
 ########################################################################################

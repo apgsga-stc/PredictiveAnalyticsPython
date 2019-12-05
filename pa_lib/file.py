@@ -104,7 +104,7 @@ def file_size(file_path, do_format=True):
 def store_txt(txt, file_name, **params):
     file_path = (_project_dir / file_name).resolve()
     info(f"Writing to file {file_path}")
-    with file_path.open("w") as file:
+    with file_path.open("w", **params) as file:
         file.write(txt)
     info(f"Written {file_size(file_path)}")
 
@@ -113,7 +113,7 @@ def store_txt(txt, file_name, **params):
 def load_txt(file_name, **params):
     file_path = (_project_dir / file_name).resolve()
     info(f"Reading from file {file_path}")
-    with file_path.open("r") as file:
+    with file_path.open("r", **params) as file:
         txt = file.read()
     return txt
 
@@ -134,33 +134,33 @@ def rm_data_file(file_name):
 def _check_index(df):
     # if we have a default index, trash it. If it's more sophisticated, store it
     if type(df.index) == pd.RangeIndex:
-        df = df.reset_index(drop=True)
+        df_checked = df.reset_index(drop=True)
     else:
-        df = df.reset_index()
-    return df
+        df_checked = df.reset_index()
+    return df_checked
 
 
-def _store_df(df, file_name, type, **params):
+def _store_df(df, file_name, file_type, **params):
     file_path = (_project_dir / file_name).resolve()
     bkup_path = file_path.with_name(f".bkup_{file_name}")
     if file_path.exists():
-        file_path.rename(bkup_path)
-    df = df.pipe(_check_index).pipe(flatten_multi_cols)
-    with time_log(f"storing {type} file"):
+        file_path.replace(bkup_path)
+    df_out = df.pipe(_check_index).pipe(flatten_multi_cols)
+    with time_log(f"storing {file_type} file"):
         info(f"Writing to file {file_path}")
         try:
-            if type == "feather":
-                df.to_feather(file_path, **params)
-            elif type == "csv":
+            if file_type == "feather":
+                df_out.to_feather(file_path, **params)
+            elif file_type == "csv":
                 compression = params.pop("compression", None)
                 index = params.pop("index", False)
-                df.to_csv(file_path, compression=compression, index=index, **params)
-            elif type == "pickle":
-                df.to_pickle(file_path, **params)
-            elif type == "hdf":
+                df_out.to_csv(file_path, compression=compression, index=index, **params)
+            elif file_type == "pickle":
+                df_out.to_pickle(file_path, **params)
+            elif file_type == "hdf":
                 key = params.pop("key", "df")
                 index = params.pop("index", False)
-                df.to_hdf(
+                df_out.to_hdf(
                     file_path,
                     key=key,
                     mode="w",
@@ -170,24 +170,24 @@ def _store_df(df, file_name, type, **params):
                     index=index,
                     **params,
                 )
-            elif type == "xlsx":
+            elif file_type == "xlsx":
                 sheet_name = params.pop("sheet_name", "df")
                 index = params.pop("index", False)
                 # column widths as max strlength of column's contents,
                 # or strlength of column's header if greater
                 col_width = np.maximum(
-                    df.astype("str")
+                    df_out.astype("str")
                     .apply(lambda column: max(column.str.len()))
                     .to_list(),
-                    list(map(len, df.columns)),
+                    list(map(len, df_out.columns)),
                 )
                 file_path = _project_dir / file_name
                 writer = pd.ExcelWriter(file_path, engine="xlsxwriter")
-                df.to_excel(writer, index=index, sheet_name=sheet_name)
+                df_out.to_excel(writer, index=index, sheet_name=sheet_name)
                 # Formatting
                 workbook = writer.book
                 worksheet = writer.sheets[sheet_name]
-                ncols = df.shape[-1]
+                ncols = df_out.shape[-1]
                 title_cells = (0, 0, 0, ncols - 1)
                 bold = workbook.add_format({"bold": True, "align": "left"})
                 worksheet.set_row(0, cell_format=bold)
@@ -198,7 +198,7 @@ def _store_df(df, file_name, type, **params):
                     worksheet.set_column(col, col, col_width[col] + 1)
                 writer.save()
             else:
-                raise ValueError(f"Unknown file type '{type}'")
+                raise ValueError(f"Unknown file type '{file_type}'")
         except:
             file_path.unlink()
             bkup_path.rename(file_path)
@@ -211,7 +211,7 @@ def _store_df(df, file_name, type, **params):
 
 def store_bin(df, file_name, **params):
     """Store df as a 'feather' file in current project directory. **params go to df.to_feather"""
-    _store_df(df, file_name, type="feather", **params)
+    _store_df(df, file_name, file_type="feather", **params)
 
 
 @time_log("loading binary file")
@@ -224,7 +224,7 @@ def load_bin(file_name, **params):
 
 def store_pickle(df, file_name, **params):
     """Store df as a 'pickle' file in current project directory. **params go to df.to_pickle"""
-    _store_df(df, file_name, type="pickle", **params)
+    _store_df(df, file_name, file_type="pickle", **params)
 
 
 @time_log("loading pickle file")
@@ -238,7 +238,7 @@ def load_pickle(file_name, **params):
 def store_csv(df, file_name, **params):
     """Store df as a 'csv' file in current project directory. **params go to df.to_csv
     (e.g. compression="zip", index=False)"""
-    _store_df(df, file_name, type="csv", **params)
+    _store_df(df, file_name, file_type="csv", **params)
 
 
 @time_log("loading CSV file")
@@ -252,7 +252,7 @@ def load_csv(file_name, **params):
 def store_hdf(df, file_name, **params):
     """Store df as a 'hdf' file in current project directory. **params go to df.to_hdf
     (e.g. key="df", index=False)"""
-    _store_df(df, file_name, type="hdf", **params)
+    _store_df(df, file_name, file_type="hdf", **params)
 
 
 @time_log("loading HDF file")
@@ -267,7 +267,7 @@ def load_hdf(file_name, **params):
 def store_xlsx(df, file_name, **params):
     """Store df as a 'xlsx' file in current project directory. **params go to df.to_to_excel
     (e.g. sheet_name="df", index=False)"""
-    _store_df(df, file_name, type="xlsx", **params)
+    _store_df(df, file_name, file_type="xlsx", **params)
 
 
 # Alias for backward compatibility
