@@ -142,10 +142,14 @@ def _check_index(df):
 
 def _store_df(df, file_name, file_type, **params):
     file_path = (_project_dir / file_name).resolve()
-    bkup_path = file_path.with_name(f".bkup_{file_name}")
+    df_out = df.pipe(_check_index).pipe(flatten_multi_cols)
+
+    # Back up target file, if it already exists
+    time_stamp = dtt.now().strftime("%Y%m%d-%H%M%S-%f")
+    bkup_path = file_path.with_name(f"{time_stamp}_{file_name}")
     if file_path.exists():
         file_path.replace(bkup_path)
-    df_out = df.pipe(_check_index).pipe(flatten_multi_cols)
+
     with time_log(f"storing {file_type} file"):
         info(f"Writing to file {file_path}")
         try:
