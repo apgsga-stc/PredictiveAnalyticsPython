@@ -8,15 +8,11 @@ sys.path.append(str(parent_dir))
 
 from pa_lib.file import (
     project_dir,
-    load_bin,
     load_xlsx,
     store_bin,
 )
 from pa_lib.data import as_dtype, dtFactor
 from pa_lib.util import cap_words
-
-with project_dir("axinova"):
-    ax_data = load_bin("ax_data.feather")
 
 with project_dir("spr_plus"):
     spr_data = (
@@ -33,6 +29,7 @@ with project_dir("spr_plus"):
     rail_displays = (
         load_xlsx("flaechen_rail_epanel.xlsx")
         .append(load_xlsx("flaechen_rail_eboard.xlsx"), ignore_index=True, sort=False)
+        .drop(["Strasse", "Haus-Nr."], axis="columns")
         .pipe(as_dtype, dtFactor, incl_dtype="object")
     )
 
