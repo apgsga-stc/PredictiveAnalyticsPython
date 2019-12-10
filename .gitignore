@@ -118,3 +118,5 @@ vkprog_analyse/this_is_a_test.png
 *.xlsx
 *.feather
 pa_lib/.vs
+*.docx
+*.pdf
