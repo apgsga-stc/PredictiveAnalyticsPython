@@ -161,6 +161,9 @@ def _store_df(df, file_name, file_type, **params):
                 df_out.to_feather(file_path, **params)
             elif file_type == "csv":
                 compression = params.pop("compression", None)
+                do_zip = params.pop("do_zip", False)
+                if do_zip:
+                    compression="zip"
                 index = params.pop("index", False)
                 df_out.to_csv(file_path, compression=compression, index=index, **params)
             elif file_type == "pickle":
