@@ -16,7 +16,8 @@ from functools import partial
 from pa_lib.const import PA_DATA_DIR
 from pa_lib.log import time_log, info
 from pa_lib.util import format_size
-from pa_lib.data import flatten_multi_index_cols
+from pa_lib.data import flatten_multi_index_cols, as_dtype, clean_up_categoricals
+from pa_lib.types import dtFactor
 
 flatten_multi_cols = partial(flatten_multi_index_cols, sep="|")
 
@@ -60,7 +61,7 @@ def project_dir(dir_name):
         set_project_dir(previous_project_dir)
 
 
-###############################################################################
+########################################################################################
 def file_list(path=".", pattern="*.*", sort="name", desc=False, do_format=True):
     """DataFrame(name, size, mtime) for all files in path, filtered by pattern,
        sorted by 'sort' and 'desc'"""
@@ -90,7 +91,7 @@ def data_files(pattern="[!.]*.*", sort="name", **kwargs):
     return file_list(_project_dir, pattern, sort, **kwargs).set_index(sort)
 
 
-###############################################################################
+########################################################################################
 def file_size(file_path, do_format=True):
     nbytes = Path(file_path).stat().st_size
     if do_format:
@@ -99,7 +100,7 @@ def file_size(file_path, do_format=True):
         return nbytes
 
 
-###############################################################################
+########################################################################################
 @time_log("storing text file")
 def store_txt(txt, file_name, **params):
     file_path = (_project_dir / file_name).resolve()
@@ -118,7 +119,7 @@ def load_txt(file_name, **params):
     return txt
 
 
-###############################################################################
+########################################################################################
 def rm_file(file_name):
     file_path = Path(file_name).resolve()
     info(f"Removing file {file_path}")
@@ -130,7 +131,18 @@ def rm_data_file(file_name):
     rm_file(file_path)
 
 
-###############################################################################
+########################################################################################
+def cleanup_df(df):
+    clean_df = df.copy()
+    clean_df = (
+        clean_df.pipe(as_dtype, dtFactor, incl_dtype="object")
+        .reset_index(drop=True)
+        .pipe(clean_up_categoricals)
+    )
+    return clean_df
+
+
+########################################################################################
 def _check_index(df):
     # if we have a default index, trash it. If it's more sophisticated, store it
     if df.index.equals(pd.RangeIndex.from_range(range(len(df)))):
@@ -163,7 +175,7 @@ def _store_df(df, file_name, file_type, **params):
                 compression = params.pop("compression", None)
                 do_zip = params.pop("do_zip", False)
                 if do_zip:
-                    compression="zip"
+                    compression = "zip"
                 index = params.pop("index", False)
                 df_out.to_csv(file_path, compression=compression, index=index, **params)
             elif file_type == "pickle":
