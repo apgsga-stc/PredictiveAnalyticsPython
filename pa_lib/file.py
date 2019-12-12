@@ -191,7 +191,7 @@ def _store_df(df, file_name, file_type, **params):
                 )
                 file_path = _project_dir / file_name
                 writer = pd.ExcelWriter(file_path, engine="xlsxwriter")
-                df_out.to_excel(writer, index=index, sheet_name=sheet_name)
+                df_out.to_excel(writer, index=index, sheet_name=sheet_name, **params)
                 # Formatting
                 workbook = writer.book
                 worksheet = writer.sheets[sheet_name]
@@ -274,7 +274,7 @@ def load_hdf(file_name, **params):
 
 
 def store_xlsx(df, file_name, **params):
-    """Store df as a 'xlsx' file in current project directory. **params go to df.to_to_excel
+    """Store df as a 'xlsx' file in current project directory. **params go to df.to_excel
     (e.g. sheet_name="df", index=False)"""
     _store_df(df, file_name, file_type="xlsx", **params)
 
