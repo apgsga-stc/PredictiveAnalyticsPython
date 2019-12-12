@@ -62,10 +62,15 @@ with project_dir("vkprog"):
         sep=',',
         encoding='UTF-8',
         )
-
+  
+  
 with project_dir("vkprog/predictions"):
     ek_list = load_bin(ek_list_name)
 
+################################################################################
+## Change KAM Thomas Macho (TMA) to None-KAM:
+
+vb_list.loc[vb_list.KURZZEICHEN == "TMA","KAM"] = False
 ################################################################################
 # %% Data Preparation:Complete Scoring Table
 
@@ -525,9 +530,11 @@ notify_emails = (
     .loc[:, "E_MAIL"]
     )
 notify_emails.at['RPE'] = 'reto.pensa@apgsga.ch'
+notify_emails.at['TMA'] = 'thomas.macho@apgsga.ch'
 notify_emails.at['KPF'] = 'kaspar.pflugshaupt@apgsga.ch'
 notify_emails.at['STC'] = 'sam.truong@apgsga.ch'
-notify_emails = notify_emails.reset_index()
+notify_emails = notify_emails.reset_index().drop_duplicates()
+
 print(notify_emails.loc[:,"E_MAIL"])
 
 # For maintenance purposes:
