@@ -133,7 +133,7 @@ def rm_data_file(file_name):
 ###############################################################################
 def _check_index(df):
     # if we have a default index, trash it. If it's more sophisticated, store it
-    if type(df.index) == pd.RangeIndex:
+    if df.index.equals(pd.RangeIndex.from_range(range(len(df)))):
         df_checked = df.reset_index(drop=True)
     else:
         df_checked = df.reset_index()
@@ -142,7 +142,11 @@ def _check_index(df):
 
 def _store_df(df, file_name, file_type, **params):
     file_path = (_project_dir / file_name).resolve()
-    df_out = df.pipe(_check_index).pipe(flatten_multi_cols)
+    # Pickle files support all python objects. For other formats, normalize df.
+    if file_type != "pickle":
+        df_out = df.pipe(_check_index).pipe(flatten_multi_cols)
+    else:
+        df_out = df.copy()
 
     # Back up target file, if it already exists
     time_stamp = dtt.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -205,7 +209,8 @@ def _store_df(df, file_name, file_type, **params):
                 raise ValueError(f"Unknown file type '{file_type}'")
         except:
             file_path.unlink()
-            bkup_path.rename(file_path)
+            if bkup_path.exists():
+                bkup_path.replace(file_path)
             raise IOError(f"Failed writing file {file_path}: {sys.exc_info()[1]}")
         else:
             if bkup_path.exists():
