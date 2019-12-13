@@ -55,7 +55,7 @@ request_job(job_name="bd_prepare.py",
 ## Load raw data ##
 ###################
 def load_booking_data():
-    bd_raw = load_bin("vkprog\\bd_data.feather").rename(
+    bd_raw = load_bin("vkprog/bd_data.feather").rename(
         mapper=lambda name: cap_words(name, sep="_"), axis="columns"
     )
     bd = (bd_raw.loc[(bd_raw.Netto > 0)]
