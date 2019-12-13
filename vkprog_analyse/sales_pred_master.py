@@ -697,7 +697,7 @@ scoring_all_prob = (pd.merge(scoring_all,
 
 from pa_lib.file import load_bin
 
-ek_info = load_bin("vkprog\\ek_info.feather")
+ek_info = load_bin("vkprog/ek_info.feather")
 
 ################################################################################
 
