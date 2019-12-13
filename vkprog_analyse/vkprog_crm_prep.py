@@ -54,7 +54,7 @@ request_job(job_name="crm_prepare.py", current= "Today") # output: bd_data.feath
 ###################
 
 def load_crm_data():
-    raw_data = load_bin("vkprog\\crm_data_vkprog.feather").rename(
+    raw_data = load_bin("vkprog/crm_data_vkprog.feather").rename(
         mapper=lambda name: cap_words(name, sep="_"), axis="columns"
     )
     #return raw_data.astype({"Endkunde_NR": "int64", "Year": "int64", "KW_2": "int64"})
