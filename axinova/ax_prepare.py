@@ -292,6 +292,9 @@ def convert_ax_data(data, var_struct):
         .pipe(merge_categories, cat="Nacht_spät", into_cat="Nacht")
     )
 
+    # Add column: Short format time
+    result["ShortTime"] = result["Time"].str[:5].astype(dtFactor)
+
     # Add column: Hour
     result["Hour"] = (result["Time"].str[:2]).astype(dtFactor)
 

@@ -38,12 +38,13 @@ with project_dir("spr_plus"):
         .pipe(as_dtype, dtFactor, incl_dtype="object")
     )
 
-# enrich SPR+ data with APG digital display info, hour column
+# enrich SPR+ data with APG digital display info, hour column, short format time
 info("Enrich SPR+ data...")
 spr_data_complete = spr_data_raw.merge(
     rail_displays, how="left", left_on="Flaeche_ID", right_on="Nummer"
 )
 spr_data_complete.loc[:, "Hour"] = spr_data_complete.Time.astype("str").str[:2]
+spr_data_complete["ShortTime"] = spr_data_complete.Time.astype("str").str[:5]
 
 # drop records for non-digital displays
 info("Filter SPR+ data...")
