@@ -80,13 +80,13 @@ def _run_is_current(run_timestamp, current):
     if run_timestamp is None:
         return False
 
-    def iso_week(date):
+    def iso_year_week(date):
         return dtt.isocalendar(date)[:2]
 
     if current == "Today":
         return run_timestamp.date() == dtt.today().date()
     elif current == "This Week":
-        return iso_week(run_timestamp) == iso_week(dtt.today())
+        return iso_year_week(run_timestamp) == iso_year_week(dtt.today())
     else:
         err(f"Wrong parameter value for 'current': '{current}', exiting.")
         err("--> Parameter must be in ['Today', 'This Week']")
@@ -133,17 +133,18 @@ def request_job(job_name, current=None, show_stdout=False):
     if run_reason:
         info(f"[{this_script}]: Running job '{job_name}': {run_reason}")
         (success, stdout, stderr) = _run_job(job_name)
-        if not success:
+        if success:
+            if show_stdout:
+                for line in stdout.splitlines():
+                    info(f"[{job_name}]: {line}")
+            info(f"[{this_script}]: Job '{job_name}' finished successfully!")
+        else:
             for line in stderr.splitlines():
                 err(f"{job_name} - {line}")
             err(
                 f"[{this_script}]: Error requesting job '{job_name}': Job failed, exiting."
             )
             sys.exit(1)
-        if show_stdout:
-            for line in stdout.splitlines():
-                info(f"[{job_name}]: {line}")
-        info(f"[{this_script}]: Job '{job_name}' finished successfully!")
     else:
         info(
             f"[{this_script}]: Not running job '{job_name}': result is current ('{current}') from {last_run_timestamp}."
