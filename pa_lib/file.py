@@ -8,6 +8,7 @@ File handling for PA data
 import pandas as pd
 import numpy as np
 import sys
+import pickle
 from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime as dtt
@@ -158,7 +159,7 @@ def _store_df(df, file_name, file_type, **params):
     if file_type != "pickle":
         df_out = df.pipe(_check_index).pipe(flatten_multi_cols)
     else:
-        df_out = df.copy()
+        df_out = df
 
     # Back up target file, if it already exists
     time_stamp = dtt.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -179,7 +180,8 @@ def _store_df(df, file_name, file_type, **params):
                 index = params.pop("index", False)
                 df_out.to_csv(file_path, compression=compression, index=index, **params)
             elif file_type == "pickle":
-                df_out.to_pickle(file_path, **params)
+                with open(file_path, "wb") as file:
+                    pickle.dump(df_out, file, protocol=pickle.HIGHEST_PROTOCOL)
             elif file_type == "hdf":
                 key = params.pop("key", "df")
                 index = params.pop("index", False)
@@ -223,7 +225,8 @@ def _store_df(df, file_name, file_type, **params):
             else:
                 raise ValueError(f"Unknown file type '{file_type}'")
         except:
-            file_path.unlink()
+            if file_path.exists():
+                file_path.unlink()
             if bkup_path.exists():
                 bkup_path.replace(file_path)
             raise IOError(f"Failed writing file {file_path}: {sys.exc_info()[1]}")
@@ -246,17 +249,18 @@ def load_bin(file_name, **params):
     return df
 
 
-def store_pickle(df, file_name, **params):
-    """Store df as a 'pickle' file in current project directory. **params go to df.to_pickle"""
-    _store_df(df, file_name, file_type="pickle", **params)
+def store_pickle(df, file_name):
+    """Store df as a 'pickle' file in current project directory."""
+    _store_df(df, file_name, file_type="pickle")
 
 
 @time_log("loading pickle file")
-def load_pickle(file_name, **params):
+def load_pickle(file_name):
     file_path = (_project_dir / file_name).resolve()
     info(f"Reading from file {file_path}")
-    df = pd.read_pickle(file_path, **params)
-    return df
+    with open(file_path, "rb") as file:
+        obj = pickle.load(file)
+    return obj
 
 
 def store_csv(df, file_name, **params):
