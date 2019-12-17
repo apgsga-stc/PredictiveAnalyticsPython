@@ -12,7 +12,14 @@ sys.path.append(str(parent_dir))
 import pandas as pd
 import numpy as np
 
-from pa_lib.file import store_bin, project_dir, data_files, load_csv, load_xlsx
+from pa_lib.file import (
+    store_bin,
+    project_dir,
+    data_files,
+    load_csv,
+    load_xlsx,
+    store_pickle,
+)
 from pa_lib.data import (
     as_dtype,
     lookup,
@@ -374,6 +381,27 @@ def enrich_ax_data(data):
 
 
 ########################################################################################
+def calculate_global_code_ratios(data):
+    global_codes = {}
+    
+    for time_scale in "ShortTime Hour TimeSlot".split():
+        
+        # sum value per code for each var/station/time
+        global_codes[time_scale] = data.groupby(
+            ["Variable", "DayOfWeek", time_scale, "Code"], observed=True, as_index=False
+        )["Value"].agg("sum")
+
+        # scale to sum=1 per hour to get ratios per time
+        global_codes[time_scale]["Ratio"] = (
+            global_codes[time_scale]
+            .groupby(["Variable", "DayOfWeek", time_scale], observed=True)["Value"]
+            .transform(lambda s: s / s.sum())
+        )
+    
+    return global_codes
+
+
+########################################################################################
 # MAIN CODE
 ########################################################################################
 source_dir = "axinova_month_files"
@@ -387,6 +415,10 @@ with time_log("converting data"):
 with time_log("enriching data"):
     ax_data = enrich_ax_data(ax_data)
 
+with time_log("extracting global code ratios"):
+    global_code_ratios = calculate_global_code_ratios(ax_data)
+
 with project_dir("axinova"):
     store_bin(ax_data, "ax_data.feather")
     store_bin(var_struct, "ax_var_struct.feather")
+    store_pickle(global_code_ratios, "code_ratios.pkl")

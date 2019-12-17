@@ -17,7 +17,7 @@ from pa_lib.util import cap_words, value
 
 
 ########################################################################################
-# Load SPR+ data, enrich with APG digital display info
+# Load SPR+ data, enrich with APG digital display info, add columns
 ########################################################################################
 with project_dir("spr_plus"):
     spr_data_raw = (
@@ -43,12 +43,26 @@ info("Enrich SPR+ data...")
 spr_data_complete = spr_data_raw.merge(
     rail_displays, how="left", left_on="Flaeche_ID", right_on="Nummer"
 )
-spr_data_complete.loc[:, "Hour"] = spr_data_complete.Time.astype("str").str[:2]
-spr_data_complete["ShortTime"] = spr_data_complete.Time.astype("str").str[:5]
-
 # drop records for non-digital displays
 info("Filter SPR+ data...")
 spr_data = spr_data_complete.dropna(subset=["PF"])
+
+# add columns for joining with Axinova data: Hour, ShortTima, DayOfWeek
+spr_data.loc[:, "Hour"] = spr_data.Time.astype("str").str[:2]
+spr_data.loc[:, "ShortTime"] = spr_data.Time.astype("str").str[:5]
+spr_data.loc[:, "DayOfWeek"] = spr_data.WT.map(
+    {
+        "Montag": "Monday",
+        "Dienstag": "Tuesday",
+        "Mittwoch": "Wednesday",
+        "Donnerstag": "Thursday",
+        "Freitag": "Friday",
+        "Samstag": "Saturday",
+        "Sonntag": "Sunday",
+    }
+).cat.reorder_categories(
+    "Monday Tuesday Wednesday Thursday Friday Saturday Sunday".split(), ordered=True,
+)
 
 
 ########################################################################################
