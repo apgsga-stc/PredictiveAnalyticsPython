@@ -25,7 +25,7 @@ with project_dir("spr_plus"):
         .melt(
             id_vars="WT FLAECHE_ID ANBIETER SPR_FLAECHE_ID".split(),
             var_name="Time",
-            value_name="Count",
+            value_name="Total",
         )
         .pipe(as_dtype, dtFactor, incl_dtype="object")
         .rename(mapper=lambda name: cap_words(name, sep="_"), axis="columns")
