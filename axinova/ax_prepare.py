@@ -130,7 +130,7 @@ def load_ax_var_struct(source_dir):
 ########################################################################################
 def fix_code_order(var_struct):
     # define orderings for all variables with given non-alphabetical ordering
-    var_codes_ordered = {
+    var_codes_reorder = {
         "md_agenatrep": {
             "14-29 Jahre": 1,
             "30-45 Jahre": 2,
@@ -242,12 +242,12 @@ def fix_code_order(var_struct):
     # Assign new ordered codes to var_struct for all ordered variables
     # Catch exceptions resulting from data mismatches for manual cleanup
     for var, _ in var_struct.groupby("Variable"):
-        if var in var_codes_ordered:
+        if var in var_codes_reorder:
             new_codes = ()
             try:
                 new_codes = (
                     pd.DataFrame.from_dict(
-                        var_codes_ordered[var], orient="index", columns=["Label_Nr"]
+                        var_codes_reorder[var], orient="index", columns=["Label_Nr"]
                     )
                     .rename_axis(index="Label")
                     .reset_index()
@@ -271,7 +271,7 @@ def fix_code_order(var_struct):
 def convert_ax_data(data, var_struct):
     # Add columns: logValue, Variable description
     result = data.assign(
-        logValue=np.log(data["Value"]),
+        logValue=np.log1p(data["Value"]),
         VarDesc=lookup(
             var_struct, target_col_name="Variable_Label", match_col=data["Variable"]
         ),
@@ -303,7 +303,7 @@ def convert_ax_data(data, var_struct):
     result["ShortTime"] = result["Time"].str[:5].astype(dtFactor)
 
     # Add column: Hour
-    result["Hour"] = (result["Time"].str[:2]).astype(dtFactor)
+    result["Hour"] = result["Time"].str[:2].astype(dtFactor)
 
     result = result.sort_values(
         by=["Station", "DayOfWeek", "Time", "Variable", "Code"]
@@ -316,15 +316,15 @@ def enrich_ax_data(data):
     enriched_data = data.copy()
 
     # categorize weekdays
-    weekday_order = data["DayOfWeek"].cat.categories.to_list()
-    weekend = weekday_order[5:]
+    weekdays = data["DayOfWeek"].cat.categories.to_list()
+    weekend = weekdays[5:]
     enriched_data["is_weekend"] = data["DayOfWeek"].isin(weekend)
 
     # categorize time slots
-    time_slot_order = data["TimeSlot"].cat.categories.to_list()
-    day = time_slot_order[1:]
-    rush_hours = list_items(time_slot_order, [1, 5])
-    day_no_rush = list_items(time_slot_order, [2, 3, 4, 6])
+    time_slots = data["TimeSlot"].cat.categories.to_list()
+    day = time_slots[1:]
+    rush_hours = list_items(time_slots, [1, 5])
+    day_no_rush = list_items(time_slots, [2, 3, 4, 6])
     enriched_data["is_day"] = data["TimeSlot"].isin(day)
     enriched_data["is_rush"] = data["TimeSlot"].isin(rush_hours)
     enriched_data["is_day_no_rush"] = data["TimeSlot"].isin(day_no_rush)
@@ -383,21 +383,18 @@ def enrich_ax_data(data):
 ########################################################################################
 def calculate_global_code_ratios(data):
     global_codes = {}
-    
     for time_scale in "ShortTime Hour TimeSlot".split():
-        
         # sum value per code for each var/station/time
         global_codes[time_scale] = data.groupby(
             ["Variable", "DayOfWeek", time_scale, "Code"], observed=True, as_index=False
         )["Value"].agg("sum")
 
-        # scale to sum=1 per hour to get ratios per time
-        global_codes[time_scale]["Ratio"] = (
+        # scale to sum=1 per time to get ratios
+        global_codes[time_scale].loc[:, "Ratio"] = (
             global_codes[time_scale]
             .groupby(["Variable", "DayOfWeek", time_scale], observed=True)["Value"]
             .transform(lambda s: s / s.sum())
         )
-    
     return global_codes
 
 
