@@ -30,7 +30,6 @@ with project_dir("spr_plus"):
         .pipe(as_dtype, dtFactor, incl_dtype="object")
         .rename(mapper=lambda name: cap_words(name, sep="_"), axis="columns")
     )
-
     rail_displays = (
         load_xlsx("flaechen_rail_epanel.xlsx")
         .append(load_xlsx("flaechen_rail_eboard.xlsx"), ignore_index=True, sort=False)

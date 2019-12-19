@@ -33,18 +33,18 @@ from pa_lib.util import list_items
 
 
 ########################################################################################
-def load_ax_data(source_dir):
+def load_ax_data(directory):
     # how to find & read our data files
     data_pattern = "*Bahnhof_Uhrzeit_*.csv"
     data_params = dict(encoding="cp1252")
 
     data_by_month = {}
-    with project_dir(source_dir):
+    with project_dir(directory):
         # read each data file
         file_list = data_files(data_pattern)
         if file_list.shape[0] == 0:
             raise FileNotFoundError(
-                f"No data file matches '{data_pattern}' in data subdirectory '{source_dir}'"
+                f"No data file matches '{data_pattern}' in data subdirectory '{directory}'"
             )
         for data_file in file_list.index:
             # file is like '190016Bahnhof_Uhrzeit_201905.csv'
@@ -68,20 +68,20 @@ def load_ax_data(source_dir):
 
 
 ########################################################################################
-def load_ax_var_struct(source_dir):
+def load_ax_var_struct(directory):
     label_pattern = "[!~]*VariablenBeschreibung.xlsx"  # if file is open in Excel, there's a ~ shadow file
 
-    with project_dir(source_dir):
+    with project_dir(directory):
         # identify label file
         correct_columns = ["Variable", "Label", "Bemerkung"]
         file_list = data_files(label_pattern)
         if file_list.shape[0] == 0:
             raise FileNotFoundError(
-                f"No label file matches '{label_pattern}' in data subdirectory '{source_dir}'"
+                f"No label file matches '{label_pattern}' in data subdirectory '{directory}'"
             )
         elif file_list.shape[0] > 1:
             raise Exception(
-                f"Multiple label files match '{label_pattern}' in data subdirectory '{source_dir}'"
+                f"Multiple label files match '{label_pattern}' in data subdirectory '{directory}'"
             )
         label_file = file_list.index[0]
 
@@ -108,27 +108,27 @@ def load_ax_var_struct(source_dir):
     code_labels["Variable_Label"] = lookup(
         var_labels, target_col_name="Label", match_col=code_labels["Variable"]
     )
-    var_struct = (
+    var_structure = (
         code_labels.loc[:, "Variable Variable_Label Label".split()]
         .sort_values(["Variable", "Label"])
         .reset_index(drop=True)
     )
     assert all(
-        var_struct.isna().sum() == 0
+        var_structure.isna().sum() == 0
     ), f"Illegal variable structure (has NULLs), check file {label_file}"
 
     # calculate alphabetic order of codes within variables as "Label_Nr"
     def order(s):
         return s.rank(method="dense").astype("int")
 
-    var_struct = calc_col_partitioned(
-        df=var_struct, col="Label_Nr", fun=order, on="Label", part_by="Variable"
+    var_structure = calc_col_partitioned(
+        df=var_structure, col="Label_Nr", fun=order, on="Label", part_by="Variable"
     )
-    return var_struct
+    return var_structure
 
 
 ########################################################################################
-def fix_code_order(var_struct):
+def fix_code_order(var_structure):
     # define orderings for all variables with given non-alphabetical ordering
     var_codes_reorder = {
         "md_agenatrep": {
@@ -238,10 +238,9 @@ def fix_code_order(var_struct):
             "Sozialdemokratische Partei SP": 1,
         },
     }
-
     # Assign new ordered codes to var_struct for all ordered variables
     # Catch exceptions resulting from data mismatches for manual cleanup
-    for var, _ in var_struct.groupby("Variable"):
+    for var, _ in var_structure.groupby("Variable"):
         if var in var_codes_reorder:
             new_codes = ()
             try:
@@ -253,27 +252,29 @@ def fix_code_order(var_struct):
                     .reset_index()
                     .values
                 )
-                var_struct.loc[
-                    var_struct["Variable"] == var, ["Label", "Label_Nr"]
+                var_structure.loc[
+                    var_structure["Variable"] == var, ["Label", "Label_Nr"]
                 ] = new_codes
             except:
                 print(f"Problem reordering variable {var}: new codes = \n{new_codes}")
                 print("Old structure:")
                 print(
-                    var_struct.loc[var_struct["Variable"] == var, ["Label", "Label_Nr"]]
+                    var_structure.loc[
+                        var_structure["Variable"] == var, ["Label", "Label_Nr"]
+                    ]
                 )
                 raise
 
-    return var_struct.sort_values(["Variable", "Label_Nr"])
+    return var_structure.sort_values(["Variable", "Label_Nr"])
 
 
 ########################################################################################
-def convert_ax_data(data, var_struct):
+def convert_ax_data(data, var_structure):
     # Add columns: logValue, Variable description
     result = data.assign(
         logValue=np.log1p(data["Value"]),
         VarDesc=lookup(
-            var_struct, target_col_name="Variable_Label", match_col=data["Variable"]
+            var_structure, target_col_name="Variable_Label", match_col=data["Variable"]
         ),
     ).pipe(as_dtype, to_dtype=dtFactor, incl_dtype="object")
 
@@ -381,20 +382,50 @@ def enrich_ax_data(data):
 
 
 ########################################################################################
-def calculate_global_code_ratios(data):
-    global_codes = {}
-    for time_scale in "ShortTime Hour TimeSlot".split():
-        # sum value per code for each var/station/time
-        global_codes[time_scale] = data.groupby(
+def _scale(s):
+    return s / s.sum()
+
+
+########################################################################################
+def calculate_time_code_ratios(data):
+    time_codes = {}
+    for time_scale in ["ShortTime", "Hour"]:
+        # sum value per code for each var/weekday/time
+        time_codes[time_scale] = data.groupby(
             ["Variable", "DayOfWeek", time_scale, "Code"], observed=True, as_index=False
         )["Value"].agg("sum")
-
         # scale to sum=1 per time to get ratios
-        global_codes[time_scale].loc[:, "Ratio"] = (
-            global_codes[time_scale]
+        time_codes[time_scale].loc[:, "Ratio"] = (
+            time_codes[time_scale]
             .groupby(["Variable", "DayOfWeek", time_scale], observed=True)["Value"]
-            .transform(lambda s: s / s.sum())
+            .transform(_scale)
         )
+    return time_codes
+
+
+########################################################################################
+def calculate_station_code_ratios(data):
+    # sum value per code for each station/var
+    station_codes = data.groupby(
+        ["Station", "Variable", "Code"], observed=True, as_index=False
+    )["Value"].agg("sum")
+    # scale to sum=1 per time to get ratios
+    station_codes.loc[:, "Ratio"] = station_codes.groupby(
+        ["Station", "Variable"], observed=True
+    )["Value"].transform(_scale)
+    return station_codes
+
+
+########################################################################################
+def calculate_global_code_ratios(data):
+    # sum value per code for each var
+    global_codes = data.groupby(["Variable", "Code"], observed=True, as_index=False)[
+        "Value"
+    ].agg("sum")
+    # scale to sum=1 per time to get ratios
+    global_codes.loc[:, "Ratio"] = global_codes.groupby(["Variable"])[
+        "Value"
+    ].transform(_scale)
     return global_codes
 
 
@@ -403,19 +434,21 @@ def calculate_global_code_ratios(data):
 ########################################################################################
 source_dir = "axinova_month_files"
 ax_data = load_ax_data(source_dir)
-var_struct = load_ax_var_struct(source_dir)
-var_struct = fix_code_order(var_struct)
+var_struct = load_ax_var_struct(source_dir).pipe(fix_code_order)
 
 with time_log("converting data"):
     ax_data = convert_ax_data(ax_data, var_struct)
-
 with time_log("enriching data"):
     ax_data = enrich_ax_data(ax_data)
-
+with time_log("extracting time code ratios"):
+    time_code_ratios = calculate_time_code_ratios(ax_data)
+with time_log("extracting station code ratios"):
+    station_code_ratios = calculate_station_code_ratios(ax_data)
 with time_log("extracting global code ratios"):
     global_code_ratios = calculate_global_code_ratios(ax_data)
-
 with project_dir("axinova"):
     store_bin(ax_data, "ax_data.feather")
     store_bin(var_struct, "ax_var_struct.feather")
-    store_pickle(global_code_ratios, "code_ratios.pkl")
+    store_pickle(time_code_ratios, "time_code_ratios.pkl")
+    store_pickle(station_code_ratios, "station_code_ratios.pkl")
+    store_pickle(global_code_ratios, "global_code_ratios.pkl")
