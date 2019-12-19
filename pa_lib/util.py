@@ -111,13 +111,13 @@ def _total_size(obj, handlers=OrderedDict()):
         handlers = {SomeContainerClass: iter,
                     OtherContainerClass: OtherContainerClass.get_elements}
     """
-    DFLT_SIZE = sys.getsizeof(0)
+    dflt_size = sys.getsizeof(0)
 
     def sizeof(my_obj):
         if id(my_obj) in seen:  # do not double count the same object
             return 0
         seen.add(id(my_obj))
-        nbytes = sys.getsizeof(my_obj, DFLT_SIZE)
+        nbytes = sys.getsizeof(my_obj, dflt_size)
         for typ, handler in all_handlers.items():
             if isinstance(my_obj, typ):
                 nbytes += sum(map(sizeof, handler(my_obj)))
@@ -224,6 +224,10 @@ def value(expr):
 ###############################################################################
 def normalize_cols(df):
     return df.div(df.sum(axis="index"), axis="columns")
+
+
+def as_percent(df):
+    return (df * 100).fillna(0).round(0).astype("int")
 
 
 def normalize_rows(df):
