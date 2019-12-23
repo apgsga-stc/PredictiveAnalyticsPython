@@ -41,11 +41,11 @@ info("sales_pred_master.py: START")
 # Global Variables
 
 # Output: Name of scored list (saved in data/vkprog/predictions)
-ek_list_name = "20191216_ek_list.feather"
+ek_list_name = "20191230_ek_list.feather"
 
 
 # date for prediction:
-day_predict   = 16 # Make sure it's a Monday
+day_predict   = 30 # Make sure it's a Monday
 month_predict = 12
 year_predict  = 2019
 
@@ -733,6 +733,7 @@ listing = (
      +net_columns       # Net_2015, Net_2016, Net_2017, Net_2018, Net_2019 
     
      +["letzte_VBs",     # (bd, aggregiert)
+       "Datum_Letzter_Ktkt", # letzter Ktkt (Datum, crm)
        "Letzter_Kontakt", # KZ_letzter_Ktkt (crm)
        "Kanal",           #(crm)
        "Betreff",         #(crm)    

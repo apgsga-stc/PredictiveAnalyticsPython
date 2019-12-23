@@ -36,8 +36,8 @@ from pa_lib.file import (
 gv_MIN_PROB = 0.01 # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder  = '2019_12_16' # Example: '2019_10_21'
-ek_list_name      = "20191216_ek_list.feather"
+name_depl_folder  = '2019_12_30' # Example: '2019_10_21'
+ek_list_name      = "20191230_ek_list.feather"
 
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = (
@@ -93,7 +93,7 @@ _col_selection = ("""Endkunde_NR
                   select_columns(ek_list, pattern='^Net_2') +
                   """letzte_VBs
                      letzter_Kontakt 
-                     KZ_letzter_Ktkt 
+                     Datum_Letzter_Ktkt 
                      Kanal 
                      Betreff 
                      letzte_Kamp_erfasst 
@@ -282,8 +282,8 @@ xlsx_col_names.update(
      'HB_APG': 'VB Endkunde',
      'HB_Agentur': 'VB Agentur',
      'letzte_VBs': 'VBs letzte Kampagnen',
-     'letzter_Kontakt': 'Letzter CRM-Kontakt',
-     'KZ_letzter_Ktkt': 'Kz letzter Kontakt',
+     'letzter_Kontakt': 'Kz letzter Kontakt',
+     'Datum_Letzter_Ktkt': 'Letzter CRM-Kontakt',
      'letzte_Kamp_erfasst': 'Letzte Kampagne erfasst am',
      'letzte_Kamp_Beginn': 'Beginn letzte Kampagne',
      'VB_VK_Geb': 'Gebiets-VB'}

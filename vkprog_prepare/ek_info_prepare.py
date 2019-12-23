@@ -484,9 +484,21 @@ def crm_info():
                                   "KUERZEL": "Letzte_CRM_Ktkts",
                                   "ENDKUNDE_NR": "Endkunde_NR",})
                      )
+    crm_letzte_datum_vbs = (crm_data.loc[row_select,:]
+                              .groupby("ENDKUNDE_NR", as_index=False)
+                              .agg(
+                                  {"STARTTERMIN": np.nanmax,
+                                  }
+                              )
+                              .rename(columns={
+                                  "STARTTERMIN": "Datum_Letzter_Ktkt",
+                                  "ENDKUNDE_NR": "Endkunde_NR",})
+                     )
+    
     # Combine
     container_crm = pd.merge(container_crm, crm_letzte_vbs, on="Endkunde_NR",how="left")
-
+    container_crm = pd.merge(container_crm, crm_letzte_datum_vbs, on="Endkunde_NR",how="left")
+    
     return container_crm
 
 ########################################################################################
