@@ -519,11 +519,11 @@ def booking_nettos_vbs(booking_raw):
         columns = ["Kamp_Erfass_Jahr"],
         index   = ["Endkunde_NR"],
         fill_value= 0
-        )
+        ) 
 
     booking_nettos_flattened = pd.DataFrame(booking_nettos.to_records(index=False))
     booking_nettos_flattened.loc[:,"Endkunde_NR"] = pd.Series(booking_nettos.index)
-    col_names = ["Net_"+str(x) for x in range(today.isocalendar()[0]-4, today.isocalendar()[0]+1)] + ["Endkunde_NR"]
+    col_names = ["Net_"+x[10:14] for x in booking_nettos_flattened.columns[:-1]] + ["Endkunde_NR"]
     booking_nettos_flattened.columns = col_names
 
     ##
