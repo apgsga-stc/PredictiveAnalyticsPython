@@ -31,7 +31,8 @@ def set_project_dir(dir_name):
        Will be created if not present"""
     global _project_dir
     new_project_dir = PA_DATA_DIR / dir_name
-    new_project_dir.mkdir(exist_ok=True)
+    if not new_project_dir.exists():
+        new_project_dir.mkdir()
     if new_project_dir.is_dir():
         _project_dir = new_project_dir
     else:
