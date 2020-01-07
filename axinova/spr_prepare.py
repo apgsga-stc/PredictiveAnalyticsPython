@@ -46,7 +46,7 @@ spr_data_complete = spr_data_raw.merge(
 info("Filter SPR+ data...")
 spr_data = spr_data_complete.dropna(subset=["PF"])
 
-# add columns for joining with Axinova data: Hour, ShortTima, DayOfWeek
+# add columns for joining with Axinova data: Hour, ShortTime, DayOfWeek
 spr_data.loc[:, "Hour"] = spr_data.Time.astype("str").str[:2]
 spr_data.loc[:, "ShortTime"] = spr_data.Time.astype("str").str[:5]
 spr_data.loc[:, "DayOfWeek"] = spr_data.WT.map(

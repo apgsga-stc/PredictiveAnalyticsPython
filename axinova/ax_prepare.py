@@ -29,7 +29,7 @@ from pa_lib.data import (
 )
 from pa_lib.log import time_log
 from pa_lib.types import dtFactor
-from pa_lib.util import list_items, as_percent
+from pa_lib.util import list_items, as_percent, value
 
 
 ########################################################################################
@@ -166,27 +166,24 @@ def get_pop_ratios(directory):
     delete_rows |= (pop_data.Variable == "md_410") & (pop_data.Code == "seltener")
     pop_data = pop_data.loc[~delete_rows]
 
-    # drop rows containing summaries, calculate percentage columns
-    def ratio(s):
-        return s / s.sum()
-
+    # drop rows containing summaries, calculate ratio columns & index
     pop_data = (
         pop_data.loc[~pop_data.Code.isin(["#Total cases", "#Total wtd. cases"])]
         .pipe(
             calc_col_partitioned,
             "Count_Ratio",
-            fun=ratio,
+            fun=lambda s: s / s.sum(),
             on="Count",
             part_by="Variable",
         )
         .pipe(
             calc_col_partitioned,
             "Pop_Ratio",
-            fun=ratio,
+            fun=lambda s: s / s.sum(),
             on="Pop_Count",
             part_by="Variable",
         )
-        .eval("Count_Factor = Count_Ratio / Pop_Ratio")
+        .eval("Index = Count_Ratio / Pop_Ratio")
     )
 
     return pop_data.reset_index(drop=True)
