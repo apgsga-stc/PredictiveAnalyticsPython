@@ -36,8 +36,8 @@ from pa_lib.file import (
 gv_MIN_PROB = 0.01 # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder  = '2019_12_30' # Example: '2019_10_21'
-ek_list_name      = "20191230_ek_list.feather"
+name_depl_folder  = '2020_01_13' # Example: '2019_10_21'
+ek_list_name      = "20200113_ek_list.feather"
 
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = (
@@ -533,6 +533,7 @@ notify_emails.at['RPE'] = 'reto.pensa@apgsga.ch'
 notify_emails.at['TMA'] = 'thomas.macho@apgsga.ch'
 notify_emails.at['KPF'] = 'kaspar.pflugshaupt@apgsga.ch'
 notify_emails.at['STC'] = 'sam.truong@apgsga.ch'
+notify_emails.at['JCA'] = 'jeremy.callner@apgsga.ch'
 notify_emails = notify_emails.reset_index().drop_duplicates()
 
 print(notify_emails.loc[:,"E_MAIL"])
