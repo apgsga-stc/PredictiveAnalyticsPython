@@ -29,7 +29,7 @@ from pa_lib.data import (
 )
 from pa_lib.log import time_log
 from pa_lib.types import dtFactor
-from pa_lib.util import list_items
+from pa_lib.util import list_items, as_percent, value
 
 
 ########################################################################################
@@ -63,6 +63,17 @@ def load_ax_data(directory):
                 sort=False,
                 ignore_index=True,
             )
+
+    # Clean up ax_data
+    # delete rows with "kein Mobiltelefon" set to "quoted": impossible
+    delete_rows = (all_data.Variable == "md_336") & (all_data.Code == "quoted")
+    # also delete "Internetnutzungsfrequenz": "seltener": practically inexistent
+    delete_rows |= (all_data.Variable == "md_410") & (all_data.Code == "seltener")
+    # also delete "WEMF Region" / "Wohnkanton": "Liechtenstein": inexistent
+    delete_rows |= (all_data.Variable.isin(["md_regions", "md_kanton"])) & (
+        all_data.Code == "Liechtenstein"
+    )
+    all_data = all_data.loc[~delete_rows]
 
     return all_data
 
@@ -128,6 +139,57 @@ def load_ax_var_struct(directory):
 
 
 ########################################################################################
+def get_pop_ratios(directory):
+    with project_dir(directory):
+        pop_data = load_xlsx(
+            file_name="Sonderauswertung_20191118.xlsx",
+            sheet_name="Aufenthalte Total",
+            usecols=[0, 1, 2, 4],
+            skiprows=[0],
+        ).set_axis(
+            "Variable Code Count Pop_Count".split(), axis="columns", inplace=False
+        )
+
+    # fill up Variable column
+    pop_data.Variable = pop_data.Variable.fillna(method="ffill", axis="index")
+
+    # split Variable field into label and description fields
+    pop_data[["Variable", "Var_Desc"]] = pop_data.Variable.str.split(
+        pat=": ", n=1, expand=True
+    )
+
+    # clean up data: drop Liechtenstein, non-smartphone owners, non-internet users
+    delete_rows = (pop_data.Variable.isin(["md_region", "md_kanton"])) & (
+        pop_data.Code == "Liechtenstein"
+    )
+    delete_rows |= (pop_data.Variable == "md_336") & (pop_data.Code == "quoted")
+    delete_rows |= (pop_data.Variable == "md_410") & (pop_data.Code == "seltener")
+    pop_data = pop_data.loc[~delete_rows]
+
+    # drop rows containing summaries, calculate ratio columns & index
+    pop_data = (
+        pop_data.loc[~pop_data.Code.isin(["#Total cases", "#Total wtd. cases"])]
+        .pipe(
+            calc_col_partitioned,
+            "Count_Ratio",
+            fun=lambda s: s / s.sum(),
+            on="Count",
+            part_by="Variable",
+        )
+        .pipe(
+            calc_col_partitioned,
+            "Pop_Ratio",
+            fun=lambda s: s / s.sum(),
+            on="Pop_Count",
+            part_by="Variable",
+        )
+        .eval("Index = Count_Ratio / Pop_Ratio")
+    )
+
+    return pop_data.reset_index(drop=True)
+
+
+########################################################################################
 def fix_code_order(var_structure):
     # define orderings for all variables with given non-alphabetical ordering
     var_codes_reorder = {
@@ -139,8 +201,7 @@ def fix_code_order(var_structure):
         },
         "md_bildung3": {
             "niedrig (kein Abschluss, obligat. Schule, HH-Lehrjahr, Handelsschule, Anlehre)": 1,
-            "mittel (Diplommittelschule, allg. Schule, Berufslehre, Vollzeitberufsschule, Maturität, "
-            "Lehrerseminar)": 2,
+            "mittel (Diplommittelschule, allg. Schule, Berufslehre, Vollzeitberufsschule, Maturität, Lehrerseminar)": 2,
             "hoch (Universität, ETH, FH, PH, höhere Berufsausbildung)": 3,
         },
         "md_hhgr3": {"1 Person": 1, "2 Personen": 2, "3+ Personen": 3},
@@ -435,6 +496,8 @@ def calculate_global_code_ratios(data):
 source_dir = "axinova_month_files"
 ax_data = load_ax_data(source_dir)
 var_struct = load_ax_var_struct(source_dir).pipe(fix_code_order)
+source_dir = "axinova"
+population_ratios = get_pop_ratios(source_dir)
 
 with time_log("converting data"):
     ax_data = convert_ax_data(ax_data, var_struct)
@@ -452,3 +515,4 @@ with project_dir("axinova"):
     store_pickle(time_code_ratios, "time_code_ratios.pkl")
     store_pickle(station_code_ratios, "station_code_ratios.pkl")
     store_pickle(global_code_ratios, "global_code_ratios.pkl")
+    store_pickle(population_ratios, "population_ratios.pkl")

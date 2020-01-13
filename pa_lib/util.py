@@ -226,8 +226,12 @@ def normalize_cols(df):
     return df.div(df.sum(axis="index"), axis="columns")
 
 
-def as_percent(df):
-    return (df * 100).fillna(0).round(0).astype("int")
+def as_percent(df, decimals=0):
+    rounded = (df * 100).fillna(0).round(decimals)
+    if decimals < 1:
+        return rounded.astype("int")
+    else:
+        return rounded
 
 
 def normalize_rows(df):

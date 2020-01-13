@@ -277,3 +277,16 @@ def cut_categorical(series, left_limits, labels=None, cat_convert=lambda x: x):
     ]
 
     return pd.cut(codes, bins=bins, labels=labels, right=False)
+
+
+########################################################################################
+def chi2_expected(matrix):
+    """Calculates expected cell values for a contingency matrix"""
+    row_sums = np.sum(matrix, axis=1)
+    col_sums = np.sum(matrix, axis=0)
+    total = np.sum(row_sums)
+    expected = np.outer(row_sums, col_sums) / total
+    if type(matrix) == pd.DataFrame:
+        return pd.DataFrame(data=expected, index=matrix.index, columns=matrix.columns)
+    else:
+        return expected
