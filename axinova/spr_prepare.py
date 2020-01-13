@@ -79,7 +79,7 @@ def map_stations(
     nr_ranges: StationMapping = None,
 ) -> pd.DataFrame:
     """
-    Map spr_data records to Intervista Station names in-place, either per canton by
+    Map spr_data records to Intervista Station names, either per canton by
     Flaechennummer ranges NrRange(low, high), or by directly mapping from canton
     to station
     """
