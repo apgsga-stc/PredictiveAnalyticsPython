@@ -450,7 +450,7 @@ def _scale(s):
 ########################################################################################
 def calculate_time_code_ratios(data):
     time_codes = {}
-    for time_scale in ["ShortTime", "Hour"]:
+    for time_scale in ["ShortTime", "Hour", "TimeSlot"]:
         # sum value per code for each var/weekday/time
         time_codes[time_scale] = data.groupby(
             ["Variable", "DayOfWeek", time_scale, "Code"], observed=True, as_index=False
