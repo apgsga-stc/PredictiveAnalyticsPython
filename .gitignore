@@ -120,3 +120,4 @@ vkprog_analyse/this_is_a_test.png
 pa_lib/.vs
 *.docx
 *.pdf
+*.stats

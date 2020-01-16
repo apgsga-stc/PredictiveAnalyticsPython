@@ -12,7 +12,7 @@ from typing import Dict
 
 from pa_lib.file import project_dir, load_xlsx, store_pickle, cleanup_df
 from pa_lib.log import info
-from pa_lib.data import as_dtype, dtFactor
+from pa_lib.data import as_dtype, dtFactor, cut_categorical, merge_categories
 from pa_lib.util import cap_words, value
 
 
@@ -47,8 +47,8 @@ info("Filter SPR+ data...")
 spr_data = spr_data_complete.dropna(subset=["PF"])
 
 # add columns for joining with Axinova data: Hour, ShortTime, DayOfWeek
-spr_data.loc[:, "Hour"] = spr_data.Time.astype("str").str[:2]
-spr_data.loc[:, "ShortTime"] = spr_data.Time.astype("str").str[:5]
+spr_data.loc[:, "Hour"] = spr_data.Time.astype("str").str[:2].astype(dtFactor)
+spr_data.loc[:, "ShortTime"] = spr_data.Time.astype("str").str[:5].astype(dtFactor)
 spr_data.loc[:, "DayOfWeek"] = spr_data.WT.map(
     {
         "Montag": "Monday",
@@ -61,6 +61,17 @@ spr_data.loc[:, "DayOfWeek"] = spr_data.WT.map(
     }
 ).cat.reorder_categories(
     "Monday Tuesday Wednesday Thursday Friday Saturday Sunday".split(), ordered=True,
+)
+
+# Add column: Time Slots
+spr_data.loc[:, "TimeSlot"] = (
+    spr_data["ShortTime"]
+    .pipe(
+        cut_categorical,
+        left_limits="00:00 06:00 09:00 11:00 13:00 16:00 19:00 23:00".split(),
+        labels="Nacht Morgen-Rush Morgen Mittag Nachmittag Abend-Rush Abend Nacht_spät".split(),
+    )
+    .pipe(merge_categories, cat="Nacht_spät", into_cat="Nacht")
 )
 
 
