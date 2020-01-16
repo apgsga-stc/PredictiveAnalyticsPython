@@ -147,10 +147,8 @@ def cleanup_df(df):
 ########################################################################################
 def _check_index(df):
     # if we have a default index, trash it. If it's more sophisticated, store it
-    if df.index.equals(pd.RangeIndex.from_range(range(len(df)))):
-        df_checked = df.reset_index(drop=True)
-    else:
-        df_checked = df.reset_index()
+    do_drop = type(df.index) == pd.RangeIndex
+    df_checked = df.reset_index(drop=do_drop)
     return df_checked
 
 
