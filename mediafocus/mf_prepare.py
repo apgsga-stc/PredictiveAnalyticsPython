@@ -10,7 +10,7 @@ from pa_lib.file import store_bin, project_dir, load_csv
 from pa_lib.data import as_dtype, dtFactor
 
 
-def mf_int(field: str):
+def mf_int(field: str) -> int:
     """
     Convert a MediaFocus-formatted number to an integer
     """
