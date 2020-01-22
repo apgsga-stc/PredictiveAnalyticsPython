@@ -29,7 +29,7 @@ from pa_lib.data import (
 )
 from pa_lib.log import time_log
 from pa_lib.types import dtFactor
-from pa_lib.util import list_items, as_percent, value
+from pa_lib.util import list_items
 
 
 ########################################################################################
@@ -448,23 +448,6 @@ def _scale(s):
 
 
 ########################################################################################
-def calculate_time_code_ratios(data):
-    time_codes = {}
-    for time_scale in ["ShortTime", "Hour", "TimeSlot"]:
-        # sum value per code for each var/weekday/time
-        time_codes[time_scale] = data.groupby(
-            ["Variable", "DayOfWeek", time_scale, "Code"], observed=True, as_index=False
-        )["Value"].agg("sum")
-        # scale to sum=1 per time to get ratios
-        time_codes[time_scale].loc[:, "Ratio"] = (
-            time_codes[time_scale]
-            .groupby(["Variable", "DayOfWeek", time_scale], observed=True)["Value"]
-            .transform(_scale)
-        )
-    return time_codes
-
-
-########################################################################################
 def calculate_station_code_ratios(data):
     # sum value per code for each station/var
     station_codes = data.groupby(
@@ -503,8 +486,6 @@ with time_log("converting data"):
     ax_data = convert_ax_data(ax_data, var_struct)
 with time_log("enriching data"):
     ax_data = enrich_ax_data(ax_data)
-with time_log("extracting time code ratios"):
-    time_code_ratios = calculate_time_code_ratios(ax_data)
 with time_log("extracting station code ratios"):
     station_code_ratios = calculate_station_code_ratios(ax_data)
 with time_log("extracting global code ratios"):
@@ -512,7 +493,6 @@ with time_log("extracting global code ratios"):
 with project_dir("axinova"):
     store_bin(ax_data, "ax_data.feather")
     store_bin(var_struct, "ax_var_struct.feather")
-    store_pickle(time_code_ratios, "time_code_ratios.pkl")
     store_pickle(station_code_ratios, "station_code_ratios.pkl")
     store_pickle(global_code_ratios, "global_code_ratios.pkl")
     store_pickle(population_ratios, "population_ratios.pkl")
