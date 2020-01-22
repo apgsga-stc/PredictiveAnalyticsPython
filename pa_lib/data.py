@@ -118,7 +118,9 @@ def as_kw(df, **selectors):
 
 
 def clean_up_categoricals(df, **selectors):
-    """Drop unused categories on Categoricals of a DataFrame"""
+    """Drop unused categories on Categoricals of a DataFrame
+       **selectors incl_col=None, incl_pattern=None, incl_dtype
+       are passed to select_columns()"""
     if len(selectors) > 0:
         col_list = select_columns(df, **selectors)
     else:
