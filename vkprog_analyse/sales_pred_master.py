@@ -41,11 +41,11 @@ info("sales_pred_master.py: START")
 # Global Variables
 
 # Output: Name of scored list (saved in data/vkprog/predictions)
-ek_list_name = "20200113_ek_list.feather"
+ek_list_name = "20200127_ek_list.feather"
 
 
 # date for prediction:
-day_predict   = 13 # Make sure it's a Monday
+day_predict   = 27 # Make sure it's a Monday
 month_predict = 1
 year_predict  = 2020
 
