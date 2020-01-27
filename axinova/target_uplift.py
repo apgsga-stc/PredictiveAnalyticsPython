@@ -7,70 +7,64 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 import pandas as pd
-from pprint import pformat
 from dataclasses import dataclass
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
+from pprint import pformat
+
 
 from pa_lib.file import (
     project_dir,
     load_bin,
     load_pickle,
 )
+from pa_lib.data import clean_up_categoricals
 from pa_lib.util import list_items
 from pa_lib.log import info, time_log
-from pa_lib.data import clean_up_categoricals
 
 
 ########################################################################################
 # Data Types
 ########################################################################################
-VarId = str
-StringList = List[str]
-IntList = List[int]
-VarCodes = Dict[VarId, IntList]
-StationDef = StringList
-DataFrame = pd.DataFrame
-DataSeries = pd.Series
-VarResult = Dict[VarId, DataFrame]
-VarDict = Dict[VarId, dict]
-Result = DataFrame
-CountsWithSD = Tuple[DataSeries, DataSeries]
-
-
 @dataclass(frozen=True)
 class VarStruct:
     var_label: str
-    code_labels: StringList
-    code_order: StringList
+    code_labels: List[str]
+    code_order: List[int]
 
 
+VarId = str
+VarCodes = Dict[VarId, List[int]]
 VarSelection = Dict[VarId, VarStruct]
+StationDef = List[str]
+DataTable = pd.DataFrame
+DataSeries = pd.Series
+VarResult = Dict[VarId, DataTable]
+Result = DataTable
+
 
 ########################################################################################
 # Global Data
 ########################################################################################
-ax_data: DataFrame
-ax_var_struct: DataFrame
-spr_data: DataFrame
-population_codes: DataFrame
-global_codes: DataFrame
-station_codes: DataFrame
-all_stations: StringList
-all_weekdays: StringList
-all_timescales: StringList
-var_info: VarDict
+ax_data: DataTable
+ax_var_struct: DataTable
+spr_data: DataTable
+population_codes: DataTable
+global_codes: DataTable
+station_codes: DataTable
+all_stations: List[str]
+all_weekdays: List[str]
+all_timescales: List[str]
+var_info: Dict[VarId, dict]
 
 
 ########################################################################################
 # Helper functions
 ########################################################################################
 def poisson_sd(data: DataSeries) -> DataSeries:
-    """Return poisson standard deviations for a series of counts => sqrt(count)."""
     return data.pow(0.5)
 
 
 def combine_sd_ratios(data1: DataSeries, data2: DataSeries) -> DataSeries:
-    """Aggregate standard deviations of two independent var => sqrt(sd1^2 + sd2^2)."""
     return (data1.pow(2) + data2.pow(2)).pow(0.5)
 
 
@@ -78,7 +72,6 @@ def combine_sd_ratios(data1: DataSeries, data2: DataSeries) -> DataSeries:
 # Load data objects
 ########################################################################################
 def load_data() -> None:
-    """Load base data and calculate derived objects. All objects are module-global."""
     global ax_data, spr_data, ax_var_struct, var_info
     global population_codes, global_codes, station_codes
     global all_stations, all_weekdays, all_timescales
@@ -104,36 +97,34 @@ def load_data() -> None:
         )
 
 
-########################################################################################
-# Access data objects
-########################################################################################
+# Accessing data objects
 def variable_label(var_id: VarId) -> str:
     return var_info[var_id]["Label"]
 
 
-def variable_code_labels(var_id: VarId) -> StringList:
+def variable_code_labels(var_id: VarId) -> List[str]:
     return var_info[var_id]["Codes"]
 
 
-def variable_code_order(var_id: VarId) -> IntList:
+def variable_code_order(var_id: VarId) -> List[int]:
     return var_info[var_id]["Order"]
 
 
-def ax_population_ratios(var_id: VarId) -> DataFrame:
+def ax_population_ratios(var_id: VarId) -> DataTable:
     ratios = population_codes.loc[population_codes["Variable"] == var_id].pivot_table(
         values="Pop_Ratio", index="Variable", columns="Code"
     )
     return ratios
 
 
-def ax_global_ratios(var_id: VarId) -> DataFrame:
+def ax_global_ratios(var_id: VarId) -> DataTable:
     ratios = global_codes.loc[global_codes["Variable"] == var_id].pivot_table(
         values="Ratio", index="Variable", columns="Code"
     )
     return ratios
 
 
-def ax_station_ratios(var_id: VarId) -> DataFrame:
+def ax_station_ratios(var_id: VarId) -> DataTable:
     ratios = station_codes.loc[station_codes["Variable"] == var_id].pivot_table(
         values="Ratio", index="Station", columns="Code", fill_value=0
     )
@@ -200,7 +191,15 @@ class Uplift:
         )
         return selection
 
-    ## Initialization parameter validation functions ###################################
+    @staticmethod
+    def _build_uplift_columns() -> str:
+        return (
+            "  pop_uplift     = ax_ratio - pop_ratio    \n"
+            + "global_uplift  = ax_ratio - global_ratio \n"
+            + "station_uplift = ax_ratio - station_ratio"
+        )
+
+    # Parameter validation functions
     @staticmethod
     def _check_stations(stations: StationDef) -> StationDef:
         if stations is None or stations == list():
@@ -244,16 +243,14 @@ class Uplift:
             )
         return timescale
 
-    ## Calculation methods #############################################################
+    # Aggregate occurrence counts after filtering by selection criteria
     def _get_counts(
         self,
         value_col: str,
-        data: DataFrame,
+        data: DataTable,
         var_id: VarId = None,
-        code_labels: StringList = None,
-    ) -> CountsWithSD:
-        """Aggregate occurrence counts after filtering by selection criteria.
-        Return counts and Poisson standard deviations."""
+        code_labels: List[str] = None,
+    ) -> Tuple[DataSeries, DataSeries]:
         select_rows = data["Station"].isin(self.stations)
         if var_id is not None:
             select_rows &= data["Variable"] == var_id
@@ -269,16 +266,8 @@ class Uplift:
         count_sd = poisson_sd(counts)
         return counts, count_sd
 
-    @staticmethod
-    def _build_uplift_columns() -> str:
-        return (
-            "  pop_uplift     = ax_ratio - pop_ratio    \n"
-            + "global_uplift  = ax_ratio - global_ratio \n"
-            + "station_uplift = ax_ratio - station_ratio"
-        )
-
-    def _calculate_single_var(self, var_id: VarId) -> DataFrame:
-        """Calculate target group ratios for a single variable."""
+    # Calculation methods
+    def _calculate_single_var(self, var_id: VarId) -> DataTable:
         code_labels = self.variables[var_id].code_labels
         ax_total_counts, _ = self._get_counts(
             value_col="Value", data=ax_data, var_id=var_id
@@ -291,8 +280,6 @@ class Uplift:
         ax_target_sd_ratios = (ax_target_sd / self._spr_counts).fillna(0)
         target_sd_ratios = combine_sd_ratios(self._spr_sd_ratios, ax_target_sd_ratios)
         target_sd_abs = self._spr_counts * target_sd_ratios
-        target_count_min = target_counts - target_sd_abs
-        target_count_max = target_counts + target_sd_abs
 
         # reference ratios for CH population / all stations / each station
         pop_ratio = ax_population_ratios(var_id)[code_labels].sum(axis="columns")[0]
@@ -304,7 +291,7 @@ class Uplift:
         )
 
         # collect result table
-        result = DataFrame(
+        result = DataTable(
             {
                 "spr": self._spr_counts,
                 "spr_sd_ratio": self._spr_sd_ratios,
@@ -315,8 +302,6 @@ class Uplift:
                 "target_count": target_counts,
                 "target_sd_ratio": target_sd_ratios,
                 "target_sd_abs": target_sd_abs,
-                "target_count_min": target_count_min,
-                "target_count_max": target_count_max,
             }
         ).reset_index()
         result = result.assign(
@@ -327,7 +312,6 @@ class Uplift:
         return result
 
     def calculate(self) -> None:
-        """Calculate target group ratios per variable and overall."""
         # get SPR+ counts for the given selection criteria
         self._spr_counts, spr_sd = self._get_counts(value_col="Total", data=spr_data)
         self._spr_sd_ratios = (spr_sd / self._spr_counts).fillna(0)
@@ -340,10 +324,18 @@ class Uplift:
         var_ids = list(self.variables.keys())
         first_var_result = self.var_result[var_ids[0]]
         result = first_var_result[
-            (
-                "Station DayOfWeek Hour spr spr_sd_ratio ax_ratio target_sd_ratio"
-                + " pop_ratio global_ratio station_ratio"
-            ).split()
+            [
+                "Station",
+                "DayOfWeek",
+                "Hour",
+                "spr",
+                "spr_sd_ratio",
+                "ax_ratio",
+                "target_sd_ratio",
+                "pop_ratio",
+                "global_ratio",
+                "station_ratio",
+            ]
         ].copy()
         for var_id in var_ids[1:]:
             var_result = self.var_result[var_id]
@@ -360,18 +352,24 @@ class Uplift:
             target_count=result["spr"] * result["ax_ratio"],
             target_sd_abs=result["spr"] * result["target_sd_ratio"],
         )[
-            (
-                "Station DayOfWeek Hour spr spr_sd_ratio ax_ratio target_sd_ratio"
-                + " target_count target_sd_abs pop_ratio global_ratio station_ratio"
-            ).split()
+            [
+                "Station",
+                "DayOfWeek",
+                "Hour",
+                "spr",
+                "spr_sd_ratio",
+                "ax_ratio",
+                "target_sd_ratio",
+                "target_count",
+                "target_sd_abs",
+                "pop_ratio",
+                "global_ratio",
+                "station_ratio",
+            ]
         ].eval(
             self._build_uplift_columns()
         )
         self._result = result
-
-    ## Visualisation methods ###########################################################
-    def plot(self):
-        pass
 
 
 ########################################################################################
