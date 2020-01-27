@@ -69,6 +69,14 @@ def poisson_sd(data: DataSeries) -> DataSeries:
     return data.pow(0.5)
 
 
+def plusminus(data1: DataSeries, data2: DataSeries) -> Tuple[DataSeries, DataSeries]:
+    return data1 + data2, data1 - data2
+
+
+# patch pd.Series with convenience method "plusminus"
+DataSeries.plusminus = plusminus
+
+
 def combine_sd_ratios(data1: DataSeries, data2: DataSeries) -> DataSeries:
     """Aggregate standard deviations of two independent var => sqrt(sd1^2 + sd2^2)."""
     return (data1.pow(2) + data2.pow(2)).pow(0.5)
@@ -151,8 +159,10 @@ class Uplift:
         self.stations = Uplift._check_stations(stations)
         self.variables = Uplift._check_var_def(variables)
         self.time_scale = Uplift._check_timescale(time_scale)
-        self._spr_counts = DataSeries()
-        self._spr_sd_ratios = DataSeries()
+        self._spr = DataSeries()
+        self._spr_sd = DataSeries()
+        self._spr_min = DataSeries()
+        self._spr_max = DataSeries()
         self._var_result = {}
         self._result = Result()
 
@@ -272,27 +282,28 @@ class Uplift:
     @staticmethod
     def _build_uplift_columns() -> str:
         return (
-            "  pop_uplift     = ax_ratio - pop_ratio    \n"
-            + "global_uplift  = ax_ratio - global_ratio \n"
-            + "station_uplift = ax_ratio - station_ratio"
+            "  pop_uplift     = target_ratio - pop_ratio    \n"
+            + "global_uplift  = target_ratio - global_ratio \n"
+            + "station_uplift = target_ratio - station_ratio"
         )
 
     def _calculate_single_var(self, var_id: VarId) -> DataFrame:
         """Calculate target group ratios for a single variable."""
         code_labels = self.variables[var_id].code_labels
-        ax_total_counts, _ = self._get_counts(
+        ax_total_count, _ = self._get_counts(
             value_col="Value", data=ax_data, var_id=var_id
         )
-        ax_target_counts, ax_target_sd = self._get_counts(
+        ax_pers_count, ax_pers_sd = self._get_counts(
             value_col="Value", data=ax_data, var_id=var_id, code_labels=code_labels
         )
-        ax_target_ratios = (ax_target_counts / ax_total_counts).fillna(0)
-        target_counts = self._spr_counts * ax_target_ratios
-        ax_target_sd_ratios = (ax_target_sd / self._spr_counts).fillna(0)
-        target_sd_ratios = combine_sd_ratios(self._spr_sd_ratios, ax_target_sd_ratios)
-        target_sd_abs = self._spr_counts * target_sd_ratios
-        target_count_min = target_counts - target_sd_abs
-        target_count_max = target_counts + target_sd_abs
+        target_ratio = (ax_pers_count / ax_total_count).fillna(0)
+        ax_pers_max, ax_pers_min = ax_pers_count.plusminus(ax_pers_sd)
+        target_ratio_min = (ax_pers_min / ax_total_count).fillna(0)
+        target_ratio_max = (ax_pers_max / ax_total_count).fillna(0)
+        # target pers = SPR pers * AX target ratio
+        target_pers = self._spr * target_ratio
+        target_pers_min = self._spr_min * target_ratio_min
+        target_pers_max = self._spr_max * target_ratio_max
 
         # reference ratios for CH population / all stations / each station
         pop_ratio = ax_population_ratios(var_id)[code_labels].sum(axis="columns")[0]
@@ -306,17 +317,18 @@ class Uplift:
         # collect result table
         result = DataFrame(
             {
-                "spr": self._spr_counts,
-                "spr_sd_ratio": self._spr_sd_ratios,
-                "ax_total": ax_total_counts,
-                "ax_count": ax_target_counts,
-                "ax_ratio": ax_target_ratios,
-                "ax_sd_ratio": ax_target_sd_ratios,
-                "target_count": target_counts,
-                "target_sd_ratio": target_sd_ratios,
-                "target_sd_abs": target_sd_abs,
-                "target_count_min": target_count_min,
-                "target_count_max": target_count_max,
+                "spr": self._spr,
+                "spr_sd": self._spr_sd,
+                "spr_min": self._spr_min,
+                "spr_max": self._spr_max,
+                "ax_total": ax_total_count,
+                "ax_pers": ax_pers_count,
+                "target_ratio": target_ratio,
+                "target_ratio_min": target_ratio_min,
+                "target_ratio_max": target_ratio_max,
+                "target_pers": target_pers,
+                "target_pers_min": target_pers_min,
+                "target_pers_max": target_pers_max,
             }
         ).reset_index()
         result = result.assign(
@@ -329,8 +341,8 @@ class Uplift:
     def calculate(self) -> None:
         """Calculate target group ratios per variable and overall."""
         # get SPR+ counts for the given selection criteria
-        self._spr_counts, spr_sd = self._get_counts(value_col="Total", data=spr_data)
-        self._spr_sd_ratios = (spr_sd / self._spr_counts).fillna(0)
+        self._spr, self._spr_sd = self._get_counts(value_col="Total", data=spr_data)
+        self._spr_max, self._spr_min = self._spr.plusminus(self._spr_sd)
 
         # calculate result per variable
         for var_id in self.variables.keys():
@@ -341,32 +353,37 @@ class Uplift:
         first_var_result = self.var_result[var_ids[0]]
         result = first_var_result[
             (
-                "Station DayOfWeek Hour spr spr_sd_ratio ax_ratio target_sd_ratio"
+                "Station DayOfWeek Hour spr spr_sd spr_min spr_max target_ratio target_pers"
+                + " target_ratio_min target_pers_min target_ratio_max target_pers_max"
                 + " pop_ratio global_ratio station_ratio"
             ).split()
         ].copy()
-        for var_id in var_ids[1:]:
-            var_result = self.var_result[var_id]
+        if len(var_ids) > 1:
+            for var_id in var_ids[1:]:
+                vr = self.var_result[var_id]
+                result = result.assign(
+                    target_ratio=result["target_ratio"] * vr["target_ratio"],
+                    target_ratio_min=result["target_ratio_min"]
+                    * vr["target_ratio_min"],
+                    target_ratio_max=result["target_ratio_max"]
+                    * vr["target_ratio_max"],
+                    pop_ratio=result["pop_ratio"] * vr["pop_ratio"],
+                    global_ratio=result["global_ratio"] * vr["global_ratio"],
+                    station_ratio=result["station_ratio"] * vr["station_ratio"],
+                )
             result = result.assign(
-                ax_ratio=result["ax_ratio"] * var_result["ax_ratio"],
-                target_sd=combine_sd_ratios(
-                    result["target_sd_ratio"], var_result["target_sd_ratio"]
-                ),
-                pop_ratio=result["pop_ratio"] * var_result["pop_ratio"],
-                global_ratio=result["global_ratio"] * var_result["global_ratio"],
-                station_ratio=result["station_ratio"] * var_result["station_ratio"],
+                target_pers=result["spr"] * result["target_ratio"],
+                target_pers_min=result["spr_min"] * result["target_ratio_min"],
+                target_pers_max=result["spr_max"] * result["target_ratio_max"],
+            )[
+                (
+                    "Station DayOfWeek Hour spr target_ratio"
+                    + " target_pers target_pers_min target_pers_max"
+                    + " pop_ratio global_ratio station_ratio"
+                ).split()
+            ].eval(
+                self._build_uplift_columns()
             )
-        result = result.assign(
-            target_count=result["spr"] * result["ax_ratio"],
-            target_sd_abs=result["spr"] * result["target_sd_ratio"],
-        )[
-            (
-                "Station DayOfWeek Hour spr spr_sd_ratio ax_ratio target_sd_ratio"
-                + " target_count target_sd_abs pop_ratio global_ratio station_ratio"
-            ).split()
-        ].eval(
-            self._build_uplift_columns()
-        )
         self._result = result
 
     ## Visualisation methods ###########################################################
