@@ -7,18 +7,16 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 import pandas as pd
+import altair as alt
 from pprint import pformat
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
+from datetime import datetime as dt
 
-from pa_lib.file import (
-    project_dir,
-    load_bin,
-    load_pickle,
-)
+from pa_lib.file import project_dir, load_bin, load_pickle, store_xlsx
 from pa_lib.util import list_items
 from pa_lib.log import info, time_log
-from pa_lib.data import clean_up_categoricals
+from pa_lib.data import clean_up_categoricals, select_rows, as_dtype
 
 
 ########################################################################################
@@ -69,6 +67,11 @@ def poisson_sd(data: DataSeries) -> DataSeries:
     return data.pow(0.5)
 
 
+def combine_sd_ratios(data1: DataSeries, data2: DataSeries) -> DataSeries:
+    """Aggregate standard deviations of two independent var => sqrt(sd1^2 + sd2^2)."""
+    return (data1.pow(2) + data2.pow(2)).pow(0.5)
+
+
 def plusminus(data1: DataSeries, data2: DataSeries) -> Tuple[DataSeries, DataSeries]:
     return data1 + data2, data1 - data2
 
@@ -77,9 +80,23 @@ def plusminus(data1: DataSeries, data2: DataSeries) -> Tuple[DataSeries, DataSer
 DataSeries.plusminus = plusminus
 
 
-def combine_sd_ratios(data1: DataSeries, data2: DataSeries) -> DataSeries:
-    """Aggregate standard deviations of two independent var => sqrt(sd1^2 + sd2^2)."""
-    return (data1.pow(2) + data2.pow(2)).pow(0.5)
+def build_uplift_columns(df: DataFrame) -> DataFrame:
+    return df.eval(
+        "\n".join(
+            [
+                "pop_uplift       = target_ratio - pop_ratio    ",
+                "global_uplift    = target_ratio - global_ratio ",
+                "station_uplift   = target_ratio - station_ratio",
+                "pop_uplift_pers  = spr * pop_uplift            ",
+                "glob_uplift_pers = spr * global_uplift         ",
+                "stat_uplift_pers = spr * station_uplift        ",
+            ]
+        )
+    )
+
+
+# patch pd.DataFrame with convenience method "build_uplift_columns"
+DataFrame.build_uplift_columns = build_uplift_columns
 
 
 ########################################################################################
@@ -163,6 +180,7 @@ class Uplift:
         self._spr_sd = DataSeries()
         self._spr_min = DataSeries()
         self._spr_max = DataSeries()
+        self._spr_sd_ratio = DataSeries()
         self._var_result = {}
         self._result = Result()
 
@@ -264,13 +282,13 @@ class Uplift:
     ) -> CountsWithSD:
         """Aggregate occurrence counts after filtering by selection criteria.
         Return counts and Poisson standard deviations."""
-        select_rows = data["Station"].isin(self.stations)
+        selected_rows = data["Station"].isin(self.stations)
         if var_id is not None:
-            select_rows &= data["Variable"] == var_id
+            selected_rows &= data["Variable"] == var_id
         if code_labels is not None:
-            select_rows &= data["Code"].isin(code_labels)
+            selected_rows &= data["Code"].isin(code_labels)
         counts = (
-            data.loc[select_rows]
+            data.loc[selected_rows]
             .pipe(clean_up_categoricals, incl_col="Station")
             .groupby(["Station", "DayOfWeek", self.time_scale])[value_col]
             .agg("sum")
@@ -278,14 +296,6 @@ class Uplift:
         )
         count_sd = poisson_sd(counts)
         return counts, count_sd
-
-    @staticmethod
-    def _build_uplift_columns() -> str:
-        return (
-            "  pop_uplift     = target_ratio - pop_ratio    \n"
-            + "global_uplift  = target_ratio - global_ratio \n"
-            + "station_uplift = target_ratio - station_ratio"
-        )
 
     def _calculate_single_var(self, var_id: VarId) -> DataFrame:
         """Calculate target group ratios for a single variable."""
@@ -297,13 +307,7 @@ class Uplift:
             value_col="Value", data=ax_data, var_id=var_id, code_labels=code_labels
         )
         target_ratio = (ax_pers_count / ax_total_count).fillna(0)
-        ax_pers_max, ax_pers_min = ax_pers_count.plusminus(ax_pers_sd)
-        target_ratio_min = (ax_pers_min / ax_total_count).fillna(0)
-        target_ratio_max = (ax_pers_max / ax_total_count).fillna(0)
-        # target pers = SPR pers * AX target ratio
         target_pers = self._spr * target_ratio
-        target_pers_min = self._spr_min * target_ratio_min
-        target_pers_max = self._spr_max * target_ratio_max
 
         # reference ratios for CH population / all stations / each station
         pop_ratio = ax_population_ratios(var_id)[code_labels].sum(axis="columns")[0]
@@ -319,30 +323,25 @@ class Uplift:
             {
                 "spr": self._spr,
                 "spr_sd": self._spr_sd,
-                "spr_min": self._spr_min,
-                "spr_max": self._spr_max,
+                "spr_sd_ratio": self._spr_sd_ratio,
                 "ax_total": ax_total_count,
                 "ax_pers": ax_pers_count,
                 "target_ratio": target_ratio,
-                "target_ratio_min": target_ratio_min,
-                "target_ratio_max": target_ratio_max,
                 "target_pers": target_pers,
-                "target_pers_min": target_pers_min,
-                "target_pers_max": target_pers_max,
             }
         ).reset_index()
         result = result.assign(
             pop_ratio=pop_ratio,
             global_ratio=global_ratio,
             station_ratio=station_ratios.loc[result["Station"]].values,
-        ).eval(self._build_uplift_columns())
+        ).build_uplift_columns()
         return result
 
     def calculate(self) -> None:
         """Calculate target group ratios per variable and overall."""
         # get SPR+ counts for the given selection criteria
         self._spr, self._spr_sd = self._get_counts(value_col="Total", data=spr_data)
-        self._spr_max, self._spr_min = self._spr.plusminus(self._spr_sd)
+        self._spr_sd_ratio = ((self._spr + self._spr_sd) / self._spr - 1).fillna(0)
 
         # calculate result per variable
         for var_id in self.variables.keys():
@@ -353,8 +352,7 @@ class Uplift:
         first_var_result = self.var_result[var_ids[0]]
         result = first_var_result[
             (
-                "Station DayOfWeek Hour spr spr_sd spr_min spr_max target_ratio target_pers"
-                + " target_ratio_min target_pers_min target_ratio_max target_pers_max"
+                f"Station DayOfWeek {self.time_scale} spr spr_sd spr_sd_ratio target_ratio target_pers"
                 + " pop_ratio global_ratio station_ratio"
             ).split()
         ].copy()
@@ -363,32 +361,66 @@ class Uplift:
                 vr = self.var_result[var_id]
                 result = result.assign(
                     target_ratio=result["target_ratio"] * vr["target_ratio"],
-                    target_ratio_min=result["target_ratio_min"]
-                    * vr["target_ratio_min"],
-                    target_ratio_max=result["target_ratio_max"]
-                    * vr["target_ratio_max"],
                     pop_ratio=result["pop_ratio"] * vr["pop_ratio"],
                     global_ratio=result["global_ratio"] * vr["global_ratio"],
                     station_ratio=result["station_ratio"] * vr["station_ratio"],
                 )
-            result = result.assign(
-                target_pers=result["spr"] * result["target_ratio"],
-                target_pers_min=result["spr_min"] * result["target_ratio_min"],
-                target_pers_max=result["spr_max"] * result["target_ratio_max"],
-            )[
+            result = result.assign(target_pers=result["spr"] * result["target_ratio"],)[
                 (
-                    "Station DayOfWeek Hour spr target_ratio"
-                    + " target_pers target_pers_min target_pers_max"
+                    f"Station DayOfWeek {self.time_scale} spr target_ratio"
+                    + " target_pers"
                     + " pop_ratio global_ratio station_ratio"
                 ).split()
-            ].eval(
-                self._build_uplift_columns()
-            )
+            ].build_uplift_columns()
         self._result = result
 
+    ## Result export  ##################################################################
+    def export_result(self):
+        export_file_name = f"{self.name} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        with project_dir("axinova/zielgruppen_export"):
+            store_xlsx(df=self.result, file_name=export_file_name, sheet_name="result")
+
     ## Visualisation methods ###########################################################
-    def plot(self):
+    def heatmap(self):
         pass
+
+    def plot_pop_uplift(
+        self, selectors: dict = None, plot_properties: dict = None
+    ) -> alt.Chart:
+        if selectors is None:
+            selectors = {}
+        chart_data = select_rows(self.result, selectors).pipe(
+            as_dtype, "int", incl_pattern="spr|.*pers$"
+        )
+
+        if plot_properties is None:
+            plot_properties = {}
+        properties = {"width": 200, "height": 200}
+        properties.update(plot_properties)
+        chart = (
+            alt.Chart(chart_data)
+            .properties(**properties)
+            .mark_bar()
+            .encode(
+                x=alt.X(
+                    "pop_uplift_pers:Q", title="", scale=alt.Scale(type="linear")
+                ),  # type="symlog"|"linear"
+                y=alt.Y(
+                    f"{self.time_scale}:O",
+                    axis=alt.Axis(grid=True),
+                    sort=ax_data[self.time_scale].cat.categories.to_list(),
+                ),
+                tooltip=[self.time_scale, "spr", "target_pers", "pop_uplift_pers"],
+                color=alt.condition(
+                    alt.datum.pop_uplift_pers > 0,
+                    alt.value("steelblue"),  # The positive color
+                    alt.value("orange"),  # The negative color
+                ),
+                row=alt.Row("DayOfWeek", title="Wochentag", sort=all_weekdays,),
+                column=alt.Column("Station", title="Bahnhof"),
+            )
+        )
+        return chart
 
 
 ########################################################################################
@@ -417,5 +449,14 @@ if __name__ == "__main__":
         info("-- Calculating instance 'Uplift Test'")
         uplift_test.calculate()
         print(uplift_test)
+
+        print(line)
+        info("-- Exporting result to XLSX file")
+        uplift_test.export_result()
+
+        print(line)
+        info("-- Plotting result: Uplift vs. population")
+        plot = uplift_test.plot_pop_uplift(selectors={"Station": "Aarau"})
+        plot.serve()
 
         print(line)
