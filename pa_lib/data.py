@@ -131,6 +131,26 @@ def clean_up_categoricals(df, **selectors):
 
 
 ########################################################################################
+def select_rows(df: pd.DataFrame, selectors: dict) -> pd.DataFrame:
+    """Return dataframe df filtered by selectors {column -> value(s)}.
+       Inspired by SQL Select.
+       Column selectors are ANDed, values for one column ORed."""
+    row_mask = [True] * df.shape[0]
+    for col, values in selectors.items():
+        try:
+            row_mask &= df[col].isin(flat_list(values))
+        except KeyError:
+            raise ValueError(f"No column '{col}' in dataframe") from None
+    result = (
+        df.loc[row_mask]
+        .pipe(clean_up_categoricals)
+        .pipe(as_dtype, dtFactor, incl_dtype="object")
+        .reset_index(drop=True)
+    )
+    return result
+
+
+########################################################################################
 def replace_col(df, col, with_col, where):
     """Replace values of columns 'col' with values from columns 'with_col'
        where 'where' is True"""

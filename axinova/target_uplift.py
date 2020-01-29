@@ -194,9 +194,9 @@ class Uplift:
     @staticmethod
     def _build_uplift_columns() -> str:
         return (
-            "  pop_uplift     = ax_ratio - pop_ratio    \n"
-            + "global_uplift  = ax_ratio - global_ratio \n"
-            + "station_uplift = ax_ratio - station_ratio"
+            "  pop_uplift     = target_ratio - pop_ratio    \n"
+            + "global_uplift  = target_ratio - global_ratio \n"
+            + "station_uplift = target_ratio - station_ratio"
         )
 
     # Parameter validation functions
@@ -297,7 +297,7 @@ class Uplift:
                 "spr_sd_ratio": self._spr_sd_ratios,
                 "ax_total": ax_total_counts,
                 "ax_count": ax_target_counts,
-                "ax_ratio": ax_target_ratios,
+                "target_ratio": ax_target_ratios,
                 "ax_sd_ratio": ax_target_sd_ratios,
                 "target_count": target_counts,
                 "target_sd_ratio": target_sd_ratios,
@@ -330,7 +330,7 @@ class Uplift:
                 "Hour",
                 "spr",
                 "spr_sd_ratio",
-                "ax_ratio",
+                "target_ratio",
                 "target_sd_ratio",
                 "pop_ratio",
                 "global_ratio",
@@ -340,7 +340,7 @@ class Uplift:
         for var_id in var_ids[1:]:
             var_result = self.var_result[var_id]
             result = result.assign(
-                ax_ratio=result["ax_ratio"] * var_result["ax_ratio"],
+                ax_ratio=result["target_ratio"] * var_result["target_ratio"],
                 target_sd=combine_sd_ratios(
                     result["target_sd_ratio"], var_result["target_sd_ratio"]
                 ),
@@ -349,7 +349,7 @@ class Uplift:
                 station_ratio=result["station_ratio"] * var_result["station_ratio"],
             )
         result = result.assign(
-            target_count=result["spr"] * result["ax_ratio"],
+            target_count=result["spr"] * result["target_ratio"],
             target_sd_abs=result["spr"] * result["target_sd_ratio"],
         )[
             [
@@ -358,7 +358,7 @@ class Uplift:
                 "Hour",
                 "spr",
                 "spr_sd_ratio",
-                "ax_ratio",
+                "target_ratio",
                 "target_sd_ratio",
                 "target_count",
                 "target_sd_abs",
