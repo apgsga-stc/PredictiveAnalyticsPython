@@ -132,20 +132,23 @@ def clean_up_categoricals(df, **selectors):
 
 ########################################################################################
 def select_rows(df: pd.DataFrame, selectors: dict) -> pd.DataFrame:
-    """Return dataframe df filtered by selectors {column -> value(s)}.
+    """Return dataframe df filtered by selectors {column/index level -> value(s)}.
        Inspired by SQL Select.
        Column selectors are ANDed, values for one column ORed."""
-    row_mask = [True] * df.shape[0]
+    row_mask = pd.Series([True] * df.shape[0])
+    try:
+        source_df = df.reset_index()[list(selectors.keys())]
+    except KeyError:
+        raise ValueError(
+            f"Bad selector columns {list(selectors.keys())}, "
+            + f"dataframe has {df.reset_index().columns.to_list()}"
+        ) from None
     for col, values in selectors.items():
-        try:
-            row_mask &= df[col].isin(flat_list(values))
-        except KeyError:
-            raise ValueError(f"No column '{col}' in dataframe") from None
+        row_mask &= source_df[col].isin(flat_list(values))
     result = (
-        df.loc[row_mask]
+        df.loc[row_mask.values]
         .pipe(clean_up_categoricals)
         .pipe(as_dtype, dtFactor, incl_dtype="object")
-        .reset_index(drop=True)
     )
     return result
 

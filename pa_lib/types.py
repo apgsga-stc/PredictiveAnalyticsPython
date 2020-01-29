@@ -9,6 +9,7 @@ Created on Thu Mar 14 12:01:34 2019
 import pandas as pd
 from datetime import datetime as dtt
 from dataclasses import dataclass, astuple
+from typing import List
 
 from pa_lib.util import format_size
 
@@ -18,6 +19,14 @@ dtYear = pd.api.types.CategoricalDtype(ordered=True)
 dtKW = pd.api.types.CategoricalDtype(
     categories=[w + 1 for w in range(53)], ordered=True
 )
+dtDayOfWeek = pd.api.types.CategoricalDtype(
+    categories="Monday Tuesday Wednesday Thursday Friday Saturday Sunday".split(),
+    ordered=True,
+)
+
+
+def cat_ordered_type(categories: List[str]) -> pd.api.types.CategoricalDtype:
+    return pd.api.types.CategoricalDtype(categories=categories, ordered=True)
 
 
 def as_years(col):
@@ -62,7 +71,7 @@ class File:
 class Record(object):
     """Simple container class, allows both attribute and dict item access"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initialize from keyword parameters"""
         for (key, value) in kwargs.items():
             setattr(self, key, value)
