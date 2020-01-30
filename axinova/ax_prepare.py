@@ -33,6 +33,11 @@ from pa_lib.util import list_items
 
 
 ########################################################################################
+def _scale(s):
+    return s / s.sum()
+
+
+########################################################################################
 def load_ax_data(directory):
     # how to find & read our data files
     data_pattern = "*Bahnhof_Uhrzeit_*.csv"
@@ -172,14 +177,14 @@ def get_pop_ratios(directory):
         .pipe(
             calc_col_partitioned,
             "Count_Ratio",
-            fun=lambda s: s / s.sum(),
+            fun=_scale,
             on="Count",
             part_by="Variable",
         )
         .pipe(
             calc_col_partitioned,
             "Pop_Ratio",
-            fun=lambda s: s / s.sum(),
+            fun=_scale,
             on="Pop_Count",
             part_by="Variable",
         )
@@ -440,11 +445,6 @@ def enrich_ax_data(data):
     enriched_data = as_dtype(enriched_data, dtFactor, incl_dtype=["bool", "object"])
 
     return enriched_data
-
-
-########################################################################################
-def _scale(s):
-    return s / s.sum()
 
 
 ########################################################################################
