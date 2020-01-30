@@ -100,7 +100,7 @@ def format_size(size):
 
 
 ###############################################################################
-def _total_size(obj, handlers=OrderedDict()):
+def _total_size(obj, handlers=None):
     """ Returns the approximate memory footprint an object
         and all of its contents.
 
@@ -111,6 +111,8 @@ def _total_size(obj, handlers=OrderedDict()):
         handlers = {SomeContainerClass: iter,
                     OtherContainerClass: OtherContainerClass.get_elements}
     """
+    if handlers is None:
+        handlers = OrderedDict()
     dflt_size = sys.getsizeof(0)
 
     def sizeof(my_obj):
@@ -284,8 +286,8 @@ def peaks(series):
     s_true = pd.Series(True)
     s_false = pd.Series(False)
     descend = s_true.append(series.diff()[1:] >= 0).append(s_false).astype("int")
-    peaks = (descend.diff()[1:] < 0).set_axis(series.index, inplace=False)
-    return peaks
+    result = (descend.diff()[1:] < 0).set_axis(series.index, inplace=False)
+    return result
 
 
 def non_repeated(series):
@@ -297,6 +299,15 @@ def collect(series, sep=","):
     """Sorted string concatenation of a series' unique values"""
     values = np.sort(series[series.notna()].unique())
     return sep.join(map(str, values))
+
+
+###############################################################################
+def default_dict(d: dict = None, defaults: dict = None) -> dict:
+    if defaults is None:
+        defaults = {}
+    if d is None:
+        d = {}
+    return dict(defaults, **d)
 
 
 ###############################################################################
@@ -326,7 +337,7 @@ if __name__ == "__main__":
     testtab = pd.DataFrame.from_records(
         columns=["date", "kw", "iso", "iso2", "iso4"],
         data=[
-            (d, week(d), iso_week(d), iso_week_rd(d, 2), iso_week_rd(d, 4))
+            (d, week(d), iso_week(d), iso_week_rd(d), iso_week_rd(d, 4))
             for d in year_days
         ],
         index="date",

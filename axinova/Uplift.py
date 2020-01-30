@@ -11,112 +11,26 @@ import altair as alt
 from pprint import pformat
 from datetime import datetime as dt
 
-from pa_lib.file import project_dir, load_bin, load_pickle, store_xlsx
-from pa_lib.util import list_items
+from pa_lib.file import project_dir, store_xlsx
+from pa_lib.util import default_dict
 from pa_lib.log import info, time_log
 from pa_lib.data import clean_up_categoricals
 
-########################################################################################
-# Uplift-specific imports
-########################################################################################
 from axinova.UpliftLib import (
     VarId,
     StringList,
-    IntList,
     VarCodes,
+    VarSelection,
     StationDef,
     DataFrame,
     DataSeries,
     VarResult,
-    VarDict,
     Result,
     CountsWithSD,
-    VarStruct,
-    VarSelection,
-    #
     poisson_sd,
 )
-from axinova.UpliftGraphs import heatmap, barplot, prepare_chart_data
-
-
-########################################################################################
-# Global Data
-########################################################################################
-ax_data: DataFrame
-ax_var_struct: DataFrame
-spr_data: DataFrame
-population_codes: DataFrame
-global_codes: DataFrame
-station_codes: DataFrame
-all_stations: StringList
-all_weekdays: StringList
-all_timescales: StringList
-var_info: VarDict
-
-
-########################################################################################
-# Load data objects
-########################################################################################
-def load_data() -> None:
-    """Load base data and calculate derived objects. All objects are module-global."""
-    global ax_data, spr_data, ax_var_struct, var_info
-    global population_codes, global_codes, station_codes
-    global all_stations, all_timescales
-
-    with project_dir("axinova"):
-        ax_data = load_bin("ax_data.feather")
-        ax_var_struct = load_bin("ax_var_struct.feather")
-        population_codes = load_pickle("population_ratios.pkl")
-        global_codes = load_pickle("global_code_ratios.pkl")
-        station_codes = load_pickle("station_code_ratios.pkl")
-        spr_data = load_pickle("spr_data.pkl")
-
-    # derived data
-    all_stations = ax_data["Station"].cat.categories.to_list()
-    all_timescales = ["Time", "ShortTime", "Hour", "TimeSlot"]
-    var_info = {}
-    for (var_id, data) in ax_var_struct.groupby("Variable"):
-        var_info[var_id] = dict(
-            Label=data["Variable_Label"].max(),
-            Codes=data["Label"].to_list(),
-            Order=list(range(len(data["Label_Nr"].to_list()))),
-        )
-
-
-########################################################################################
-# Access data objects
-########################################################################################
-def variable_label(var_id: VarId) -> str:
-    return var_info[var_id]["Label"]
-
-
-def variable_code_labels(var_id: VarId) -> StringList:
-    return var_info[var_id]["Codes"]
-
-
-def variable_code_order(var_id: VarId) -> IntList:
-    return var_info[var_id]["Order"]
-
-
-def ax_population_ratios(var_id: VarId) -> DataFrame:
-    ratios = population_codes.loc[population_codes["Variable"] == var_id].pivot_table(
-        values="Pop_Ratio", index="Variable", columns="Code"
-    )
-    return ratios
-
-
-def ax_global_ratios(var_id: VarId) -> DataFrame:
-    ratios = global_codes.loc[global_codes["Variable"] == var_id].pivot_table(
-        values="Ratio", index="Variable", columns="Code"
-    )
-    return ratios
-
-
-def ax_station_ratios(var_id: VarId) -> DataFrame:
-    ratios = station_codes.loc[station_codes["Variable"] == var_id].pivot_table(
-        values="Ratio", index="Station", columns="Code", fill_value=0
-    )
-    return ratios
+from axinova.UpliftData import UpliftData
+from axinova.UpliftGraphs import heatmap, barplot
 
 
 ########################################################################################
@@ -126,17 +40,22 @@ class Uplift:
     def __init__(
         self, *, name: str, variables: VarCodes, stations: StationDef, time_scale: str
     ) -> None:
-        self.name = name
-        self.stations = Uplift._check_stations(stations)
-        self.variables = Uplift._check_var_def(variables)
-        self.time_scale = Uplift._check_timescale(time_scale)
-        self._spr = DataSeries()
-        self._spr_sd = DataSeries()
-        self._spr_min = DataSeries()
-        self._spr_max = DataSeries()
-        self._spr_sd_ratio = DataSeries()
-        self._var_result = {}
-        self._result = Result()
+        self.name: str = name
+        self.data: UpliftData = UpliftData()
+
+        # validate target selection parameters
+        self.stations: StationDef = self.data.check_stations(stations)
+        self.variables: VarSelection = self.data.check_var_def(variables)
+        self.time_scale: str = self.data.check_timescale(time_scale)
+
+        # internal objects
+        self._spr: DataSeries = DataSeries(dtype="float")
+        self._spr_sd: DataSeries = DataSeries(dtype="float")
+        self._spr_min: DataSeries = DataSeries(dtype="float")
+        self._spr_max: DataSeries = DataSeries(dtype="float")
+        self._spr_sd_ratio: DataSeries = DataSeries(dtype="float")
+        self._var_result: VarResult = dict()
+        self._result: Result = Result()
 
     def __str__(self) -> str:
         description = "\n".join(
@@ -145,6 +64,7 @@ class Uplift:
                 f"Stations: {self.stations}",
                 f"Timescale: '{self.time_scale}'",
                 f"Selection: \n{self.selection}",
+                f"Source data: \n{self.data}",
                 f"Results per Variable: \n{pformat(self.var_result)}",
                 f"Total Result: \n{pformat(self.result)}",
             ]
@@ -182,50 +102,6 @@ class Uplift:
         )
         return selection
 
-    ## Initialization parameter validation functions ###################################
-    @staticmethod
-    def _check_stations(stations: StationDef) -> StationDef:
-        if stations is None or stations == list():
-            checked_stations = all_stations
-        else:
-            checked_stations = [
-                station for station in stations if station in all_stations
-            ]
-            if len(checked_stations) != len(stations):
-                raise ValueError(
-                    f"Unknown station found in {stations}, known are: {all_stations}"
-                )
-        return checked_stations
-
-    @staticmethod
-    def _check_var_def(variables: VarCodes) -> VarSelection:
-        checked_var: VarSelection = {}
-        for (var_id, code_nr) in variables.items():
-            try:
-                var_label = variable_label(var_id)
-            except KeyError:
-                raise KeyError(
-                    f"Unknown variable '{var_id}', known are {list(var_info.keys())}"
-                ) from None
-            try:
-                code_labels = list_items(variable_code_labels(var_id), code_nr)
-            except IndexError:
-                raise ValueError(
-                    f"Unknown code index(es) for variable {var_id} in {code_nr}, known are "
-                    f"{variable_code_order(var_id)}"
-                ) from None
-            code_order = list_items(variable_code_order(var_id), code_nr)
-            checked_var[var_id] = VarStruct(var_label, code_labels, code_order)
-        return checked_var
-
-    @staticmethod
-    def _check_timescale(timescale: str) -> str:
-        if timescale not in all_timescales:
-            raise ValueError(
-                f"Unknown timescale '{timescale}', known are: {all_timescales}"
-            )
-        return timescale
-
     ## Calculation methods #############################################################
     def _get_counts(
         self,
@@ -255,20 +131,27 @@ class Uplift:
         """Calculate target group ratios for a single variable."""
         code_labels = self.variables[var_id].code_labels
         ax_total_count, _ = self._get_counts(
-            value_col="Value", data=ax_data, var_id=var_id
+            value_col="Value", data=self.data.ax_data, var_id=var_id
         )
         full_index = ax_total_count.index
         ax_pers_count, ax_pers_sd = self._get_counts(
-            value_col="Value", data=ax_data, var_id=var_id, code_labels=code_labels
+            value_col="Value",
+            data=self.data.ax_data,
+            var_id=var_id,
+            code_labels=code_labels,
         )
         target_ratio = (ax_pers_count / ax_total_count).fillna(0)
         target_pers = target_ratio * self._spr
 
         # reference ratios for CH population / all stations / each station
-        pop_ratio = ax_population_ratios(var_id)[code_labels].sum(axis="columns")[0]
-        global_ratio = ax_global_ratios(var_id)[code_labels].sum(axis="columns")[0]
+        pop_ratio = self.data.ax_population_ratios(var_id)[code_labels].sum(
+            axis="columns"
+        )[0]
+        global_ratio = self.data.ax_global_ratios(var_id)[code_labels].sum(
+            axis="columns"
+        )[0]
         station_ratios = (
-            ax_station_ratios(var_id)
+            self.data.ax_station_ratios(var_id)
             .loc[self.stations, code_labels]
             .sum(axis="columns")
         )
@@ -301,7 +184,9 @@ class Uplift:
     def calculate(self) -> None:
         """Calculate target group ratios per variable and overall."""
         # get SPR+ counts for the given selection criteria
-        self._spr, self._spr_sd = self._get_counts(value_col="Total", data=spr_data)
+        self._spr, self._spr_sd = self._get_counts(
+            value_col="Total", data=self.data.spr_data
+        )
         self._spr_sd_ratio = ((self._spr + self._spr_sd) / self._spr - 1).fillna(0)
 
         # calculate result per variable
@@ -326,7 +211,7 @@ class Uplift:
                     global_ratio=result["global_ratio"] * vr["global_ratio"],
                     station_ratio=result["station_ratio"] * vr["station_ratio"],
                 )
-            result = result.assign(target_pers=result["spr"] * result["target_ratio"],)[
+            result = result.assign(target_pers=result["spr"] * result["target_ratio"])[
                 "spr target_ratio target_pers pop_ratio global_ratio station_ratio".split()
             ].build_uplift_columns()
         self._result = result
@@ -343,14 +228,13 @@ class Uplift:
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
-        chart_data = prepare_chart_data(data=self.result, selectors=selectors)
         if plot_properties is None:
             plot_properties = {}
-        properties = {"width": 600}
-        properties.update(plot_properties)
 
+        properties = default_dict(plot_properties, defaults={"width": 600})
         chart = heatmap(
-            data=chart_data,
+            data=self.result,
+            selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             time_scale=self.time_scale,
             properties=properties,
@@ -362,14 +246,15 @@ class Uplift:
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
-        chart_data = prepare_chart_data(data=self.result, selectors=selectors)
         if plot_properties is None:
             plot_properties = {}
-        properties = {"width": 200, "height": 200}
-        properties.update(plot_properties)
 
+        properties = default_dict(
+            plot_properties, defaults={"width": 200, "height": 300}
+        )
         chart = barplot(
-            data=chart_data,
+            data=self.result,
+            selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             time_scale=self.time_scale,
             axes=axes,
@@ -377,12 +262,6 @@ class Uplift:
         )
         return chart
 
-
-########################################################################################
-# INITIALISATION CODE
-########################################################################################
-with time_log("loading data"):
-    load_data()
 
 ########################################################################################
 # TESTING CODE
@@ -411,8 +290,7 @@ if __name__ == "__main__":
 
         print(line)
         info("-- Plotting result: Uplift vs. population")
-        plot_1 = uplift_test.plot_pop_uplift(selectors={"Station": "Aarau"})
-        # plot_1.serve()
-        plot_2 = uplift_test.heatmap(selectors={"Station": "Aarau"})
+        test_heatmap = uplift_test.heatmap(selectors={})
+        test_barplot = uplift_test.plot_pop_uplift(selectors={"Station": "Aarau"})
 
         print(line)
