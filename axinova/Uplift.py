@@ -220,7 +220,11 @@ class Uplift:
     def export_result(self):
         export_file_name = f"{self.name} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         with project_dir("axinova/zielgruppen_export"):
-            store_xlsx(df=self.result, file_name=export_file_name, sheet_name="result")
+            store_xlsx(
+                df=DataFrame(),
+                file_name=export_file_name,
+                sheets=dict({"Total": self.result}, **self.var_result),
+            )
 
     ## Visualisation methods ###########################################################
     def heatmap(

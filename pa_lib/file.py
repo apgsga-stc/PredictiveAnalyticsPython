@@ -152,13 +152,19 @@ def _check_index(df):
     return df_checked
 
 
+def _normalize(df):
+    return df.pipe(_check_index).pipe(flatten_multi_cols)
+
+
 def _store_df(df, file_name, file_type, **params):
     file_path = (_project_dir / file_name).resolve()
     # Pickle files support all python objects. For other formats, normalize df.
-    if file_type != "pickle":
-        df_out = df.pipe(_check_index).pipe(flatten_multi_cols)
-    else:
+    if file_type == "xlsx":
+        pass
+    elif file_type == "pickle":
         df_out = df
+    else:
+        df_out = _normalize(df)
 
     # Back up target file, if it already exists
     time_stamp = dtt.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -195,31 +201,33 @@ def _store_df(df, file_name, file_type, **params):
                     **params,
                 )
             elif file_type == "xlsx":
-                sheet_name = params.pop("sheet_name", "df")
+                sheets = params.pop("sheets", {"df": df})
                 index = params.pop("index", False)
-                # column widths as max strlength of column's contents,
-                # or strlength of column's header if greater
-                col_width = np.maximum(
-                    df_out.astype("str")
-                    .apply(lambda column: max(column.str.len()))
-                    .to_list(),
-                    list(map(len, df_out.columns)),
-                )
                 file_path = _project_dir / file_name
                 writer = pd.ExcelWriter(file_path, engine="xlsxwriter")
-                df_out.to_excel(writer, index=index, sheet_name=sheet_name, **params)
-                # Formatting
                 workbook = writer.book
-                worksheet = writer.sheets[sheet_name]
-                ncols = df_out.shape[-1]
-                title_cells = (0, 0, 0, ncols - 1)
                 bold = workbook.add_format({"bold": True, "align": "left"})
-                worksheet.set_row(0, cell_format=bold)
-                worksheet.autofilter(*title_cells)
-                worksheet.freeze_panes(1, 0)
-                # Column autowidth
-                for col in range(ncols):
-                    worksheet.set_column(col, col, col_width[col] + 1)
+                for sheet_name, df in sheets.items():
+                    df_out = _normalize(df)
+                    df_out.to_excel(writer, index=index, sheet_name=sheet_name)
+                    # Formatting
+                    worksheet = writer.sheets[sheet_name]
+                    ncols = df_out.shape[-1]
+                    title_cells = (0, 0, 0, ncols - 1)
+                    worksheet.set_row(0, cell_format=bold)
+                    worksheet.autofilter(*title_cells)
+                    worksheet.freeze_panes(1, 0)
+                    # Column autowidth
+                    # column widths as max strlength of column's contents,
+                    # or strlength of column's header if greater
+                    col_width = np.maximum(
+                        df_out.astype("str")
+                        .apply(lambda column: max(column.str.len()))
+                        .to_list(),
+                        list(map(len, df_out.columns)),
+                    )
+                    for col in range(ncols):
+                        worksheet.set_column(col, col, col_width[col] + 1)
                 writer.save()
             else:
                 raise ValueError(f"Unknown file type '{file_type}'")
@@ -293,7 +301,7 @@ def load_hdf(file_name, **params):
 
 def store_xlsx(df, file_name, **params):
     """Store df as a 'xlsx' file in current project directory. **params go to df.to_excel
-    (e.g. sheet_name="df", index=False)"""
+    (e.g. sheets={"my_df": my_df}, index=False)"""
     _store_df(df, file_name, file_type="xlsx", **params)
 
 
