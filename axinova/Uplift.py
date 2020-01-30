@@ -12,7 +12,7 @@ from pprint import pformat
 from datetime import datetime as dt
 
 from pa_lib.file import project_dir, load_bin, load_pickle, store_xlsx
-from pa_lib.util import list_items
+from pa_lib.util import list_items, default_dict
 from pa_lib.log import info, time_log
 from pa_lib.data import clean_up_categoricals
 
@@ -326,7 +326,7 @@ class Uplift:
                     global_ratio=result["global_ratio"] * vr["global_ratio"],
                     station_ratio=result["station_ratio"] * vr["station_ratio"],
                 )
-            result = result.assign(target_pers=result["spr"] * result["target_ratio"],)[
+            result = result.assign(target_pers=result["spr"] * result["target_ratio"])[
                 "spr target_ratio target_pers pop_ratio global_ratio station_ratio".split()
             ].build_uplift_columns()
         self._result = result
@@ -343,14 +343,13 @@ class Uplift:
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
-        chart_data = prepare_chart_data(data=self.result, selectors=selectors)
         if plot_properties is None:
             plot_properties = {}
-        properties = {"width": 600}
-        properties.update(plot_properties)
 
+        properties = default_dict(plot_properties, defaults={"width": 600})
         chart = heatmap(
-            data=chart_data,
+            data=self.result,
+            selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             time_scale=self.time_scale,
             properties=properties,
@@ -362,14 +361,15 @@ class Uplift:
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
-        chart_data = prepare_chart_data(data=self.result, selectors=selectors)
         if plot_properties is None:
             plot_properties = {}
-        properties = {"width": 200, "height": 200}
-        properties.update(plot_properties)
 
+        properties = default_dict(
+            plot_properties, defaults={"width": 200, "height": 200}
+        )
         chart = barplot(
-            data=chart_data,
+            data=self.result,
+            selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             time_scale=self.time_scale,
             axes=axes,

@@ -44,10 +44,13 @@ def prepare_chart_data(data: DataFrame, selectors: dict) -> DataFrame:
 ########################################################################################
 # Main Plotting Functions
 ########################################################################################
-def heatmap(data: DataFrame, title: str, time_scale: str, properties: dict):
+def heatmap(
+    data: DataFrame, selectors: dict, title: str, time_scale: str, properties: dict
+):
     color_range = ["darkred", "white", "darkgreen"]
+    chart_data = prepare_chart_data(data, selectors)
     chart = (
-        alt.Chart(data, title=title)
+        alt.Chart(chart_data, title=title)
         .properties(**properties)
         .mark_rect()
         .encode(
@@ -58,7 +61,9 @@ def heatmap(data: DataFrame, title: str, time_scale: str, properties: dict):
                 title="Uplift [Pers]",
                 scale=alt.Scale(
                     range=color_range,
-                    domain=heatmap_range(data["pop_uplift_pers"], scale=0.8),
+                    type="linear",
+                    zero=True,
+                    domain=heatmap_range(chart_data["pop_uplift_pers"], scale=0.8),
                 ),
             ),
             tooltip=[
@@ -70,25 +75,30 @@ def heatmap(data: DataFrame, title: str, time_scale: str, properties: dict):
             ],
             row=alt.Row("DayOfWeek", title="Wochentag", sort=all_weekdays),
         )
-        .resolve_scale(x="independent", color="independent")
+        .resolve_scale(x="independent")
     )
     return chart
 
 
 def barplot(
-    data: DataFrame, title: str, time_scale: str, axes: str, properties: dict
+    data: DataFrame,
+    selectors: dict,
+    title: str,
+    time_scale: str,
+    axes: str,
+    properties: dict,
 ) -> alt.Chart:
-    color_range = ["darkred", "white", "darkgreen"]
+    chart_data = prepare_chart_data(data, selectors)
     chart = (
-        alt.Chart(data, title=title)
+        alt.Chart(chart_data, title=title)
         .properties(**properties)
-        .mark_bar(stroke="black", strokeOpacity=0.5, strokeWidth=0.8)
+        .mark_bar()
         .encode(
             x=alt.X("pop_uplift_pers:Q", title=""),
             y=alt.Y(
                 f"{time_scale}:O",
                 axis=alt.Axis(grid=True),
-                sort=data[time_scale].cat.categories.to_list(),
+                sort=chart_data[time_scale].cat.categories.to_list(),
             ),
             tooltip=[
                 time_scale,
@@ -96,19 +106,11 @@ def barplot(
                 alt.Tooltip("target_pers", title="Zielgruppe"),
                 alt.Tooltip("pop_uplift_pers:Q", title="Uplift"),
             ],
-            color=alt.Color(
-                "pop_uplift_pers:Q",
-                title="Uplift [Pers]",
-                scale=alt.Scale(
-                    range=color_range,
-                    domain=heatmap_range(data["pop_uplift_pers"], scale=0.8),
-                ),
+            color=alt.condition(
+                alt.datum.pop_uplift_pers > 0,
+                alt.value("darkgreen"),  # The positive color
+                alt.value("darkred"),  # The negative color
             ),
-            # color=alt.condition(
-            #     alt.datum.pop_uplift_pers > 0,
-            #     alt.value("green"),  # The positive color
-            #     alt.value("red"),  # The negative color
-            # ),
             row=alt.Row("DayOfWeek", title="Wochentag", sort=all_weekdays),
             column=alt.Column("Station", title="Bahnhof"),
         )
