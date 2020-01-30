@@ -17,7 +17,7 @@ from .UpliftLib import all_weekdays, DataSeries, DataFrame
 # Helper Functions
 ########################################################################################
 def heatmap_range(s: DataSeries, scale: float = 1) -> Tuple[float, float, float]:
-    """Return min and max of a series, but makes range centered at 0 if it contains 0.
+    """Return min, middle, and max of a series, but centers range at 0 if it contains 0.
        Parameter scale [0..1] allows to tighten the range."""
     maximum = s.max()
     minimum = s.min()

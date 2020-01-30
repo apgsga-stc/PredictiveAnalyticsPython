@@ -6,7 +6,7 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 from pa_lib.file import project_dir, load_bin, load_pickle
 from pa_lib.util import list_items
@@ -22,6 +22,8 @@ from axinova.UpliftLib import (
     VarStruct,
     VarSelection,
 )
+
+source_data = None
 
 ########################################################################################
 # Data Types
@@ -39,16 +41,22 @@ class UpliftData:
     all_timescales: StringList = None
     var_info: VarDict = None
 
+    def __post_init__(self):
+        """Copy source data from global object (linking only)."""
+        # Only do this if source_data was populated (not during its own initialization)
+        if source_data is not None:
+            for field in fields(self):
+                setattr(self, field.name, getattr(source_data, field.name))
+
     def __str__(self):
         description = "\n".join(
             [
-                "Data Object sizes:",
-                f"ax_data: '{self.ax_data.shape}'",
-                f"ax_var_struct: {self.ax_var_struct.shape}",
-                f"spr_data: '{self.spr_data.shape}'",
-                f"population_codes: {self.population_codes.shape}",
-                f"global_codes: {self.global_codes.shape}",
-                f"station_codes: {self.station_codes.shape}",
+                f"'ax_data' size: {self.ax_data.shape}",
+                f"'ax_var_struct' size: {self.ax_var_struct.shape}",
+                f"'spr_data' size: {self.spr_data.shape}",
+                f"'population_codes' size: {self.population_codes.shape}",
+                f"'global_codes' size: {self.global_codes.shape}",
+                f"'station_codes' size: {self.station_codes.shape}",
             ]
         )
         return description
@@ -148,3 +156,9 @@ def load_data() -> UpliftData:
             Order=list(range(len(struct["Label_Nr"].to_list()))),
         )
     return data
+
+
+########################################################################################
+# Initialization Code: Load data files on import
+########################################################################################
+source_data: UpliftData = load_data()

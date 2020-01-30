@@ -20,6 +20,7 @@ from axinova.UpliftLib import (
     VarId,
     StringList,
     VarCodes,
+    VarSelection,
     StationDef,
     DataFrame,
     DataSeries,
@@ -28,13 +29,8 @@ from axinova.UpliftLib import (
     CountsWithSD,
     poisson_sd,
 )
-from axinova.UpliftData import UpliftData, load_data
+from axinova.UpliftData import UpliftData
 from axinova.UpliftGraphs import heatmap, barplot
-
-########################################################################################
-# Global Data, load only once on import
-########################################################################################
-source_data: UpliftData = load_data()
 
 
 ########################################################################################
@@ -44,22 +40,22 @@ class Uplift:
     def __init__(
         self, *, name: str, variables: VarCodes, stations: StationDef, time_scale: str
     ) -> None:
-        self.name = name
-        self.data = source_data  # pointer to global data
+        self.name: str = name
+        self.data: UpliftData = UpliftData()
 
         # validate target selection parameters
-        self.stations = self.data.check_stations(stations)
-        self.variables = self.data.check_var_def(variables)
-        self.time_scale = self.data.check_timescale(time_scale)
+        self.stations: StationDef = self.data.check_stations(stations)
+        self.variables: VarSelection = self.data.check_var_def(variables)
+        self.time_scale: str = self.data.check_timescale(time_scale)
 
         # internal objects
-        self._spr = DataSeries()
-        self._spr_sd = DataSeries()
-        self._spr_min = DataSeries()
-        self._spr_max = DataSeries()
-        self._spr_sd_ratio = DataSeries()
-        self._var_result = {}
-        self._result = Result()
+        self._spr: DataSeries = DataSeries(dtype="float")
+        self._spr_sd: DataSeries = DataSeries(dtype="float")
+        self._spr_min: DataSeries = DataSeries(dtype="float")
+        self._spr_max: DataSeries = DataSeries(dtype="float")
+        self._spr_sd_ratio: DataSeries = DataSeries(dtype="float")
+        self._var_result: VarResult = dict()
+        self._result: Result = Result()
 
     def __str__(self) -> str:
         description = "\n".join(
@@ -68,6 +64,7 @@ class Uplift:
                 f"Stations: {self.stations}",
                 f"Timescale: '{self.time_scale}'",
                 f"Selection: \n{self.selection}",
+                f"Source data: \n{self.data}",
                 f"Results per Variable: \n{pformat(self.var_result)}",
                 f"Total Result: \n{pformat(self.result)}",
             ]
@@ -253,7 +250,7 @@ class Uplift:
             plot_properties = {}
 
         properties = default_dict(
-            plot_properties, defaults={"width": 200, "height": 200}
+            plot_properties, defaults={"width": 200, "height": 300}
         )
         chart = barplot(
             data=self.result,
@@ -293,8 +290,7 @@ if __name__ == "__main__":
 
         print(line)
         info("-- Plotting result: Uplift vs. population")
-        plot_1 = uplift_test.plot_pop_uplift(selectors={"Station": "Aarau"})
-        # plot_1.serve()
-        plot_2 = uplift_test.heatmap(selectors={"Station": "Aarau"})
+        test_heatmap = uplift_test.heatmap(selectors={})
+        test_barplot = uplift_test.plot_pop_uplift(selectors={"Station": "Aarau"})
 
         print(line)
