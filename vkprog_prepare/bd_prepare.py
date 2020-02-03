@@ -14,7 +14,6 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
-import pandas as pd
 import numpy as np
 
 from pa_lib.ora import Connection
@@ -28,7 +27,7 @@ from pa_lib.data import (
     split_date_iso,
     make_isoweek_rd,
 )
-from pa_lib.util import obj_size, last_monday
+from pa_lib.util import obj_size
 from pa_lib.sql import query
 from pa_lib.types import dtFactor
 
@@ -191,4 +190,4 @@ bd_data_vkprog = (
 store_bin(bd_data_vkprog, "bd_data_vkprog.feather")
 
 """
-del (bd_data_raw, bd_data)#, bd_data_vkprog)
+del (bd_data_raw, bd_data)  # , bd_data_vkprog)
