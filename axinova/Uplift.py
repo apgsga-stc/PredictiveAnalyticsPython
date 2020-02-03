@@ -196,13 +196,15 @@ class Uplift:
         # assemble total result from variable results
         var_ids = list(self.variables.keys())
         first_var_result = self.var_result[var_ids[0]]
-        result = first_var_result[
-            (
-                f"spr spr_sd spr_sd_ratio target_ratio target_pers"
-                + " pop_ratio global_ratio station_ratio"
-            ).split()
-        ].copy()
-        if len(var_ids) > 1:
+        if len(var_ids) == 1:
+            self._result = first_var_result
+        else:
+            result = first_var_result[
+                (
+                    f"spr spr_sd spr_sd_ratio target_ratio target_pers"
+                    + " pop_ratio global_ratio station_ratio"
+                ).split()
+            ].copy()
             for var_id in var_ids[1:]:
                 vr = self.var_result[var_id]
                 result = result.assign(
@@ -214,16 +216,18 @@ class Uplift:
             result = result.assign(target_pers=result["spr"] * result["target_ratio"])[
                 "spr target_ratio target_pers pop_ratio global_ratio station_ratio".split()
             ].build_uplift_columns()
-        self._result = result
+            self._result = result
 
     ## Result export  ##################################################################
     def export_result(self):
         export_file_name = f"{self.name} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        if len(self.variables) == 1:
+            sheets = {"Total": self.result}
+        else:
+            sheets = dict({"Total": self.result}, **self.var_result)
         with project_dir("axinova/zielgruppen_export"):
             store_xlsx(
-                df=DataFrame(),
-                file_name=export_file_name,
-                sheets=dict({"Total": self.result}, **self.var_result),
+                df=DataFrame(), file_name=export_file_name, sheets=sheets,
             )
 
     ## Visualisation methods ###########################################################
@@ -277,7 +281,7 @@ if __name__ == "__main__":
         info("-- Initializing instance 'Uplift Test'")
         uplift_test = Uplift(
             name="Uplift Test",
-            variables={"g_220": [0, 1], "md_agenatrep": [2, 3]},
+            variables={"g_220": [0, 1], "md_agenatrep": [0, 1, 2, 3]},
             stations=[],  # ["Aarau", "Brig"],
             time_scale="Hour",
         )

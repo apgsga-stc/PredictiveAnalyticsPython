@@ -23,12 +23,11 @@ from axinova.UpliftLib import (
     VarSelection,
 )
 
-source_data = None
 
 ########################################################################################
 # Data Types
 ########################################################################################
-@dataclass
+@dataclass(eq=False)
 class UpliftData:
     ax_data: DataFrame = None
     ax_var_struct: DataFrame = None
@@ -42,11 +41,11 @@ class UpliftData:
     var_info: VarDict = None
 
     def __post_init__(self):
-        """Copy source data from global object (linking only)."""
-        # Only do this if source_data was populated (not during its own initialization)
-        if source_data is not None:
+        """Link to source data in global object (which gets populated on import)."""
+        # Only do this if source_data already exists (not during its own initialization)
+        if "_source_data" in globals():
             for field in fields(self):
-                setattr(self, field.name, getattr(source_data, field.name))
+                setattr(self, field.name, getattr(_source_data, field.name))
 
     def __str__(self):
         description = "\n".join(
@@ -134,18 +133,17 @@ class UpliftData:
 ########################################################################################
 # Load data files
 ########################################################################################
-def load_data() -> UpliftData:
+def _load_data() -> UpliftData:
     """Load base data and calculate derived objects. Return data container class."""
-    data = UpliftData()
     with project_dir("axinova"):
-        data.ax_data = load_bin("ax_data.feather")
-        data.ax_var_struct = load_bin("ax_var_struct.feather")
-        data.population_codes = load_pickle("population_ratios.pkl")
-        data.global_codes = load_pickle("global_code_ratios.pkl")
-        data.station_codes = load_pickle("station_code_ratios.pkl")
-        data.spr_data = load_pickle("spr_data.pkl")
-
-    # derived data
+        data = UpliftData(
+            ax_data=load_bin("ax_data.feather"),
+            ax_var_struct=load_bin("ax_var_struct.feather"),
+            population_codes=load_pickle("population_ratios.pkl"),
+            global_codes=load_pickle("global_code_ratios.pkl"),
+            station_codes=load_pickle("station_code_ratios.pkl"),
+            spr_data=load_pickle("spr_data.pkl"),
+        )
     data.all_stations = data.ax_data["Station"].cat.categories.to_list()
     data.all_timescales = ["Time", "ShortTime", "Hour", "TimeSlot"]
     data.var_info = {}
@@ -161,4 +159,4 @@ def load_data() -> UpliftData:
 ########################################################################################
 # Initialization Code: Load data files on import
 ########################################################################################
-source_data: UpliftData = load_data()
+_source_data: UpliftData = _load_data()
