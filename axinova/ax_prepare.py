@@ -190,6 +190,18 @@ def get_pop_ratios(directory):
         )
         .eval("Index = Count_Ratio / Pop_Ratio")
     )
+    # validate data
+    unmatched_variables = pop_data.loc[
+        ~pop_data.Variable.isin(ax_data.Variable)
+    ].Variable.unique()
+    assert unmatched_variables.shape == (
+        0,
+    ), f"Population data: Found unmatched variables {unmatched_variables}"
+
+    unmatched_codes = pop_data.loc[~pop_data.Code.isin(ax_data.Code)].Code.unique()
+    assert unmatched_codes.shape == (
+        0,
+    ), f"Population data: Found unmatched codes {unmatched_codes}"
 
     return pop_data.reset_index(drop=True)
 
