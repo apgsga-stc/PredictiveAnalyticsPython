@@ -301,7 +301,7 @@ def load_hdf(file_name, **params):
 
 def store_xlsx(df, file_name, **params):
     """Store df as a 'xlsx' file in current project directory. **params go to df.to_excel
-    (e.g. sheets={"my_df": my_df}, index=False)"""
+    (e.g. sheets={"my_df": my_df, "other": other_df}, index=False)"""
     _store_df(df, file_name, file_type="xlsx", **params)
 
 
