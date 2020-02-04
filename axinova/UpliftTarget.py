@@ -29,7 +29,7 @@ from pa_lib.data import clean_up_categoricals
 def _validate_target(target: "Target") -> None:
     assert isinstance(
         target, Target
-    ), f"target1: wrong type {target.__class__}, must be one of: Variable, Or, And"
+    ), f"target of wrong type {target.__class__}, must be one of: Variable, Or, And"
 
 
 def _combined_desc(kind: str, name: str, desc1: str, desc2: str, indent: str) -> str:
@@ -50,13 +50,59 @@ def _combined_desc(kind: str, name: str, desc1: str, desc2: str, indent: str) ->
 ########################################################################################
 @dataclass
 class Target(ABC):
-    _stations: StringList = field(init=False)
+    _stations: StringList = field(init=False, default_factory=list)
     _timescale: str = field(init=False, default="Hour")
     result: DataFrame = field(init=False)
     data: UpliftData = field(init=False, default_factory=UpliftData)
 
     def __post_init__(self):
         self._validate()
+
+    def __str__(self):
+        return self.describe()
+
+    def _get_counts(
+        self,
+        value_col: str,
+        data: DataFrame,
+        variable: VarId = None,
+        code_labels: StringList = None,
+    ) -> Tuple[DataSeries, DataSeries]:
+        """Aggregate occurrence counts after filtering by selection criteria.
+        Return counts and Poisson standard deviations."""
+        selected_rows = data["Station"].isin(self.stations)
+        if variable is not None:
+            selected_rows &= data["Variable"] == variable
+        if code_labels is not None:
+            selected_rows &= data["Code"].isin(code_labels)
+        counts = (
+            data.loc[selected_rows]
+            .pipe(clean_up_categoricals, incl_col="Station")
+            .groupby(["Station", "DayOfWeek", self.timescale])[value_col]
+            .agg("sum")
+            .fillna(0)
+        )
+        count_sd = poisson_sd(counts)
+        return counts, count_sd
+
+    @abstractmethod
+    def set_stations(self, stations: StringList) -> None:
+        pass
+
+    @property
+    def stations(self) -> StringList:
+        if self._stations == list():
+            return self.data.all_stations
+        else:
+            return self._stations
+
+    @abstractmethod
+    def set_timescale(self, timescale: str) -> None:
+        pass
+
+    @property
+    def timescale(self) -> str:
+        return self._timescale
 
     @abstractmethod
     def _validate(self) -> None:
@@ -69,34 +115,6 @@ class Target(ABC):
     @abstractmethod
     def describe(self, indent: str = "") -> str:
         pass
-
-    def set_stations(self, stations: StringList) -> None:
-        if stations is None or stations == list():
-            checked_stations = self.data.all_stations
-        else:
-            checked_stations = [
-                station for station in stations if station in self.data.all_stations
-            ]
-            if len(checked_stations) != len(stations):
-                raise ValueError(
-                    f"Unknown station found in {stations}, known are: {self.data.all_stations}"
-                )
-        self._stations = checked_stations
-
-    @property
-    def stations(self) -> StringList:
-        return self._stations
-
-    def set_timescale(self, timescale: str) -> None:
-        if timescale not in self.data.all_timescales:
-            raise ValueError(
-                f"Unknown timescale '{timescale}', known are: {self.data.all_timescales}"
-            )
-        self._timescale = timescale
-
-    @property
-    def timescale(self) -> str:
-        return self._timescale
 
 
 @dataclass
@@ -132,40 +150,36 @@ class Variable(Target):
         )
         return var_label, code_labels, code_order
 
-    def _get_counts(
-        self,
-        value_col: str,
-        data: DataFrame,
-        var_id: VarId = None,
-        code_labels: StringList = None,
-    ) -> Tuple[DataSeries, DataSeries]:
-        """Aggregate occurrence counts after filtering by selection criteria.
-        Return counts and Poisson standard deviations."""
-        selected_rows = data["Station"].isin(self._stations)
-        if var_id is not None:
-            selected_rows &= data["Variable"] == var_id
-        if code_labels is not None:
-            selected_rows &= data["Code"].isin(code_labels)
-        counts = (
-            data.loc[selected_rows]
-            .pipe(clean_up_categoricals, incl_col="Station")
-            .groupby(["Station", "DayOfWeek", self._timescale])[value_col]
-            .agg("sum")
-            .fillna(0)
-        )
-        count_sd = poisson_sd(counts)
-        return counts, count_sd
+    def set_stations(self, stations: StringList) -> None:
+        if stations is None or stations == list():
+            checked_stations = self.data.all_stations
+        else:
+            checked_stations = [
+                station for station in stations if station in self.data.all_stations
+            ]
+            if len(checked_stations) != len(stations):
+                raise ValueError(
+                    f"Unknown station found in {stations}, known are: {self.data.all_stations}"
+                )
+        self._stations = checked_stations
+
+    def set_timescale(self, timescale: str) -> None:
+        if timescale not in self.data.all_timescales:
+            raise ValueError(
+                f"Unknown timescale '{timescale}', known are: {self.data.all_timescales}"
+            )
+        self._timescale = timescale
 
     def calculate(self) -> None:
         """Calculate target group ratios for a single variable."""
         ax_total_count, _ = self._get_counts(
-            value_col="Value", data=self.data.ax_data, var_id=self.variable
+            value_col="Value", data=self.data.ax_data, variable=self.variable
         )
         full_index = ax_total_count.index
         ax_pers_count, ax_pers_sd = self._get_counts(
             value_col="Value",
             data=self.data.ax_data,
-            var_id=self.variable,
+            variable=self.variable,
             code_labels=self.code_labels,
         )
         target_ratio = (ax_pers_count / ax_total_count).fillna(0)
@@ -219,7 +233,7 @@ class Variable(Target):
 
 
 @dataclass
-class And(Target):
+class TargetCombination(Target, ABC):
     name: str
     target1: Target
     target2: Target
@@ -228,8 +242,23 @@ class And(Target):
         _validate_target(self.target1)
         _validate_target(self.target2)
 
+    def set_stations(self, stations: StringList) -> None:
+        self.target1.set_stations(stations)
+        self.target2.set_stations(stations)
+
+    def set_timescale(self, timescale: str) -> None:
+        self.target1.set_timescale(timescale)
+        self.target2.set_timescale(timescale)
+
     def calculate(self):
-        pass
+        self.target1.calculate()
+        self.target2.calculate()
+
+
+@dataclass
+class And(TargetCombination):
+    def calculate(self):
+        TargetCombination.calculate(self)
 
     def describe(self, indent: str = "") -> str:
         desc1 = self.target1.describe(f"{indent}  ")
@@ -239,17 +268,9 @@ class And(Target):
 
 
 @dataclass
-class Or(Target):
-    name: str
-    target1: Target
-    target2: Target
-
-    def _validate(self) -> None:
-        _validate_target(self.target1)
-        _validate_target(self.target2)
-
+class Or(TargetCombination):
     def calculate(self) -> None:
-        pass
+        TargetCombination.calculate(self)
 
     def describe(self, indent: str = "") -> str:
         desc1 = self.target1.describe(f"{indent}  ")
@@ -269,5 +290,4 @@ if __name__ == "__main__":
     maennlich = Variable(name="Männlich", variable="md_sex", code_nr=[0])
     unterschicht = Or("Unterschicht", target1=kein_auto, target2=wenig_einkommen)
     zielgruppe = And("Zielgruppe", target1=unterschicht, target2=maennlich)
-    zielgruppe._validate()
     print(zielgruppe.describe())
