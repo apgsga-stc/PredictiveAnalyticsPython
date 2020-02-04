@@ -21,6 +21,7 @@ from axinova.UpliftLib import (
     StringList,
     VarCodes,
     VarSelection,
+    VarComb,
     StationDef,
     DataFrame,
     DataSeries,
@@ -38,7 +39,13 @@ from axinova.UpliftGraphs import heatmap, barplot
 ########################################################################################
 class Uplift:
     def __init__(
-        self, *, name: str, variables: VarCodes, stations: StationDef, time_scale: str
+        self,
+        *,
+        name: str,
+        variables: VarCodes,
+        combination: VarComb = None,
+        stations: StationDef,
+        time_scale: str,
     ) -> None:
         self.name: str = name
         self.data: UpliftData = UpliftData()
@@ -46,6 +53,7 @@ class Uplift:
         # validate target selection parameters
         self.stations: StationDef = self.data.check_stations(stations)
         self.variables: VarSelection = self.data.check_var_def(variables)
+        self.combination: VarComb = self.data.check_var_comb(combination)
         self.time_scale: str = self.data.check_timescale(time_scale)
 
         # internal objects
@@ -76,8 +84,8 @@ class Uplift:
         return {
             "name": self.name,
             "variables": self.variables,
-            "stations": self.stations,
-            "time_scale": self.time_scale,
+            "_stations": self.stations,
+            "_timescale": self.time_scale,
         }
 
     @property
@@ -143,7 +151,7 @@ class Uplift:
         target_ratio = (ax_pers_count / ax_total_count).fillna(0)
         target_pers = target_ratio * self._spr
 
-        # reference ratios for CH population / all stations / each station
+        # reference ratios for CH population / all _stations / each station
         pop_ratio = self.data.ax_population_ratios(var_id)[code_labels].sum(
             axis="columns"
         )[0]
@@ -180,6 +188,14 @@ class Uplift:
             ].values,
         ).build_uplift_columns()
         return result
+
+    class And(VarComb):
+        def calculate(self):
+            pass
+
+    class Or(VarComb):
+        def calculate(self):
+            pass
 
     def calculate(self) -> None:
         """Calculate target group ratios per variable and overall."""
