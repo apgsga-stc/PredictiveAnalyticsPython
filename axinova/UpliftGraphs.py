@@ -45,7 +45,7 @@ def prepare_chart_data(data: DataFrame, selectors: dict) -> DataFrame:
 # Main Plotting Functions
 ########################################################################################
 def heatmap(
-    data: DataFrame, selectors: dict, title: str, time_scale: str, properties: dict
+    data: DataFrame, selectors: dict, title: str, timescale: str, properties: dict
 ):
     color_range = ["darkred", "white", "darkgreen"]
     chart_data = prepare_chart_data(data, selectors)
@@ -55,7 +55,7 @@ def heatmap(
         .mark_rect()
         .encode(
             x="Station:N",
-            y=f"{time_scale}:O",
+            y=f"{timescale}:O",
             color=alt.Color(
                 "pop_uplift_pers:Q",
                 title="Uplift [Pers]",
@@ -68,7 +68,7 @@ def heatmap(
             ),
             tooltip=[
                 alt.Tooltip("Station", title="Bahnhof"),
-                time_scale,
+                timescale,
                 alt.Tooltip("spr:Q", title="Total"),
                 alt.Tooltip("target_pers", title="Zielgruppe"),
                 alt.Tooltip("pop_uplift_pers:Q", title="Uplift"),
@@ -84,7 +84,7 @@ def barplot(
     data: DataFrame,
     selectors: dict,
     title: str,
-    time_scale: str,
+    timescale: str,
     axes: str,
     properties: dict,
 ) -> alt.Chart:
@@ -96,12 +96,12 @@ def barplot(
         .encode(
             x=alt.X("pop_uplift_pers:Q", title=""),
             y=alt.Y(
-                f"{time_scale}:O",
+                f"{timescale}:O",
                 axis=alt.Axis(grid=True),
-                sort=chart_data[time_scale].cat.categories.to_list(),
+                sort=chart_data[timescale].cat.categories.to_list(),
             ),
             tooltip=[
-                time_scale,
+                timescale,
                 alt.Tooltip("spr:Q", title="Total"),
                 alt.Tooltip("target_pers", title="Zielgruppe"),
                 alt.Tooltip("pop_uplift_pers:Q", title="Uplift"),
