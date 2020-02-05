@@ -6,10 +6,17 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
+import altair as alt
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Tuple, Dict, Callable
+from typing import List, Tuple, Dict, Callable, TypeVar
+from datetime import datetime as dt
 
+from pa_lib.util import list_items, default_dict
+from pa_lib.data import clean_up_categoricals
+from pa_lib.file import project_dir, store_xlsx
+from axinova.UpliftData import UpliftData
+from axinova.UpliftGraphs import heatmap, barplot
 from axinova.UpliftLib import (
     VarId,
     IntList,
@@ -18,10 +25,11 @@ from axinova.UpliftLib import (
     DataSeries,
     poisson_sd,
 )
-from axinova.UpliftData import UpliftData
-from pa_lib.util import list_items
-from pa_lib.data import clean_up_categoricals
 
+########################################################################################
+# TYPES
+########################################################################################
+Node = TypeVar("Node")
 
 ########################################################################################
 # GLOBAL OBJECTS
@@ -83,26 +91,20 @@ def _aggregate_spr_data(
 ########################################################################################
 @dataclass
 class _Target(ABC):
+    name: str
     _stations: StringList = field(init=False, default_factory=list)
     _timescale: str = field(init=False, default="Hour")
-    result: DataFrame = field(init=False)
-    data: UpliftData = field(init=False, default_factory=UpliftData)
+    result: DataFrame = field(init=False, repr=False)
+    data: UpliftData = field(init=False, default_factory=UpliftData, repr=False)
 
     def __post_init__(self):
         self._validate()
-
-    def __str__(self):
-        return self.describe()
-
-    def __repr__(self):
-        return self.describe()
 
     @property
     def stations(self) -> StringList:
         if self._stations == list():
             return self.data.all_stations
-        else:
-            return self._stations
+        return self._stations
 
     @abstractmethod
     def set_stations(self, stations: StringList) -> None:
@@ -125,13 +127,64 @@ class _Target(ABC):
         pass
 
     @abstractmethod
-    def describe(self, indent: str = "") -> str:
+    def description(self, indent: str = "") -> str:
         pass
+
+    @property
+    @abstractmethod
+    def node_list(self) -> List[Node]:
+        pass
+
+    ## Result export  ##################################################################
+    def export_result(self):
+        export_file_name = f"{self.name} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        sheets = {node.name: node.result for node in self.node_list}
+        with project_dir("axinova/zielgruppen_export"):
+            store_xlsx(df=DataFrame(), file_name=export_file_name, sheets=sheets)
+
+    ## Visualisation methods ###########################################################
+    def heatmap(
+        self, selectors: dict = None, plot_properties: dict = None
+    ) -> alt.Chart:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(plot_properties, defaults={"width": 600})
+        chart = heatmap(
+            data=self.result,
+            selectors=selectors,
+            title=f"{self.name}: Uplift vs. CH population",
+            timescale=self.timescale,
+            properties=properties,
+        )
+        return chart
+
+    def barplot(
+        self, selectors: dict = None, plot_properties: dict = None, axes: str = "shared"
+    ) -> alt.Chart:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(
+            plot_properties, defaults={"width": 200, "height": 300}
+        )
+        chart = barplot(
+            data=self.result,
+            selectors=selectors,
+            title=f"{self.name}: Uplift vs. CH population",
+            timescale=self.timescale,
+            axes=axes,
+            properties=properties,
+        )
+        return chart
 
 
 @dataclass
 class Variable(_Target):
-    name: str
     variable: VarId
     code_nr: IntList
     var_label: str = field(init=False)
@@ -244,7 +297,7 @@ class Variable(_Target):
         ).build_uplift_columns()
         self.result = result
 
-    def describe(self, indent: str = "") -> str:
+    def description(self, indent: str = "") -> str:
         description = (
             f"{self.name}: '{self.var_label}' IN ['"
             + "', '".join(self.code_labels)
@@ -252,10 +305,13 @@ class Variable(_Target):
         )
         return description
 
+    @property
+    def node_list(self) -> List[Node]:
+        return [self]
+
 
 @dataclass
 class _TargetCombination(_Target, ABC):
-    name: str
     target1: _Target
     target2: _Target
 
@@ -266,10 +322,12 @@ class _TargetCombination(_Target, ABC):
     def set_stations(self, stations: StringList) -> None:
         self.target1.set_stations(stations)
         self.target2.set_stations(stations)
+        self._stations = stations
 
     def set_timescale(self, timescale: str) -> None:
         self.target1.set_timescale(timescale)
         self.target2.set_timescale(timescale)
+        self._timescale = timescale
 
     def calculate_combination(
         self, combine_ratios: Callable[[DataSeries, DataSeries], DataSeries]
@@ -300,8 +358,8 @@ class _TargetCombination(_Target, ABC):
         self.result = result
 
     def describe_combination(self, kind: str, indent: str = "") -> str:
-        desc1 = self.target1.describe(f"{indent}  ")
-        desc2 = self.target2.describe(f"{indent}  ")
+        desc1 = self.target1.description(f"{indent}  ")
+        desc2 = self.target2.description(f"{indent}  ")
         description = "\n".join(
             [
                 f"{self.name} = (",
@@ -313,6 +371,10 @@ class _TargetCombination(_Target, ABC):
         )
         return description
 
+    @property
+    def node_list(self) -> List[Node]:
+        return [self] + self.target1.node_list + self.target2.node_list
+
 
 @dataclass
 class And(_TargetCombination):
@@ -323,7 +385,7 @@ class And(_TargetCombination):
     def calculate(self) -> None:
         _TargetCombination.calculate_combination(self, combine_ratios=self._and_ratio)
 
-    def describe(self, indent: str = "") -> str:
+    def description(self, indent: str = "") -> str:
         description = _TargetCombination.describe_combination(self, "AND", indent)
         return description
 
@@ -337,7 +399,7 @@ class Or(_TargetCombination):
     def calculate(self) -> None:
         _TargetCombination.calculate_combination(self, combine_ratios=self._or_ratio)
 
-    def describe(self, indent: str = "") -> str:
+    def description(self, indent: str = "") -> str:
         description = _TargetCombination.describe_combination(self, "OR", indent)
         return description
 
@@ -356,7 +418,7 @@ if __name__ == "__main__":
     maennlich = Variable(name="Männlich", variable="md_sex", code_nr=[0])
     unterschicht = Or("Unterschicht", target1=kein_auto, target2=wenig_einkommen)
     zielgruppe = And("Zielgruppe", target1=unterschicht, target2=maennlich)
-    print(zielgruppe.describe())
+    print(zielgruppe.description())
 
     print(line)
     with time_log("calculating zielgruppe uplift per hour"):
@@ -368,3 +430,7 @@ if __name__ == "__main__":
     with time_log("calculating zielgruppe uplift per time slot"):
         zielgruppe.calculate()
     print(zielgruppe.result.shape)
+
+    print(line)
+    heatmap = zielgruppe.heatmap()
+    barplot = zielgruppe.barplot()
