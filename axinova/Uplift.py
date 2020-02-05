@@ -260,7 +260,7 @@ class Uplift:
             data=self.result,
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
-            time_scale=self.time_scale,
+            timescale=self.time_scale,
             properties=properties,
         )
         return chart
@@ -280,7 +280,7 @@ class Uplift:
             data=self.result,
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
-            time_scale=self.time_scale,
+            timescale=self.time_scale,
             axes=axes,
             properties=properties,
         )

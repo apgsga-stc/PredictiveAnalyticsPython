@@ -166,7 +166,7 @@ class Uplift:
             "name": self.name,
             "variables": self.variables,
             "stations": self.stations,
-            "time_scale": self.time_scale,
+            "timescale": self.time_scale,
         }
 
     @property
