@@ -1,6 +1,8 @@
-import pandas as pd
-from typing import List, Dict, Tuple
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Dict, List, Tuple, Union
+
+import pandas as pd
 
 ########################################################################################
 # Data Types
@@ -22,10 +24,48 @@ CountsWithSD = Tuple[DataSeries, DataSeries]
 class VarStruct:
     var_label: str
     code_labels: StringList
-    code_order: StringList
+    code_order: IntList
+
+    def describe(self, indent: str) -> str:
+        return indent + repr(self)
 
 
 VarSelection = Dict[VarId, VarStruct]
+Element = Union[VarStruct, "VarComb"]
+
+
+@dataclass(frozen=True)
+class VarComb(ABC):
+    a: Element
+    b: Element
+
+    def describe(self, indent: str) -> str:
+        description = "\n".join(
+            [
+                f"{indent}{self.__class__.__name__}(",
+                f"{indent}  {self.a.describe(indent + '  ')},",
+                f"{indent}  {self.b.describe(indent + '  ')}",
+                f"{indent}  )",
+            ]
+        )
+        return description
+
+    def __repr__(self) -> str:
+        return self.describe(indent="")
+
+    @abstractmethod
+    def calculate(self):
+        pass
+
+
+class And(VarComb):
+    def calculate(self):
+        pass
+
+
+class Or(VarComb):
+    def calculate(self):
+        pass
 
 
 ########################################################################################
@@ -52,6 +92,7 @@ def build_uplift_columns(df: DataFrame) -> DataFrame:
         "\n".join(
             [
                 "pop_uplift       = target_ratio - pop_ratio    ",
+                "pop_uplift_ratio = target_ratio / pop_ratio    ",
                 "global_uplift    = target_ratio - global_ratio ",
                 "station_uplift   = target_ratio - station_ratio",
                 "pop_uplift_pers  = spr * pop_uplift            ",
