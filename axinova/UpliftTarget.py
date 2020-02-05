@@ -8,7 +8,7 @@ sys.path.append(str(parent_dir))
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Tuple, Dict, Callable
 
 from axinova.UpliftLib import (
     VarId,
@@ -24,32 +24,65 @@ from pa_lib.data import clean_up_categoricals
 
 
 ########################################################################################
+# GLOBAL OBJECTS
+########################################################################################
+_spr_data_cache: Dict[tuple, Tuple[DataSeries, DataSeries, DataSeries]] = {}
+
+########################################################################################
 # HELPER FUNCTIONS
 ########################################################################################
-def _validate_target(target: "Target") -> None:
+def _validate_target(target: "_Target") -> None:
     assert isinstance(
-        target, Target
+        target, _Target
     ), f"target of wrong type {target.__class__}, must be one of: Variable, Or, And"
 
 
-def _combined_desc(kind: str, name: str, desc1: str, desc2: str, indent: str) -> str:
-    description = "\n".join(
-        [
-            f"{name} = (",
-            f"{indent}  {desc1}",
-            f"{indent}{kind}",
-            f"{indent}  {desc2}",
-            f"{indent})",
-        ]
+def _get_counts(
+    value_col: str,
+    data: DataFrame,
+    stations: StringList,
+    timescale: str,
+    variable: VarId = None,
+    code_labels: StringList = None,
+) -> Tuple[DataSeries, DataSeries]:
+    """Aggregate occurrence counts after filtering by selection criteria.
+    Return counts and Poisson standard deviations."""
+    selected_rows = data["Station"].isin(stations)
+    if variable is not None:
+        selected_rows &= data["Variable"] == variable
+    if code_labels is not None:
+        selected_rows &= data["Code"].isin(code_labels)
+    counts = (
+        data.loc[selected_rows]
+        .pipe(clean_up_categoricals, incl_col="Station")
+        .groupby(["Station", "DayOfWeek", timescale])[value_col]
+        .agg("sum")
+        .fillna(0)
     )
-    return description
+    count_sd = poisson_sd(counts)
+    return counts, count_sd
+
+
+def _aggregate_spr_data(
+    spr_data: DataFrame, stations: StringList, timescale: str
+) -> Tuple[DataSeries, DataSeries, DataSeries]:
+    cache_tag = (timescale,) + tuple(stations)
+    try:
+        return _spr_data_cache[cache_tag]
+    except KeyError:
+        spr_pers, spr_sd = _get_counts(
+            value_col="Total", data=spr_data, stations=stations, timescale=timescale,
+        )
+        spr_sd_ratio = ((spr_pers + spr_sd) / spr_pers - 1).fillna(0)
+        _spr_data_cache[cache_tag] = (spr_pers, spr_sd, spr_sd_ratio)
+        return spr_pers, spr_sd, spr_sd_ratio
 
 
 ########################################################################################
 # CLASSES
 ########################################################################################
 @dataclass
-class Target(ABC):
+class _Target(ABC):
     _stations: StringList = field(init=False, default_factory=list)
     _timescale: str = field(init=False, default="Hour")
     result: DataFrame = field(init=False)
@@ -61,33 +94,8 @@ class Target(ABC):
     def __str__(self):
         return self.describe()
 
-    def _get_counts(
-        self,
-        value_col: str,
-        data: DataFrame,
-        variable: VarId = None,
-        code_labels: StringList = None,
-    ) -> Tuple[DataSeries, DataSeries]:
-        """Aggregate occurrence counts after filtering by selection criteria.
-        Return counts and Poisson standard deviations."""
-        selected_rows = data["Station"].isin(self.stations)
-        if variable is not None:
-            selected_rows &= data["Variable"] == variable
-        if code_labels is not None:
-            selected_rows &= data["Code"].isin(code_labels)
-        counts = (
-            data.loc[selected_rows]
-            .pipe(clean_up_categoricals, incl_col="Station")
-            .groupby(["Station", "DayOfWeek", self.timescale])[value_col]
-            .agg("sum")
-            .fillna(0)
-        )
-        count_sd = poisson_sd(counts)
-        return counts, count_sd
-
-    @abstractmethod
-    def set_stations(self, stations: StringList) -> None:
-        pass
+    def __repr__(self):
+        return self.describe()
 
     @property
     def stations(self) -> StringList:
@@ -97,12 +105,16 @@ class Target(ABC):
             return self._stations
 
     @abstractmethod
-    def set_timescale(self, timescale: str) -> None:
+    def set_stations(self, stations: StringList) -> None:
         pass
 
     @property
     def timescale(self) -> str:
         return self._timescale
+
+    @abstractmethod
+    def set_timescale(self, timescale: str) -> None:
+        pass
 
     @abstractmethod
     def _validate(self) -> None:
@@ -118,7 +130,7 @@ class Target(ABC):
 
 
 @dataclass
-class Variable(Target):
+class Variable(_Target):
     name: str
     variable: VarId
     code_nr: IntList
@@ -172,18 +184,27 @@ class Variable(Target):
 
     def calculate(self) -> None:
         """Calculate target group ratios for a single variable."""
-        ax_total_count, _ = self._get_counts(
-            value_col="Value", data=self.data.ax_data, variable=self.variable
+        spr_pers, spr_sd, spr_sd_ratio = _aggregate_spr_data(
+            self.data.spr_data, self.stations, self.timescale
         )
-        full_index = ax_total_count.index
-        ax_pers_count, ax_pers_sd = self._get_counts(
+        ax_total_count, _ = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
+            stations=self.stations,
+            timescale=self.timescale,
+            variable=self.variable,
+        )
+        full_index = ax_total_count.index
+        ax_pers_count, ax_pers_sd = _get_counts(
+            value_col="Value",
+            data=self.data.ax_data,
+            stations=self.stations,
+            timescale=self.timescale,
             variable=self.variable,
             code_labels=self.code_labels,
         )
         target_ratio = (ax_pers_count / ax_total_count).fillna(0)
-        target_pers = target_ratio * self._spr
+        target_pers = target_ratio * spr_pers
 
         # reference ratios for CH population / all _stations / each station
         pop_ratio = self.data.ax_population_ratios(self.variable)[self.code_labels].sum(
@@ -194,7 +215,7 @@ class Variable(Target):
         )[0]
         station_ratios = (
             self.data.ax_station_ratios(self.variable)
-            .loc[self._stations, self.code_labels]
+            .loc[self.stations, self.code_labels]
             .sum(axis="columns")
         )
 
@@ -202,9 +223,9 @@ class Variable(Target):
         result = (
             DataFrame(
                 {
-                    "spr": self._spr,
-                    "spr_sd": self._spr_sd,
-                    "spr_sd_ratio": self._spr_sd_ratio,
+                    "spr": spr_pers,
+                    "spr_sd": spr_sd,
+                    "spr_sd_ratio": spr_sd_ratio,
                     "ax_total": ax_total_count,
                     "ax_pers": ax_pers_count,
                     "target_ratio": target_ratio,
@@ -233,10 +254,10 @@ class Variable(Target):
 
 
 @dataclass
-class TargetCombination(Target, ABC):
+class _TargetCombination(_Target, ABC):
     name: str
-    target1: Target
-    target2: Target
+    target1: _Target
+    target2: _Target
 
     def _validate(self) -> None:
         _validate_target(self.target1)
@@ -250,32 +271,74 @@ class TargetCombination(Target, ABC):
         self.target1.set_timescale(timescale)
         self.target2.set_timescale(timescale)
 
-    def calculate(self):
+    def calculate_combination(
+        self, combine_ratios: Callable[[DataSeries, DataSeries], DataSeries]
+    ) -> None:
         self.target1.calculate()
         self.target2.calculate()
+        result1, result2 = self.target1.result, self.target2.result
+        result = DataFrame(
+            dict(
+                spr=result1["spr"],
+                spr_sd=result1["spr_sd"],
+                spr_sd_ratio=result1["spr_sd_ratio"],
+                target_ratio=combine_ratios(
+                    result1["target_ratio"], result2["target_ratio"]
+                ),
+                pop_ratio=combine_ratios(result1["pop_ratio"], result2["pop_ratio"]),
+                global_ratio=combine_ratios(
+                    result1["global_ratio"], result2["global_ratio"]
+                ),
+                station_ratio=combine_ratios(
+                    result1["station_ratio"], result2["station_ratio"]
+                ),
+            )
+        )
+        result = result.assign(
+            target_pers=result["spr"] * result["target_ratio"]
+        ).build_uplift_columns()
+        self.result = result
 
-
-@dataclass
-class And(TargetCombination):
-    def calculate(self):
-        TargetCombination.calculate(self)
-
-    def describe(self, indent: str = "") -> str:
+    def describe_combination(self, kind: str, indent: str = "") -> str:
         desc1 = self.target1.describe(f"{indent}  ")
         desc2 = self.target2.describe(f"{indent}  ")
-        description = _combined_desc("AND", self.name, desc1, desc2, indent)
+        description = "\n".join(
+            [
+                f"{self.name} = (",
+                f"{indent}  {desc1}",
+                f"{indent}{kind}",
+                f"{indent}  {desc2}",
+                f"{indent})",
+            ]
+        )
         return description
 
 
 @dataclass
-class Or(TargetCombination):
+class And(_TargetCombination):
+    @staticmethod
+    def _and_ratio(ratio1: DataSeries, ratio2: DataSeries) -> DataSeries:
+        return ratio1 * ratio2
+
     def calculate(self) -> None:
-        TargetCombination.calculate(self)
+        _TargetCombination.calculate_combination(self, combine_ratios=self._and_ratio)
 
     def describe(self, indent: str = "") -> str:
-        desc1 = self.target1.describe(f"{indent}  ")
-        desc2 = self.target2.describe(f"{indent}  ")
-        description = _combined_desc("OR", self.name, desc1, desc2, indent)
+        description = _TargetCombination.describe_combination(self, "AND", indent)
+        return description
+
+
+@dataclass
+class Or(_TargetCombination):
+    @staticmethod
+    def _or_ratio(ratio1: DataSeries, ratio2: DataSeries) -> DataSeries:
+        return ratio1 + ratio2 - (ratio1 * ratio2)
+
+    def calculate(self) -> None:
+        _TargetCombination.calculate_combination(self, combine_ratios=self._or_ratio)
+
+    def describe(self, indent: str = "") -> str:
+        description = _TargetCombination.describe_combination(self, "OR", indent)
         return description
 
 
@@ -283,7 +346,10 @@ class Or(TargetCombination):
 # TESTING CODE
 ########################################################################################
 if __name__ == "__main__":
+    from pa_lib.log import time_log
+
     line = "-" * 88
+
     print(line)
     kein_auto = Variable(name="Kein Auto", variable="g_220", code_nr=[0])
     wenig_einkommen = Variable(name="Wenig Einkommen", variable="md_ek", code_nr=[0, 1])
@@ -291,3 +357,14 @@ if __name__ == "__main__":
     unterschicht = Or("Unterschicht", target1=kein_auto, target2=wenig_einkommen)
     zielgruppe = And("Zielgruppe", target1=unterschicht, target2=maennlich)
     print(zielgruppe.describe())
+
+    print(line)
+    with time_log("calculating zielgruppe uplift per hour"):
+        zielgruppe.calculate()
+    print(zielgruppe.result.shape)
+
+    print(line)
+    zielgruppe.set_timescale("TimeSlot")
+    with time_log("calculating zielgruppe uplift per time slot"):
+        zielgruppe.calculate()
+    print(zielgruppe.result.shape)
