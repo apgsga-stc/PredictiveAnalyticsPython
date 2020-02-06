@@ -16,7 +16,7 @@ from pa_lib.util import list_items, default_dict
 from pa_lib.data import clean_up_categoricals
 from pa_lib.file import project_dir, store_xlsx
 from axinova.UpliftData import UpliftData
-from axinova.UpliftGraphs import heatmap, barplot
+from axinova.UpliftGraphs import heatmap, barplot, station_heatmap
 from axinova.UpliftLib import (
     VarId,
     IntList,
@@ -45,7 +45,6 @@ def _validate_target(target: "_Target") -> None:
     ), f"target of wrong type {target.__class__}, must be one of: Variable, Or, And"
 
 
-# noinspection PyUnusedLocal
 def _get_counts(
     value_col: str,
     data: DataFrame,
@@ -145,7 +144,7 @@ class _Target(ABC):
             store_xlsx(df=DataFrame(), file_name=export_file_name, sheets=sheets)
 
     ## Visualisation methods ###########################################################
-    def heatmap(
+    def plot_ch_uplift_heatmap(
         self, selectors: dict = None, plot_properties: dict = None
     ) -> alt.Chart:
         if selectors is None:
@@ -159,12 +158,17 @@ class _Target(ABC):
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
+            target_col="pop_uplift_pers",
+            target_title="Uplift CH [Pers]",
             properties=properties,
         )
         return chart
 
-    def barplot(
-        self, selectors: dict = None, plot_properties: dict = None, axes: str = "shared"
+    def plot_ch_uplift_barplot(
+        self,
+        selectors: dict = None,
+        plot_properties: dict = None,
+        axes: str = "independent",
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
@@ -179,7 +183,51 @@ class _Target(ABC):
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
+            target_col="pop_uplift_pers",
+            target_title="Uplift CH [Pers]",
             axes=axes,
+            properties=properties,
+        )
+        return chart
+
+    def plot_target_pers_heatmap(
+        self, selectors: dict = None, plot_properties: dict = None
+    ) -> alt.Chart:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(plot_properties, defaults={"width": 600})
+        chart = heatmap(
+            data=self.result,
+            selectors=selectors,
+            title=f"{self.name}: Personen",
+            timescale=self.timescale,
+            target_col="target_pers",
+            target_title="Zielgruppe [Pers]",
+            color_range=["white", "darkgreen"],
+            properties=properties,
+        )
+        return chart
+
+    def plot_station_heatmap(
+        self, selectors: dict = None, plot_properties: dict = None
+    ) -> alt.Chart:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(
+            plot_properties, defaults={"width": 400, "height": 800}
+        )
+        chart = station_heatmap(
+            data=self.result,
+            selectors=selectors,
+            title=f"{self.name}: Prozent",
+            target_col="target_ratio",
+            target_title="Zielgruppe [%]",
             properties=properties,
         )
         return chart
@@ -437,5 +485,6 @@ if __name__ == "__main__":
 
     print(line)
     with time_log("plotting graphics"):
-        heatmap = zielgruppe.heatmap()
-        barplot = zielgruppe.barplot()
+        pop_heatmap = zielgruppe.plot_ch_uplift_heatmap()
+        pop_barplot = zielgruppe.plot_ch_uplift_barplot()
+        pop_stationmap = zielgruppe.plot_station_heatmap()
