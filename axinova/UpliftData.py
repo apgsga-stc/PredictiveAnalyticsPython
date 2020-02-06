@@ -145,6 +145,7 @@ def _load_data() -> UpliftData:
             spr_data=load_pickle("spr_data.pkl"),
         )
     data.all_stations = data.ax_data["Station"].cat.categories.to_list()
+    data.all_weekdays = data.ax_data["DayOfWeek"].cat.categories.to_list()
     data.all_timescales = ["Time", "ShortTime", "Hour", "TimeSlot"]
     data.var_info = {}
     for (var_id, struct) in data.ax_var_struct.groupby("Variable"):
