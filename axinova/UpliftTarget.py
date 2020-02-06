@@ -45,6 +45,7 @@ def _validate_target(target: "_Target") -> None:
     ), f"target of wrong type {target.__class__}, must be one of: Variable, Or, And"
 
 
+# noinspection PyUnusedLocal
 def _get_counts(
     value_col: str,
     data: DataFrame,
@@ -55,15 +56,16 @@ def _get_counts(
 ) -> Tuple[DataSeries, DataSeries]:
     """Aggregate occurrence counts after filtering by selection criteria.
     Return counts and Poisson standard deviations."""
-    selected_rows = data["Station"].isin(stations)
     if variable is not None:
-        selected_rows &= data["Variable"] == variable
+        data = data.query("Variable == @variable")
+    if len(stations) > 0:
+        data = data.query("Station == @stations").pipe(
+            clean_up_categoricals, incl_col="Station"
+        )
     if code_labels is not None:
-        selected_rows &= data["Code"].isin(code_labels)
+        data = data.query("Code == @code_labels")
     counts = (
-        data.loc[selected_rows]
-        .pipe(clean_up_categoricals, incl_col="Station")
-        .groupby(["Station", "DayOfWeek", timescale])[value_col]
+        data.groupby(["Station", "DayOfWeek", timescale])[value_col]
         .agg("sum")
         .fillna(0)
     )
@@ -238,12 +240,12 @@ class Variable(_Target):
     def calculate(self) -> None:
         """Calculate target group ratios for a single variable."""
         spr_pers, spr_sd, spr_sd_ratio = _aggregate_spr_data(
-            self.data.spr_data, self.stations, self.timescale
+            self.data.spr_data, self._stations, self.timescale
         )
         ax_total_count, _ = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
-            stations=self.stations,
+            stations=self._stations,
             timescale=self.timescale,
             variable=self.variable,
         )
@@ -251,7 +253,7 @@ class Variable(_Target):
         ax_pers_count, ax_pers_sd = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
-            stations=self.stations,
+            stations=self._stations,
             timescale=self.timescale,
             variable=self.variable,
             code_labels=self.code_labels,
@@ -413,11 +415,13 @@ if __name__ == "__main__":
     line = "-" * 88
 
     print(line)
-    kein_auto = Variable(name="Kein Auto", variable="g_220", code_nr=[0])
+    wenig_vermoegen = Variable(
+        name="Wenig Vermögen", variable="md_hhverm", code_nr=[0, 1]
+    )
     wenig_einkommen = Variable(name="Wenig Einkommen", variable="md_ek", code_nr=[0, 1])
     maennlich = Variable(name="Männlich", variable="md_sex", code_nr=[0])
-    unterschicht = Or("Unterschicht", target1=kein_auto, target2=wenig_einkommen)
-    zielgruppe = And("Zielgruppe", target1=unterschicht, target2=maennlich)
+    unterschicht = Or("Unterschicht", wenig_vermoegen, wenig_einkommen)
+    zielgruppe = And("Zielgruppe", unterschicht, maennlich)
     print(zielgruppe.description())
 
     print(line)
@@ -432,5 +436,6 @@ if __name__ == "__main__":
     print(zielgruppe.result.shape)
 
     print(line)
-    heatmap = zielgruppe.heatmap()
-    barplot = zielgruppe.barplot()
+    with time_log("plotting graphics"):
+        heatmap = zielgruppe.heatmap()
+        barplot = zielgruppe.barplot()
