@@ -43,9 +43,9 @@ class UpliftData:
     def __post_init__(self):
         """Link to source data in global object (which gets populated on import)."""
         # Only do this if source_data already exists (not during its own initialization)
-        if "_source_data" in globals():
+        if "source_data" in globals():
             for field in fields(self):
-                setattr(self, field.name, getattr(_source_data, field.name))
+                setattr(self, field.name, getattr(source_data, field.name))
 
     def __str__(self):
         description = "\n".join(
@@ -160,4 +160,4 @@ def _load_data() -> UpliftData:
 ########################################################################################
 # Initialization Code: Load data files on import
 ########################################################################################
-_source_data: UpliftData = _load_data()
+source_data: UpliftData = _load_data()

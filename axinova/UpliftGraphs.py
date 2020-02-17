@@ -11,7 +11,7 @@ from typing import Tuple, List
 
 from pa_lib.data import select_rows, as_dtype
 from .UpliftLib import all_weekdays, DataSeries, DataFrame
-from .UpliftData import _source_data
+from .UpliftData import source_data
 
 
 ########################################################################################
@@ -148,7 +148,7 @@ def station_heatmap(
         .mark_rect()
         .encode(
             y="Station:N",
-            x=alt.X("DayOfWeek:O", sort=_source_data.all_weekdays),
+            x=alt.X("DayOfWeek:O", sort=source_data.all_weekdays),
             color=alt.Color(
                 f"{target_col}:Q",
                 title=target_title,
