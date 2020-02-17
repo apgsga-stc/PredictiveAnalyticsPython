@@ -36,6 +36,7 @@ Node = TypeVar("Node")
 ########################################################################################
 _spr_data_cache: Dict[tuple, Tuple[DataSeries, DataSeries, DataSeries]] = {}
 
+
 ########################################################################################
 # HELPER FUNCTIONS
 ########################################################################################
@@ -53,7 +54,7 @@ def _get_counts(
     variable: VarId = None,
     code_labels: StringList = None,
 ) -> Tuple[DataSeries, DataSeries]:
-    """Aggregate occurrence counts after filtering by selection criteria.
+    """Sum occurrence counts after filtering by selection criteria.
     Return counts and Poisson standard deviations."""
     if variable is not None:
         data = data.query("Variable == @variable")
@@ -101,9 +102,8 @@ class _Target(ABC):
     def __post_init__(self):
         self._validate()
 
-    @property
-    def stations(self) -> StringList:
-        if self._stations == list():
+    def stations(self, empty_means_all: bool = True) -> StringList:
+        if empty_means_all and self._stations == list():
             return self.data.all_stations
         return self._stations
 
@@ -267,7 +267,7 @@ class Variable(_Target):
 
     def set_stations(self, stations: StringList) -> None:
         if stations is None or stations == list():
-            checked_stations = self.data.all_stations
+            checked_stations = list()
         else:
             checked_stations = [
                 station for station in stations if station in self.data.all_stations
@@ -288,12 +288,12 @@ class Variable(_Target):
     def calculate(self) -> None:
         """Calculate target group ratios for a single variable."""
         spr_pers, spr_sd, spr_sd_ratio = _aggregate_spr_data(
-            self.data.spr_data, self._stations, self.timescale
+            self.data.spr_data, self.stations(empty_means_all=False), self.timescale
         )
         ax_total_count, _ = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
-            stations=self._stations,
+            stations=self.stations(),
             timescale=self.timescale,
             variable=self.variable,
         )
@@ -301,7 +301,7 @@ class Variable(_Target):
         ax_pers_count, ax_pers_sd = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
-            stations=self._stations,
+            stations=self.stations(),
             timescale=self.timescale,
             variable=self.variable,
             code_labels=self.code_labels,
@@ -318,7 +318,7 @@ class Variable(_Target):
         )[0]
         station_ratios = (
             self.data.ax_station_ratios(self.variable)
-            .loc[self.stations, self.code_labels]
+            .loc[self.stations(), self.code_labels]
             .sum(axis="columns")
         )
 
@@ -364,6 +364,14 @@ class Variable(_Target):
 class _TargetCombination(_Target, ABC):
     target1: _Target
     target2: _Target
+
+    @abstractmethod
+    def calculate(self) -> None:
+        pass
+
+    @abstractmethod
+    def description(self, indent: str = "") -> str:
+        pass
 
     def _validate(self) -> None:
         _validate_target(self.target1)
