@@ -70,6 +70,15 @@ class UpliftData:
     def variable_code_order(self, var_id: VarId) -> IntList:
         return self.var_info[var_id]["Order"]
 
+    def variable_table(self, var_id: VarId) -> DataFrame:
+        result = DataFrame(
+            {
+                self.variable_label(var_id): self.variable_code_labels(var_id),
+                "Nr": self.variable_code_order(var_id),
+            }
+        )
+        return result
+
     def ax_population_ratios(self, var_id: VarId) -> DataFrame:
         ratios = self.population_codes.loc[
             self.population_codes["Variable"] == var_id
