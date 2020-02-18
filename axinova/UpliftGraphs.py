@@ -95,6 +95,7 @@ def barplot(
     title: str,
     timescale: str,
     target_col: str,
+    target_threshold: float,
     target_title: str,
     axes: str,
     properties: dict,
@@ -118,7 +119,7 @@ def barplot(
                 alt.Tooltip(f"{target_col}:Q", title=target_title),
             ],
             color=alt.condition(
-                alt.datum[target_col] > 0,
+                alt.datum[target_col] > target_threshold,
                 alt.value("darkgreen"),  # The positive color
                 alt.value("darkred"),  # The negative color
             ),
