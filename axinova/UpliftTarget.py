@@ -7,6 +7,7 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 import altair as alt
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Callable, TypeVar
@@ -88,6 +89,12 @@ def _aggregate_spr_data(
         return spr_pers, spr_sd, spr_sd_ratio
 
 
+def _make_file_name(file_name: str) -> str:
+    """Clean up file name (remove non-alphanumerics)"""
+    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", " ", file_name))
+    return new_name
+
+
 ########################################################################################
 # CLASSES
 ########################################################################################
@@ -138,14 +145,19 @@ class _Target(ABC):
 
     ## Result export  ##################################################################
     def export_result(self):
-        export_file_name = f"{self.name} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        sheets = {node.name: node.result for node in self.node_list}
+        export_file_name = (
+            f"{_make_file_name(self.name)} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        )
+        sheets = {_make_file_name(node.name): node.result for node in self.node_list}
         with project_dir("axinova/zielgruppen_export"):
             store_xlsx(df=DataFrame(), file_name=export_file_name, sheets=sheets)
 
     ## Visualisation methods ###########################################################
     def plot_ch_uplift_heatmap(
-        self, selectors: dict = None, plot_properties: dict = None
+        self,
+        selectors: dict = None,
+        target_col: str = "pop_uplift_pers",
+        plot_properties: dict = None,
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
@@ -158,8 +170,8 @@ class _Target(ABC):
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
-            target_col="pop_uplift_pers",
-            target_title="Uplift CH [Pers]",
+            target_col=target_col,
+            target_title=target_col,
             properties=properties,
         )
         return chart
@@ -167,6 +179,8 @@ class _Target(ABC):
     def plot_ch_uplift_barplot(
         self,
         selectors: dict = None,
+        target_col: str = "pop_uplift_pers",
+        target_threshold: float = 0,
         plot_properties: dict = None,
         axes: str = "independent",
     ) -> alt.Chart:
@@ -183,15 +197,19 @@ class _Target(ABC):
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
-            target_col="pop_uplift_pers",
-            target_title="Uplift CH [Pers]",
+            target_col=target_col,
+            target_threshold=target_threshold,
+            target_title=target_col,
             axes=axes,
             properties=properties,
         )
         return chart
 
     def plot_target_pers_heatmap(
-        self, selectors: dict = None, plot_properties: dict = None
+        self,
+        selectors: dict = None,
+        target_col: str = "target_pers",
+        plot_properties: dict = None,
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
@@ -204,15 +222,18 @@ class _Target(ABC):
             selectors=selectors,
             title=f"{self.name}: Personen",
             timescale=self.timescale,
-            target_col="target_pers",
-            target_title="Zielgruppe [Pers]",
+            target_col=target_col,
+            target_title=target_col,
             color_range=["white", "darkgreen"],
             properties=properties,
         )
         return chart
 
     def plot_station_heatmap(
-        self, selectors: dict = None, plot_properties: dict = None
+        self,
+        selectors: dict = None,
+        target_col: str = "target_ratio",
+        plot_properties: dict = None,
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
@@ -226,7 +247,7 @@ class _Target(ABC):
             data=self.result,
             selectors=selectors,
             title=f"{self.name}: Prozent",
-            target_col="target_ratio",
+            target_col=target_col,
             target_title="Zielgruppe [%]",
             properties=properties,
         )
@@ -469,6 +490,14 @@ if __name__ == "__main__":
     from pa_lib.log import time_log
 
     line = "-" * 88
+
+    print(line)
+    TargetJungHoch = Variable(
+        "Jung und hohes Einkommen", variable="md_SexAgeEk", code_nr=[4, 5, 32, 33]
+    )
+    print(TargetJungHoch.description())
+    TargetJungHoch.set_timescale("Hour")
+    TargetJungHoch.calculate()
 
     print(line)
     wenig_vermoegen = Variable(
