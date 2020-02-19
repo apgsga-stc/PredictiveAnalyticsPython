@@ -1,6 +1,6 @@
 import streamlit as st
 
-from UpliftTarget import Variable, And, Or, source_data
+from UpliftTarget import Variable
 from pa_lib.data import unfactorize
 
 
@@ -18,7 +18,7 @@ def best_slots(target, column, top_n: int = 20, where=""):
         .pipe(unfactorize)
         .set_index(["Station", "DayOfWeek", "Hour"])
     )
-    return unfactorize(data.reset_index())
+    return data
 
 
 @st.cache
