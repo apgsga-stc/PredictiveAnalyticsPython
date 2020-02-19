@@ -22,7 +22,7 @@ from pa_lib.file import store_csv, store_bin, set_project_dir
 from pa_lib.data import as_dtype, split_date_iso, make_isoweek_rd
 from pa_lib.util import obj_size
 from pa_lib.sql import query
-from pa_lib.types import dtFactor
+from pa_lib.type import dtFactor
 
 set_project_dir('vkprog')
 crm_query = query('crm')

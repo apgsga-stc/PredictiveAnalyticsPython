@@ -29,7 +29,7 @@ from pa_lib.data import (
 )
 from pa_lib.util import obj_size
 from pa_lib.sql import query
-from pa_lib.types import dtFactor
+from pa_lib.type import dtFactor
 
 set_project_dir("vkprog")
 bd_query = query("bd")

@@ -18,7 +18,7 @@ from pa_lib.const import PA_DATA_DIR
 from pa_lib.log import time_log, info
 from pa_lib.util import format_size
 from pa_lib.data import flatten_multi_index_cols, as_dtype, clean_up_categoricals
-from pa_lib.types import dtFactor
+from pa_lib.type import dtFactor
 
 flatten_multi_cols = partial(flatten_multi_index_cols, sep="|")
 
