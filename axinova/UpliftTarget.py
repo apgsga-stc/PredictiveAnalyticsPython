@@ -16,7 +16,7 @@ from datetime import datetime as dt
 from pa_lib.util import list_items, default_dict
 from pa_lib.data import clean_up_categoricals
 from pa_lib.file import project_dir, store_xlsx
-from axinova.UpliftData import UpliftData
+from axinova.UpliftData import UpliftData, SOURCE_DATA
 from axinova.UpliftGraphs import heatmap, barplot, station_heatmap
 from axinova.UpliftLib import (
     VarId,
@@ -36,6 +36,8 @@ Node = TypeVar("Node")
 # GLOBAL OBJECTS
 ########################################################################################
 _spr_data_cache: Dict[tuple, Tuple[DataSeries, DataSeries, DataSeries]] = {}
+
+source_data: UpliftData = SOURCE_DATA
 
 
 ########################################################################################
@@ -90,8 +92,8 @@ def _aggregate_spr_data(
 
 
 def _make_file_name(file_name: str) -> str:
-    """Clean up file name (remove non-alphanumerics)"""
-    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", " ", file_name))
+    """Clean up file name (remove non-alphanumerics and space runs)"""
+    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", "", file_name))
     return new_name
 
 
@@ -164,7 +166,9 @@ class _Target(ABC):
         if plot_properties is None:
             plot_properties = {}
 
-        properties = default_dict(plot_properties, defaults={"width": 600})
+        properties = default_dict(
+            plot_properties, defaults=dict(width=600, background="white")
+        )
         chart = heatmap(
             data=self.result,
             selectors=selectors,
@@ -190,7 +194,7 @@ class _Target(ABC):
             plot_properties = {}
 
         properties = default_dict(
-            plot_properties, defaults={"width": 200, "height": 300}
+            plot_properties, defaults=dict(width=200, height=300, background="white")
         )
         chart = barplot(
             data=self.result,
@@ -216,7 +220,9 @@ class _Target(ABC):
         if plot_properties is None:
             plot_properties = {}
 
-        properties = default_dict(plot_properties, defaults={"width": 600})
+        properties = default_dict(
+            plot_properties, defaults=dict(width=600, background="white")
+        )
         chart = heatmap(
             data=self.result,
             selectors=selectors,
@@ -241,7 +247,7 @@ class _Target(ABC):
             plot_properties = {}
 
         properties = default_dict(
-            plot_properties, defaults={"width": 400, "height": 800}
+            plot_properties, defaults=dict(width=400, height=800, background="white")
         )
         chart = station_heatmap(
             data=self.result,
