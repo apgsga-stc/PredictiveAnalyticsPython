@@ -28,7 +28,7 @@ from pa_lib.data import (
     calc_col_partitioned,
 )
 from pa_lib.log import time_log, warn
-from pa_lib.types import dtFactor
+from pa_lib.type import dtFactor
 from pa_lib.util import list_items
 
 

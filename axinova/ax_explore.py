@@ -3,7 +3,7 @@ import csv
 
 from pa_lib.file import load_csv
 from pa_lib.data import as_dtype, desc_col
-from pa_lib.types import dtFactor
+from pa_lib.type import dtFactor
 
 ax_raw = load_csv('axinova_20190606/190016Wochentage.csv', sep=';', quoting=csv.QUOTE_NONE, encoding='cp1252')
 
