@@ -10,11 +10,12 @@ import altair as alt
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, Dict, Callable, TypeVar
+from typing import List, Tuple, Dict, Callable, TypeVar, Any
 from datetime import datetime as dt
+from textwrap import indent as indent_by
 
 from pa_lib.util import list_items, default_dict
-from pa_lib.data import clean_up_categoricals
+from pa_lib.data import clean_up_categoricals, unfactorize, as_dtype
 from pa_lib.file import project_dir, store_xlsx
 from axinova.UpliftData import UpliftData, SOURCE_DATA
 from axinova.UpliftGraphs import heatmap, barplot, station_heatmap
@@ -84,7 +85,7 @@ def _aggregate_spr_data(
         return _spr_data_cache[cache_tag]
     except KeyError:
         spr_pers, spr_sd = _get_counts(
-            value_col="Total", data=spr_data, stations=stations, timescale=timescale,
+            value_col="Total", data=spr_data, stations=stations, timescale=timescale
         )
         spr_sd_ratio = ((spr_pers + spr_sd) / spr_pers - 1).fillna(0)
         _spr_data_cache[cache_tag] = (spr_pers, spr_sd, spr_sd_ratio)
@@ -144,6 +145,49 @@ class _Target(ABC):
     @abstractmethod
     def node_list(self) -> List[Node]:
         pass
+
+    ## Result output  ##################################################################
+    def result_summary(self) -> DataFrame:
+        summary = DataFrame(
+            dict(ratio=[self.result["pop_ratio"][0], self.result["global_ratio"][0]]),
+            index=["Population", "All Stations"],
+        )
+        return summary
+
+    def best_stations(self, where: str = "") -> DataFrame:
+        if where:
+            data = self.result.query(where)
+        else:
+            data = self.result
+        station_table = (
+            data.groupby("Station")[["spr", "target_pers"]]
+            .agg("sum")
+            .eval("ratio = target_pers / spr")
+            .fillna(0)
+            .sort_values("ratio", ascending=False)
+            .pipe(as_dtype, "int", incl_col=["spr", "target_pers"])
+            .reset_index()
+            .pipe(unfactorize)
+            .set_index("Station")
+        )
+        return station_table
+
+    def best_slots(self, column: Any, top_n: int = 20, where: str = "") -> DataFrame:
+        if where:
+            data = self.result.query(where)
+        else:
+            data = self.result
+        data = (
+            data.sort_values(column, ascending=False)
+            .head(top_n)[
+                "spr target_ratio target_pers pop_uplift_ratio pop_uplift_pers".split()
+            ]
+            .pipe(as_dtype, "int", incl_col=["spr", "target_pers", "pop_uplift_pers"])
+            .reset_index()
+            .pipe(unfactorize)
+            .set_index(["Station", "DayOfWeek", "Hour"])
+        )
+        return data
 
     ## Result export  ##################################################################
     def export_result(self):
@@ -376,9 +420,9 @@ class Variable(_Target):
 
     def description(self, indent: str = "") -> str:
         description = (
-            f"{self.name}: '{self.var_label}' IN ['"
-            + "', '".join(self.code_labels)
-            + "']"
+            f"{self.name} = '{self.var_label}' IN [\n    '"
+            + "',\n    '".join(self.code_labels)
+            + "'\n]"
         )
         return description
 
@@ -448,10 +492,10 @@ class _TargetCombination(_Target, ABC):
         description = "\n".join(
             [
                 f"{self.name} = (",
-                f"{indent}  {desc1}",
-                f"{indent}{kind}",
-                f"{indent}  {desc2}",
-                f"{indent})",
+                indent_by(desc1, f"{indent}  "),
+                indent_by(kind, indent),
+                indent_by(desc2, f"{indent}  "),
+                indent_by(")", indent),
             ]
         )
         return description
