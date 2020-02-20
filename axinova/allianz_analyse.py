@@ -5,30 +5,11 @@ from UpliftTarget import Variable, And, Or, source_data
 
 def create_targets() -> dict:
     all_targets = dict()
-    all_targets["jung_hoch"] = Variable(
-        "Jung, EK hoch", variable="md_SexAgeEk", code_nr=[4, 5, 32, 33]
+    all_targets["jung"] = Variable("Jung", variable="md_agenatrep", code_nr=[0])
+    all_targets["mittelalt"] = Variable(
+        "Mittel-Alt", variable="md_agenatrep", code_nr=[1]
     )
-    all_targets["jung_w_mittelhoch"] = Variable(
-        "Jung, w, EK mittel/hoch", variable="md_SexAgeEk", code_nr=[30, 31, 32, 33]
-    )
-    all_targets["jung_niedrig"] = Variable(
-        "Jung, EK niedrig", variable="md_SexAgeEk", code_nr=[0, 1, 28, 29]
-    )
-    all_targets["jung_m_niedrig"] = Variable(
-        "Jung, M, EK niedrig", variable="md_SexAgeEk", code_nr=[0, 1]
-    )
-    all_targets["jung_w_niedrig"] = Variable(
-        "Jung, W, EK niedrig", variable="md_SexAgeEk", code_nr=[28, 29]
-    )
-    all_targets["jung_beauty"] = And(
-        "Jung, Beauty/Fashion",
-        Variable("Jung", variable="md_agenatrep", code_nr=[0]),
-        Or(
-            "Beauty, Fashion",
-            Variable("Shopping", "md_875", [1]),
-            Variable("Kosmetik", "md_855", [1]),
-        ),
-    )
+    all_targets["Älter"] = Variable("Älter", variable="md_agenatrep", code_nr=[2])
     return all_targets
 
 

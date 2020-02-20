@@ -5,29 +5,47 @@ from UpliftTarget import Variable, And, Or, source_data
 
 def create_targets() -> dict:
     all_targets = dict()
-    all_targets["jung_hoch"] = Variable(
-        "Jung, EK hoch", variable="md_SexAgeEk", code_nr=[4, 5, 32, 33]
-    )
-    all_targets["jung_w_mittelhoch"] = Variable(
-        "Jung, w, EK mittel/hoch", variable="md_SexAgeEk", code_nr=[30, 31, 32, 33]
-    )
-    all_targets["jung_niedrig"] = Variable(
-        "Jung, EK niedrig", variable="md_SexAgeEk", code_nr=[0, 1, 28, 29]
-    )
-    all_targets["jung_m_niedrig"] = Variable(
-        "Jung, M, EK niedrig", variable="md_SexAgeEk", code_nr=[0, 1]
-    )
-    all_targets["jung_w_niedrig"] = Variable(
-        "Jung, W, EK niedrig", variable="md_SexAgeEk", code_nr=[28, 29]
-    )
-    all_targets["jung_beauty"] = And(
-        "Jung, Beauty/Fashion",
-        Variable("Jung", variable="md_agenatrep", code_nr=[0]),
+    all_targets["automotive"] = And(
+        "Automotive",
         Or(
-            "Beauty, Fashion",
-            Variable("Shopping", "md_875", [1]),
-            Variable("Kosmetik", "md_855", [1]),
+            "Auto nicht billig",
+            Variable(name="Teures Auto", variable="g_CarHigh", code_nr=[1]),
+            Variable(name="Mittelteures Auto", variable="g_CarMedium", code_nr=[1]),
         ),
+        Variable(name="Autobesitz", variable="g_220", code_nr=[1, 2]),
+    )
+    all_targets["sportinteressiert"] = And(
+        "Sportinteresse",
+        Variable("Sportveranstaltungen", "md_872", [1]),
+        Or(
+            "Aktivsport",
+            Variable("Einzelsport", "g_sportSingle", [1]),
+            Variable("Teamsport", "g_sportMulti", [1]),
+        ),
+    )
+    all_targets["finance"] = And(
+        "Finance",
+        Variable("Hohes Einkommen", "md_ek", [4, 5]),
+        Variable("Grosses Vermögen", "md_hhverm", [4, 5, 6]),
+    )
+    all_targets["lifestyle"] = Or(
+        "Lifestyle",
+        Variable("Pop-Konzerte", "md_877", [1]),
+        Or(
+            "Lifestyle3",
+            Variable("Discos, Clubs", "md_873", [1]),
+            Variable("Bars, Kneipen", "md_874", [1]),
+        ),
+    )
+    all_targets["beauty_fashion"] = Or(
+        "Beauty, Fashion",
+        Variable("Shopping", "md_875", [1]),
+        Variable("Kosmetik", "md_855", [1]),
+    )
+    all_targets["reisen"] = Or(
+        "Reisen",
+        Variable("Vielflieger", "g_flug", [2, 3]),
+        Variable("Zugfahrer", "g_privatetrainuse", [3, 4]),
     )
     return all_targets
 
