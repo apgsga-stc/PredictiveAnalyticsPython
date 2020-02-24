@@ -23,7 +23,7 @@ from contextlib import contextmanager
 
 ###############################################################################
 def cap_words(txt, sep=None):
-    """Capitalize each word of txt where 'words' are separated by sep. 
+    """Capitalize each word of txt where 'words' are separated by sep.
        Two-letter words are left alone."""
 
     def cap_word(word):
@@ -52,7 +52,7 @@ def seq_join(seq, sep=" "):
 
 ###############################################################################
 def _is_seq(obj):
-    """Strings are not classed as sequences (this would cause flatten() 
+    """Strings are not classed as sequences (this would cause flatten()
        to recurse indefinitely, as single-character strings are still strings).
        Other than these, anything that is iterable counts as a sequence."""
     if isinstance(obj, (str, bytes)):
@@ -243,7 +243,7 @@ def normalize_rows(df):
 def clear_row_max(df):
     """
     Return a series of row maximum indexes of df, where they are clear maxima.
-    Clear means: given a row with n not-null values and one maximum max, 
+    Clear means: given a row with n not-null values and one maximum max,
     the difference from max to the second-biggest value is bigger than max/n.
     If n = 1, the one not-null value is the clear maximum.
     If the maximum appears more than once, there is no clear one.

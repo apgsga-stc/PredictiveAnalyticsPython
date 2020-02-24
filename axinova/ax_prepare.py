@@ -27,8 +27,8 @@ from pa_lib.data import (
     merge_categories,
     calc_col_partitioned,
 )
-from pa_lib.log import time_log
-from pa_lib.types import dtFactor
+from pa_lib.log import time_log, warn
+from pa_lib.type import dtFactor
 from pa_lib.util import list_items
 
 
@@ -65,7 +65,6 @@ def load_ax_data(directory):
                 data_by_month[yearmonth].assign(
                     Year=yearmonth[:4], Month=yearmonth[-2:]
                 ),
-                sort=False,
                 ignore_index=True,
             )
 
@@ -147,12 +146,11 @@ def load_ax_var_struct(directory):
 def get_pop_ratios(directory):
     with project_dir(directory):
         pop_data = load_xlsx(
-            file_name="Sonderauswertung_20191118.xlsx",
-            sheet_name="Aufenthalte Total",
-            usecols=[0, 1, 2, 4],
-            skiprows=[0],
+            file_name="190016Bahnhof_Total_202001.xlsx",
+            sheet_name="Basis Struktur",
+            usecols=[0, 1, 2, 3],
         ).set_axis(
-            "Variable Code Count Pop_Count".split(), axis="columns", inplace=False
+            "Variable Code Count Pop_Ratio".split(), axis="columns", inplace=False
         )
 
     # fill up Variable column
@@ -171,36 +169,31 @@ def get_pop_ratios(directory):
     delete_rows |= (pop_data.Variable == "md_410") & (pop_data.Code == "seltener")
     pop_data = pop_data.loc[~delete_rows]
 
-    # drop rows containing summaries, calculate ratio columns & index
-    pop_data = (
-        pop_data.loc[~pop_data.Code.isin(["#Total cases", "#Total wtd. cases"])]
-        .pipe(
-            calc_col_partitioned,
-            "Count_Ratio",
-            fun=_scale,
-            on="Count",
-            part_by="Variable",
-        )
-        .pipe(
-            calc_col_partitioned,
-            "Pop_Ratio",
-            fun=_scale,
-            on="Pop_Count",
-            part_by="Variable",
-        )
-        .eval("Index = Count_Ratio / Pop_Ratio")
-    )
+    # drop rows containing summaries
+    pop_data = pop_data.loc[~pop_data.Code.isin(["#Total cases", "#Total wtd. cases"])]
+
+    # convert percent column "Pop_Ratio" to numbers
+    pop_data["Pop_Ratio"] = pop_data["Pop_Ratio"].str[:-1].astype("float") / 100
+
     # validate data
     unmatched_variables = pop_data.loc[
         ~pop_data.Variable.isin(ax_data.Variable)
     ].Variable.unique()
-    assert unmatched_variables.shape == (
-        0,
+    assert (
+        unmatched_variables.shape[0] == 0
     ), f"Population data: Found unmatched variables {unmatched_variables}"
 
+    variables_without_ratios = ax_data.loc[
+        ~ax_data.Variable.isin(pop_data.Variable)
+    ].Variable.unique()
+    if variables_without_ratios.shape[0] > 0:
+        warn(
+            f"Population data: Found variables without ratios {variables_without_ratios}"
+        )
+
     unmatched_codes = pop_data.loc[~pop_data.Code.isin(ax_data.Code)].Code.unique()
-    assert unmatched_codes.shape == (
-        0,
+    assert (
+        unmatched_codes.shape[0] == 0
     ), f"Population data: Found unmatched codes {unmatched_codes}"
 
     return pop_data.reset_index(drop=True)
@@ -302,7 +295,6 @@ def fix_code_order(var_structure):
             "Keine Angabe": 7,
         },
         "md_880": {
-            "100": -1,
             "Bürgerlich Demokratische Partei BDP": 7,
             "Christlichdemokratische Volkspartei CVP": 4,
             "Dazu möchte ich keine Angaben machen": 10,
@@ -314,6 +306,64 @@ def fix_code_order(var_structure):
             "Keine Partei": 0,
             "Schweizerische Volkspartei SVP": 8,
             "Sozialdemokratische Partei SP": 1,
+        },
+        "md_SexAgeEk": {
+            "männlich/ 14-29 Jahre/ Weniger als 3'000 CHF": 0,
+            "männlich/ 14-29 Jahre/ Zwischen 3'000 und 4'500 CHF": 1,
+            "männlich/ 14-29 Jahre/ Zwischen 4'501 und 6'000 CHF": 2,
+            "männlich/ 14-29 Jahre/ Zwischen 6'001 und 9'000 CHF": 3,
+            "männlich/ 14-29 Jahre/ Zwischen 9'001 und 12'000 CHF": 4,
+            "männlich/ 14-29 Jahre/ Mehr als 12'000 CHF": 5,
+            "männlich/ 14-29 Jahre/ Keine Angabe": 6,
+            "männlich/ 30-45 Jahre/ Weniger als 3'000 CHF": 10,
+            "männlich/ 30-45 Jahre/ Zwischen 3'000 und 4'500 CHF": 11,
+            "männlich/ 30-45 Jahre/ Zwischen 4'501 und 6'000 CHF": 12,
+            "männlich/ 30-45 Jahre/ Zwischen 6'001 und 9'000 CHF": 13,
+            "männlich/ 30-45 Jahre/ Zwischen 9'001 und 12'000 CHF": 14,
+            "männlich/ 30-45 Jahre/ Mehr als 12'000 CHF": 15,
+            "männlich/ 30-45 Jahre/ Keine Angabe": 16,
+            "männlich/ 46-60 Jahre/ Weniger als 3'000 CHF": 20,
+            "männlich/ 46-60 Jahre/ Zwischen 3'000 und 4'500 CHF": 21,
+            "männlich/ 46-60 Jahre/ Zwischen 4'501 und 6'000 CHF": 22,
+            "männlich/ 46-60 Jahre/ Zwischen 6'001 und 9'000 CHF": 23,
+            "männlich/ 46-60 Jahre/ Zwischen 9'001 und 12'000 CHF": 24,
+            "männlich/ 46-60 Jahre/ Mehr als 12'000 CHF": 25,
+            "männlich/ 46-60 Jahre/ Keine Angabe": 26,
+            "männlich/ 61+ Jahre/ Weniger als 3'000 CHF": 30,
+            "männlich/ 61+ Jahre/ Zwischen 3'000 und 4'500 CHF": 31,
+            "männlich/ 61+ Jahre/ Zwischen 4'501 und 6'000 CHF": 32,
+            "männlich/ 61+ Jahre/ Zwischen 6'001 und 9'000 CHF": 33,
+            "männlich/ 61+ Jahre/ Zwischen 9'001 und 12'000 CHF": 34,
+            "männlich/ 61+ Jahre/ Mehr als 12'000 CHF": 35,
+            "männlich/ 61+ Jahre/ Keine Angabe": 36,
+            "weiblich/ 14-29 Jahre/ Weniger als 3'000 CHF": 100,
+            "weiblich/ 14-29 Jahre/ Zwischen 3'000 und 4'500 CHF": 101,
+            "weiblich/ 14-29 Jahre/ Zwischen 4'501 und 6'000 CHF": 102,
+            "weiblich/ 14-29 Jahre/ Zwischen 6'001 und 9'000 CHF": 103,
+            "weiblich/ 14-29 Jahre/ Zwischen 9'001 und 12'000 CHF": 104,
+            "weiblich/ 14-29 Jahre/ Mehr als 12'000 CHF": 105,
+            "weiblich/ 14-29 Jahre/ Keine Angabe": 106,
+            "weiblich/ 30-45 Jahre/ Weniger als 3'000 CHF": 110,
+            "weiblich/ 30-45 Jahre/ Zwischen 3'000 und 4'500 CHF": 111,
+            "weiblich/ 30-45 Jahre/ Zwischen 4'501 und 6'000 CHF": 112,
+            "weiblich/ 30-45 Jahre/ Zwischen 6'001 und 9'000 CHF": 113,
+            "weiblich/ 30-45 Jahre/ Zwischen 9'001 und 12'000 CHF": 114,
+            "weiblich/ 30-45 Jahre/ Mehr als 12'000 CHF": 115,
+            "weiblich/ 30-45 Jahre/ Keine Angabe": 116,
+            "weiblich/ 46-60 Jahre/ Weniger als 3'000 CHF": 120,
+            "weiblich/ 46-60 Jahre/ Zwischen 3'000 und 4'500 CHF": 121,
+            "weiblich/ 46-60 Jahre/ Zwischen 4'501 und 6'000 CHF": 122,
+            "weiblich/ 46-60 Jahre/ Zwischen 6'001 und 9'000 CHF": 123,
+            "weiblich/ 46-60 Jahre/ Zwischen 9'001 und 12'000 CHF": 124,
+            "weiblich/ 46-60 Jahre/ Mehr als 12'000 CHF": 125,
+            "weiblich/ 46-60 Jahre/ Keine Angabe": 126,
+            "weiblich/ 61+ Jahre/ Weniger als 3'000 CHF": 130,
+            "weiblich/ 61+ Jahre/ Zwischen 3'000 und 4'500 CHF": 131,
+            "weiblich/ 61+ Jahre/ Zwischen 4'501 und 6'000 CHF": 132,
+            "weiblich/ 61+ Jahre/ Zwischen 6'001 und 9'000 CHF": 133,
+            "weiblich/ 61+ Jahre/ Zwischen 9'001 und 12'000 CHF": 134,
+            "weiblich/ 61+ Jahre/ Mehr als 12'000 CHF": 135,
+            "weiblich/ 61+ Jahre/ Keine Angabe": 136,
         },
     }
     # Assign new ordered codes to var_struct for all ordered variables

@@ -9,7 +9,7 @@ Central constants for PA code
 import sys
 from pathlib import Path
 
-from pa_lib.types import ConnectPar, Record
+from pa_lib.type import ConnectPar, Record
 
 # Directories
 PA_BASE_DIR = Path.home()

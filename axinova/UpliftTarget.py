@@ -7,15 +7,17 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 import altair as alt
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, Dict, Callable, TypeVar
+from typing import List, Tuple, Dict, Callable, TypeVar, Any
 from datetime import datetime as dt
+from textwrap import indent as indent_by
 
 from pa_lib.util import list_items, default_dict
-from pa_lib.data import clean_up_categoricals
+from pa_lib.data import clean_up_categoricals, unfactorize, as_dtype
 from pa_lib.file import project_dir, store_xlsx
-from axinova.UpliftData import UpliftData
+from axinova.UpliftData import UpliftData, SOURCE_DATA
 from axinova.UpliftGraphs import heatmap, barplot, station_heatmap
 from axinova.UpliftLib import (
     VarId,
@@ -36,6 +38,9 @@ Node = TypeVar("Node")
 ########################################################################################
 _spr_data_cache: Dict[tuple, Tuple[DataSeries, DataSeries, DataSeries]] = {}
 
+source_data: UpliftData = SOURCE_DATA
+
+
 ########################################################################################
 # HELPER FUNCTIONS
 ########################################################################################
@@ -53,7 +58,7 @@ def _get_counts(
     variable: VarId = None,
     code_labels: StringList = None,
 ) -> Tuple[DataSeries, DataSeries]:
-    """Aggregate occurrence counts after filtering by selection criteria.
+    """Sum occurrence counts after filtering by selection criteria.
     Return counts and Poisson standard deviations."""
     if variable is not None:
         data = data.query("Variable == @variable")
@@ -80,11 +85,17 @@ def _aggregate_spr_data(
         return _spr_data_cache[cache_tag]
     except KeyError:
         spr_pers, spr_sd = _get_counts(
-            value_col="Total", data=spr_data, stations=stations, timescale=timescale,
+            value_col="Total", data=spr_data, stations=stations, timescale=timescale
         )
         spr_sd_ratio = ((spr_pers + spr_sd) / spr_pers - 1).fillna(0)
         _spr_data_cache[cache_tag] = (spr_pers, spr_sd, spr_sd_ratio)
         return spr_pers, spr_sd, spr_sd_ratio
+
+
+def _make_file_name(file_name: str) -> str:
+    """Clean up file name (remove non-alphanumerics and space runs)"""
+    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", "", file_name))
+    return new_name
 
 
 ########################################################################################
@@ -101,9 +112,8 @@ class _Target(ABC):
     def __post_init__(self):
         self._validate()
 
-    @property
-    def stations(self) -> StringList:
-        if self._stations == list():
+    def stations(self, empty_means_all: bool = True) -> StringList:
+        if empty_means_all and self._stations == list():
             return self.data.all_stations
         return self._stations
 
@@ -136,30 +146,80 @@ class _Target(ABC):
     def node_list(self) -> List[Node]:
         pass
 
+    ## Result output  ##################################################################
+    def result_summary(self) -> DataFrame:
+        summary = DataFrame(
+            dict(ratio=[self.result["pop_ratio"][0], self.result["global_ratio"][0]]),
+            index=["Population", "All Stations"],
+        )
+        return summary
+
+    def best_stations(self, where: str = "") -> DataFrame:
+        if where:
+            data = self.result.query(where)
+        else:
+            data = self.result
+        station_table = (
+            data.groupby("Station")[["spr", "target_pers"]]
+            .agg("sum")
+            .eval("ratio = target_pers / spr")
+            .fillna(0)
+            .sort_values("ratio", ascending=False)
+            .pipe(as_dtype, "int", incl_col=["spr", "target_pers"])
+            .reset_index()
+            .pipe(unfactorize)
+            .set_index("Station")
+        )
+        return station_table
+
+    def best_slots(self, column: Any, top_n: int = 20, where: str = "") -> DataFrame:
+        if where:
+            data = self.result.query(where)
+        else:
+            data = self.result
+        data = (
+            data.sort_values(column, ascending=False)
+            .head(top_n)[
+                "spr target_ratio target_pers pop_uplift_ratio pop_uplift_pers".split()
+            ]
+            .pipe(as_dtype, "int", incl_col=["spr", "target_pers", "pop_uplift_pers"])
+            .reset_index()
+            .pipe(unfactorize)
+            .set_index(["Station", "DayOfWeek", "Hour"])
+        )
+        return data
+
     ## Result export  ##################################################################
     def export_result(self):
-        export_file_name = f"{self.name} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        sheets = {node.name: node.result for node in self.node_list}
+        export_file_name = (
+            f"{_make_file_name(self.name)} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        )
+        sheets = {_make_file_name(node.name): node.result for node in self.node_list}
         with project_dir("axinova/zielgruppen_export"):
             store_xlsx(df=DataFrame(), file_name=export_file_name, sheets=sheets)
 
     ## Visualisation methods ###########################################################
     def plot_ch_uplift_heatmap(
-        self, selectors: dict = None, plot_properties: dict = None
+        self,
+        selectors: dict = None,
+        target_col: str = "pop_uplift_pers",
+        plot_properties: dict = None,
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
         if plot_properties is None:
             plot_properties = {}
 
-        properties = default_dict(plot_properties, defaults={"width": 600})
+        properties = default_dict(
+            plot_properties, defaults=dict(width=600, background="white")
+        )
         chart = heatmap(
             data=self.result,
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
-            target_col="pop_uplift_pers",
-            target_title="Uplift CH [Pers]",
+            target_col=target_col,
+            target_title=target_col,
             properties=properties,
         )
         return chart
@@ -167,6 +227,8 @@ class _Target(ABC):
     def plot_ch_uplift_barplot(
         self,
         selectors: dict = None,
+        target_col: str = "pop_uplift_pers",
+        target_threshold: float = 0,
         plot_properties: dict = None,
         axes: str = "independent",
     ) -> alt.Chart:
@@ -176,43 +238,26 @@ class _Target(ABC):
             plot_properties = {}
 
         properties = default_dict(
-            plot_properties, defaults={"width": 200, "height": 300}
+            plot_properties, defaults=dict(width=200, height=300, background="white")
         )
         chart = barplot(
             data=self.result,
             selectors=selectors,
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
-            target_col="pop_uplift_pers",
-            target_title="Uplift CH [Pers]",
+            target_col=target_col,
+            target_threshold=target_threshold,
+            target_title=target_col,
             axes=axes,
             properties=properties,
         )
         return chart
 
     def plot_target_pers_heatmap(
-        self, selectors: dict = None, plot_properties: dict = None
-    ) -> alt.Chart:
-        if selectors is None:
-            selectors = {}
-        if plot_properties is None:
-            plot_properties = {}
-
-        properties = default_dict(plot_properties, defaults={"width": 600})
-        chart = heatmap(
-            data=self.result,
-            selectors=selectors,
-            title=f"{self.name}: Personen",
-            timescale=self.timescale,
-            target_col="target_pers",
-            target_title="Zielgruppe [Pers]",
-            color_range=["white", "darkgreen"],
-            properties=properties,
-        )
-        return chart
-
-    def plot_station_heatmap(
-        self, selectors: dict = None, plot_properties: dict = None
+        self,
+        selectors: dict = None,
+        target_col: str = "target_pers",
+        plot_properties: dict = None,
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
@@ -220,13 +265,39 @@ class _Target(ABC):
             plot_properties = {}
 
         properties = default_dict(
-            plot_properties, defaults={"width": 400, "height": 800}
+            plot_properties, defaults=dict(width=600, background="white")
+        )
+        chart = heatmap(
+            data=self.result,
+            selectors=selectors,
+            title=f"{self.name}: Personen",
+            timescale=self.timescale,
+            target_col=target_col,
+            target_title=target_col,
+            color_range=["white", "darkgreen"],
+            properties=properties,
+        )
+        return chart
+
+    def plot_station_heatmap(
+        self,
+        selectors: dict = None,
+        target_col: str = "target_ratio",
+        plot_properties: dict = None,
+    ) -> alt.Chart:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(
+            plot_properties, defaults=dict(width=400, height=800, background="white")
         )
         chart = station_heatmap(
             data=self.result,
             selectors=selectors,
             title=f"{self.name}: Prozent",
-            target_col="target_ratio",
+            target_col=target_col,
             target_title="Zielgruppe [%]",
             properties=properties,
         )
@@ -267,7 +338,7 @@ class Variable(_Target):
 
     def set_stations(self, stations: StringList) -> None:
         if stations is None or stations == list():
-            checked_stations = self.data.all_stations
+            checked_stations = list()
         else:
             checked_stations = [
                 station for station in stations if station in self.data.all_stations
@@ -288,12 +359,12 @@ class Variable(_Target):
     def calculate(self) -> None:
         """Calculate target group ratios for a single variable."""
         spr_pers, spr_sd, spr_sd_ratio = _aggregate_spr_data(
-            self.data.spr_data, self._stations, self.timescale
+            self.data.spr_data, self.stations(empty_means_all=False), self.timescale
         )
         ax_total_count, _ = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
-            stations=self._stations,
+            stations=self.stations(),
             timescale=self.timescale,
             variable=self.variable,
         )
@@ -301,7 +372,7 @@ class Variable(_Target):
         ax_pers_count, ax_pers_sd = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
-            stations=self._stations,
+            stations=self.stations(),
             timescale=self.timescale,
             variable=self.variable,
             code_labels=self.code_labels,
@@ -318,7 +389,7 @@ class Variable(_Target):
         )[0]
         station_ratios = (
             self.data.ax_station_ratios(self.variable)
-            .loc[self.stations, self.code_labels]
+            .loc[self.stations(), self.code_labels]
             .sum(axis="columns")
         )
 
@@ -349,9 +420,9 @@ class Variable(_Target):
 
     def description(self, indent: str = "") -> str:
         description = (
-            f"{self.name}: '{self.var_label}' IN ['"
-            + "', '".join(self.code_labels)
-            + "']"
+            f"{self.name} = '{self.var_label}' IN [\n    '"
+            + "',\n    '".join(self.code_labels)
+            + "'\n]"
         )
         return description
 
@@ -364,6 +435,14 @@ class Variable(_Target):
 class _TargetCombination(_Target, ABC):
     target1: _Target
     target2: _Target
+
+    @abstractmethod
+    def calculate(self) -> None:
+        pass
+
+    @abstractmethod
+    def description(self, indent: str = "") -> str:
+        pass
 
     def _validate(self) -> None:
         _validate_target(self.target1)
@@ -413,10 +492,10 @@ class _TargetCombination(_Target, ABC):
         description = "\n".join(
             [
                 f"{self.name} = (",
-                f"{indent}  {desc1}",
-                f"{indent}{kind}",
-                f"{indent}  {desc2}",
-                f"{indent})",
+                indent_by(desc1, f"{indent}  "),
+                indent_by(kind, indent),
+                indent_by(desc2, f"{indent}  "),
+                indent_by(")", indent),
             ]
         )
         return description
@@ -461,6 +540,14 @@ if __name__ == "__main__":
     from pa_lib.log import time_log
 
     line = "-" * 88
+
+    print(line)
+    TargetJungHoch = Variable(
+        "Jung und hohes Einkommen", variable="md_SexAgeEk", code_nr=[4, 5, 32, 33]
+    )
+    print(TargetJungHoch.description())
+    TargetJungHoch.set_timescale("Hour")
+    TargetJungHoch.calculate()
 
     print(line)
     wenig_vermoegen = Variable(

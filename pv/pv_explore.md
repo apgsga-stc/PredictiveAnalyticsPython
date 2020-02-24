@@ -41,7 +41,7 @@ from pa_lib.file import data_files, load_bin, store_bin, store_excel, set_projec
 from pa_lib.data import calc_col_partitioned, clean_up_categoricals, flatten, replace_col, cond_col, desc_col, as_dtype
 from pa_lib.util import obj_size
 from pa_lib.log  import time_log
-from pa_lib.types import dtFactor
+from pa_lib.type import dtFactor
 
 # display long columns completely
 pd.set_option('display.max_colwidth', 200)

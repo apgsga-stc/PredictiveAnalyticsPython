@@ -9,9 +9,9 @@ sys.path.append(str(parent_dir))
 import altair as alt
 from typing import Tuple, List
 
-from pa_lib.data import select_rows, as_dtype
+from pa_lib.data import select_rows, as_dtype, unfactorize
 from .UpliftLib import all_weekdays, DataSeries, DataFrame
-from .UpliftData import _source_data
+from .UpliftData import SOURCE_DATA
 
 
 ########################################################################################
@@ -39,6 +39,7 @@ def prepare_chart_data(data: DataFrame, selectors: dict) -> DataFrame:
         select_rows(data, selectors)
         .pipe(as_dtype, "int", incl_pattern="spr|.*pers$")
         .reset_index()
+        .pipe(unfactorize)
     )
 
 
@@ -95,6 +96,7 @@ def barplot(
     title: str,
     timescale: str,
     target_col: str,
+    target_threshold: float,
     target_title: str,
     axes: str,
     properties: dict,
@@ -109,7 +111,7 @@ def barplot(
             y=alt.Y(
                 f"{timescale}:O",
                 axis=alt.Axis(grid=True),
-                sort=chart_data[timescale].cat.categories.to_list(),
+                sort=data.reset_index()[timescale].cat.categories.to_list(),
             ),
             tooltip=[
                 timescale,
@@ -118,7 +120,7 @@ def barplot(
                 alt.Tooltip(f"{target_col}:Q", title=target_title),
             ],
             color=alt.condition(
-                alt.datum[target_col] > 0,
+                alt.datum[target_col] > target_threshold,
                 alt.value("darkgreen"),  # The positive color
                 alt.value("darkred"),  # The negative color
             ),
@@ -148,7 +150,7 @@ def station_heatmap(
         .mark_rect()
         .encode(
             y="Station:N",
-            x=alt.X("DayOfWeek:O", sort=_source_data.all_weekdays),
+            x=alt.X("DayOfWeek:O", sort=SOURCE_DATA.all_weekdays),
             color=alt.Color(
                 f"{target_col}:Q",
                 title=target_title,

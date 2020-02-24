@@ -20,7 +20,7 @@ from pa_lib.file  import store_csv, store_bin, set_project_dir
 from pa_lib.data  import as_dtype
 from pa_lib.util  import obj_size
 from pa_lib.sql   import query
-from pa_lib.types import dtFactor
+from pa_lib.type import dtFactor
 
 set_project_dir('vkprog')
 plz_query = query('plz')

@@ -8,7 +8,7 @@ Data frame related functions
 import numpy as np
 import pandas as pd
 
-from pa_lib.types import dtFactor, dtKW, dtYear
+from pa_lib.type import dtFactor, dtKW, dtYear
 from pa_lib.util import format_size, flatten, flat_list
 
 
