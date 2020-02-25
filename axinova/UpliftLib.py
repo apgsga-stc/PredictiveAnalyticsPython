@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Union
 
@@ -32,41 +31,6 @@ class VarStruct:
 
 VarSelection = Dict[VarId, VarStruct]
 Element = Union[VarStruct, "VarComb"]
-
-
-@dataclass(frozen=True)
-class VarComb(ABC):
-    a: Element
-    b: Element
-
-    def describe(self, indent: str) -> str:
-        description = "\n".join(
-            [
-                f"{indent}{self.__class__.__name__}(",
-                f"{indent}  {self.a.describe(indent + '  ')},",
-                f"{indent}  {self.b.describe(indent + '  ')}",
-                f"{indent}  )",
-            ]
-        )
-        return description
-
-    def __repr__(self) -> str:
-        return self.describe(indent="")
-
-    @abstractmethod
-    def calculate(self):
-        pass
-
-
-class And(VarComb):
-    def calculate(self):
-        pass
-
-
-class Or(VarComb):
-    def calculate(self):
-        pass
-
 
 ########################################################################################
 # Global Objects
