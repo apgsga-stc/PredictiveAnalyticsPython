@@ -1,73 +1,41 @@
 import streamlit as st
 
-from UpliftTarget import Variable, And, Or, source_data
+from UpliftTarget import And, Variable
+from UpliftWebApp import calculate_target, describe_target, show_plots, show_results
 
 
+@st.cache(allow_output_mutation=True)
 def create_targets() -> dict:
     all_targets = dict()
-    all_targets["jung"] = Variable("Jung", variable="md_agenatrep", code_nr=[0])
-    all_targets["mittelalt"] = Variable(
-        "Mittel-Alt", variable="md_agenatrep", code_nr=[1]
+    all_targets["age_25_44"] = Variable(
+        "Age 25-44", variable="md_agenatrep", code_nr=[1]
     )
-    all_targets["Älter"] = Variable("Älter", variable="md_agenatrep", code_nr=[2])
+    all_targets["age_45_54"] = Variable(
+        "Age 45-54", variable="md_agenatrep", code_nr=[2]
+    )
+    all_targets["wohnen"] = And(
+        "Wohnen",
+        Variable("Kind < 18", variable="md_hhu18", code_nr=[0]),
+        Variable("Haushalt > 2", variable="md_hhgr3", code_nr=[2]),
+    )
+    all_targets["KMU"] = Variable("KMU", variable="md_920", code_nr=[1])
     return all_targets
 
 
-def calculate_target(key: str) -> Variable:
-    global targets
-    result = targets[key]
-    result.set_timescale("Hour")
-    result.calculate()
-    return result
+TARGETS = create_targets()
 
-
-targets = create_targets()
-
-# Title
-st.markdown("# Zielgruppen-Analyse")
-st.sidebar.markdown("### Parameters")
-
-# Choose Target Group
+# choose target group
 target_key = st.selectbox(
     label="Choose Target Group:",
-    options=list(targets.keys()),
+    options=list(TARGETS.keys()),
     index=0,
-    format_func=lambda key: targets[key].name,
-)
-target = calculate_target(target_key)
-st.markdown(f"## Target Group: {target.name}")
-
-st.markdown("### Definition:")
-st.text(target.description())
-
-# Result Tables
-st.markdown("### Summary:")
-st.table(target.result_summary())
-
-st.markdown("### Stations per week:")
-st.table(target.best_stations(where="spr > 0"))
-
-nr_best_slots = st.sidebar.number_input(
-    "Number of Best Slots:", min_value=1, max_value=500, value=20, format="%d"
-)
-target_min = st.sidebar.number_input(
-    "Minimum Target Persons:", min_value=0, max_value=1000, value=360, format="%d"
-)
-st.markdown(f"### Best Slots by Ratio (Target Persons >= {target_min}):")
-st.table(
-    target.best_slots(
-        column=["pop_uplift_ratio", "target_pers"],
-        where=f"target_pers >= {target_min}",
-        top_n=nr_best_slots,
-    )
+    format_func=lambda key: TARGETS[key].name,
 )
 
-# Result Plot
-station_list = st.sidebar.multiselect(
-    label="Interesting Stations:",
-    options=source_data.all_stations,
-    default=["Basel SBB", "Bern", "Genève Cornavin", "Winterthur", "Zürich HB"],
-)
-st.markdown(f"### Plots für {', '.join(station_list)}:")
-barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_list})
-st.altair_chart(barplot, use_container_width=False)
+# calculate ratios
+target = calculate_target(TARGETS[target_key])
+
+# show it
+describe_target(target)
+show_results(target)
+show_plots(target)
