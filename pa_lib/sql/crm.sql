@@ -30,4 +30,3 @@ FROM bsi_communication      cm
 JOIN bsi_company            c  ON cm.company_nr            = c.company_nr
 LEFT OUTER JOIN bsi_company cc ON cm.x_concern_company_nr  = cc.company_nr
 WHERE cm.evt_start >= to_date('01.01.2009', 'dd.mm.yyyy')
-ORDER BY cm.evt_start desc
