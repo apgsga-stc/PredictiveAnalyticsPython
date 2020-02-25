@@ -96,13 +96,15 @@ def barplot(
     title: str,
     timescale: str,
     target_col: str,
+    target_ci_col: str,
     target_threshold: float,
     target_title: str,
     axes: str,
     properties: dict,
 ) -> alt.Chart:
     chart_data = prepare_chart_data(data, selectors)
-    chart = (
+    chart_data["error"] = (chart_data["target_pers_sd_ratio"] * 100 + 0.5).astype("int")
+    plot = (
         alt.Chart(chart_data, title=title)
         .properties(**properties)
         .mark_bar()
@@ -117,6 +119,7 @@ def barplot(
                 timescale,
                 alt.Tooltip("spr:Q", title="Total"),
                 alt.Tooltip("target_pers", title="Zielgruppe"),
+                alt.Tooltip("error", title="Fehler [%]"),
                 alt.Tooltip(f"{target_col}:Q", title=target_title),
             ],
             color=alt.condition(
@@ -129,7 +132,7 @@ def barplot(
         )
         .resolve_scale(x=axes)  # "shared" | "independent"
     )
-    return chart
+    return plot
 
 
 def station_heatmap(
