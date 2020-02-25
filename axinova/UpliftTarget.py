@@ -8,6 +8,7 @@ sys.path.append(str(parent_dir))
 
 import altair as alt
 import re
+import numpy as np
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Callable, TypeVar, Any
@@ -57,7 +58,7 @@ def _get_counts(
     timescale: str,
     variable: VarId = None,
     code_labels: StringList = None,
-) -> Tuple[DataSeries, DataSeries]:
+) -> Tuple[DataSeries, DataSeries, DataSeries]:
     """Sum occurrence counts after filtering by selection criteria.
     Return counts and Poisson standard deviations."""
     if variable is not None:
@@ -74,7 +75,8 @@ def _get_counts(
         .fillna(0)
     )
     count_sd = poisson_sd(counts)
-    return counts, count_sd
+    count_sd_ratio = ((counts + count_sd) / counts - 1).fillna(0)
+    return counts, count_sd, count_sd_ratio
 
 
 def _aggregate_spr_data(
@@ -84,10 +86,9 @@ def _aggregate_spr_data(
     try:
         return _spr_data_cache[cache_tag]
     except KeyError:
-        spr_pers, spr_sd = _get_counts(
+        spr_pers, spr_sd, spr_sd_ratio = _get_counts(
             value_col="Total", data=spr_data, stations=stations, timescale=timescale
         )
-        spr_sd_ratio = ((spr_pers + spr_sd) / spr_pers - 1).fillna(0)
         _spr_data_cache[cache_tag] = (spr_pers, spr_sd, spr_sd_ratio)
         return spr_pers, spr_sd, spr_sd_ratio
 
@@ -172,16 +173,64 @@ class _Target(ABC):
         )
         return station_table
 
-    def best_slots(self, column: Any, top_n: int = 20, where: str = "") -> DataFrame:
+    def best_station_days(self, where: str = "") -> DataFrame:
         if where:
             data = self.result.query(where)
         else:
             data = self.result
+        station_day_table = (
+            data.reset_index()
+            .groupby(["Station", "DayOfWeek"], observed=True, as_index=False)[
+                ["spr", "ax_total", "ax_pers"]
+            ]
+            .agg("sum")
+            .pipe(unfactorize)
+            .fillna(0)
+        )
+        station_day_table = station_day_table.assign(
+            target_ratio=(station_day_table["ax_pers"] / station_day_table["ax_total"]),
+            ax_sd_ratio=(
+                np.sqrt(station_day_table["ax_pers"]) / station_day_table["ax_pers"]
+            ),
+            spr_sd_ratio=(np.sqrt(station_day_table["spr"]) / station_day_table["spr"]),
+        ).fillna(0)
+        station_day_table = (
+            station_day_table.assign(
+                target_pers=station_day_table["target_ratio"]
+                * station_day_table["spr"],
+                target_pers_sd_ratio=np.sqrt(
+                    np.power(station_day_table["spr_sd_ratio"], 2)
+                    + np.power(station_day_table["ax_sd_ratio"], 2)
+                ),
+            )
+            .pipe(
+                as_dtype, "int", incl_col=["spr", "ax_total", "ax_pers", "target_pers"]
+            )
+            .pipe(unfactorize)
+            .set_index(["Station", "DayOfWeek"])
+        )
+        return station_day_table
+
+    def best_slots(
+        self, column: Any, top_n: int = 20, where: str = "", show_col: List[str] = None
+    ) -> DataFrame:
+        if where:
+            data = self.result.query(where)
+        else:
+            data = self.result
+        if show_col is None or show_col == list():
+            show_col = [
+                "spr",
+                "ax_pers",
+                "target_ratio",
+                "target_pers",
+                "target_pers_sd_ratio",
+                "pop_uplift_ratio",
+                "pop_uplift_pers",
+            ]
         data = (
             data.sort_values(column, ascending=False)
-            .head(top_n)[
-                "spr target_ratio target_pers pop_uplift_ratio pop_uplift_pers".split()
-            ]
+            .head(top_n)[show_col]
             .pipe(as_dtype, "int", incl_col=["spr", "target_pers", "pop_uplift_pers"])
             .reset_index()
             .pipe(unfactorize)
@@ -228,6 +277,7 @@ class _Target(ABC):
         self,
         selectors: dict = None,
         target_col: str = "pop_uplift_pers",
+        target_ci_col: str = "target_pers_sd",
         target_threshold: float = 0,
         plot_properties: dict = None,
         axes: str = "independent",
@@ -246,6 +296,7 @@ class _Target(ABC):
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
             target_col=target_col,
+            target_ci_col=target_ci_col,
             target_threshold=target_threshold,
             target_title=target_col,
             axes=axes,
@@ -361,15 +412,14 @@ class Variable(_Target):
         spr_pers, spr_sd, spr_sd_ratio = _aggregate_spr_data(
             self.data.spr_data, self.stations(empty_means_all=False), self.timescale
         )
-        ax_total_count, _ = _get_counts(
+        ax_total_count, _, _ = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
             stations=self.stations(),
             timescale=self.timescale,
             variable=self.variable,
         )
-        full_index = ax_total_count.index
-        ax_pers_count, ax_pers_sd = _get_counts(
+        ax_pers_count, ax_pers_sd, ax_pers_sd_ratio = _get_counts(
             value_col="Value",
             data=self.data.ax_data,
             stations=self.stations(),
@@ -379,6 +429,10 @@ class Variable(_Target):
         )
         target_ratio = (ax_pers_count / ax_total_count).fillna(0)
         target_pers = target_ratio * spr_pers
+        target_pers_sd_ratio = np.sqrt(
+            np.power(ax_pers_sd_ratio, 2) + np.power(spr_sd_ratio, 2)
+        )
+        target_pers_sd = target_pers * target_pers_sd_ratio
 
         # reference ratios for CH population / all _stations / each station
         pop_ratio = self.data.ax_population_ratios(self.variable)[self.code_labels].sum(
@@ -402,11 +456,15 @@ class Variable(_Target):
                     "spr_sd_ratio": spr_sd_ratio,
                     "ax_total": ax_total_count,
                     "ax_pers": ax_pers_count,
+                    "ax_pers_sd": ax_pers_sd,
+                    "ax_pers_sd_ratio": ax_pers_sd_ratio,
                     "target_ratio": target_ratio,
                     "target_pers": target_pers,
+                    "target_pers_sd": target_pers_sd,
+                    "target_pers_sd_ratio": target_pers_sd_ratio,
                 }
             )
-            .reindex(full_index)
+            .reindex(ax_total_count.index)  # include all possible variants
             .fillna(0)
         )
         result = result.assign(
@@ -461,6 +519,11 @@ class _TargetCombination(_Target, ABC):
     def calculate_combination(
         self, combine_ratios: Callable[[DataSeries, DataSeries], DataSeries]
     ) -> None:
+        def combine_sd_ratios(
+            sd_ratio1: DataSeries, sd_ratio2: DataSeries
+        ) -> DataSeries:
+            return np.sqrt(np.power(sd_ratio1, 2) + np.power(sd_ratio2, 2))
+
         self.target1.calculate()
         self.target2.calculate()
         result1, result2 = self.target1.result, self.target2.result
@@ -469,6 +532,7 @@ class _TargetCombination(_Target, ABC):
                 spr=result1["spr"],
                 spr_sd=result1["spr_sd"],
                 spr_sd_ratio=result1["spr_sd_ratio"],
+                ax_total=result1["ax_total"],
                 target_ratio=combine_ratios(
                     result1["target_ratio"], result2["target_ratio"]
                 ),
@@ -479,10 +543,14 @@ class _TargetCombination(_Target, ABC):
                 station_ratio=combine_ratios(
                     result1["station_ratio"], result2["station_ratio"]
                 ),
+                target_pers_sd_ratio=combine_sd_ratios(
+                    result1["target_pers_sd_ratio"], result2["target_pers_sd_ratio"]
+                ),
             )
         )
         result = result.assign(
-            target_pers=result["spr"] * result["target_ratio"]
+            target_pers=result["spr"] * result["target_ratio"],
+            ax_pers=result["ax_total"] * result["target_ratio"],
         ).build_uplift_columns()
         self.result = result
 
@@ -548,6 +616,12 @@ if __name__ == "__main__":
     print(TargetJungHoch.description())
     TargetJungHoch.set_timescale("Hour")
     TargetJungHoch.calculate()
+
+    print(line)
+    TargetKMU = Variable("KMU", variable="md_920", code_nr=[1])
+    print(TargetKMU.description())
+    TargetKMU.set_timescale("Hour")
+    TargetKMU.calculate()
 
     print(line)
     wenig_vermoegen = Variable(
