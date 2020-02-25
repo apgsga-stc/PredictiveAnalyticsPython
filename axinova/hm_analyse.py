@@ -33,14 +33,14 @@ def create_targets() -> dict:
 
 
 def calculate_target(key: str) -> Variable:
-    global targets
+    global TARGETS
     result = targets[key]
     result.set_timescale("Hour")
     result.calculate()
     return result
 
 
-targets = create_targets()
+TARGETS = create_targets()
 
 # Title
 st.markdown("# Zielgruppen-Analyse")
@@ -49,9 +49,9 @@ st.sidebar.markdown("### Parameters")
 # Choose Target Group
 target_key = st.selectbox(
     label="Choose Target Group:",
-    options=list(targets.keys()),
+    options=list(TARGETS.keys()),
     index=0,
-    format_func=lambda key: targets[key].name,
+    format_func=lambda key: TARGETS[key].name,
 )
 target = calculate_target(target_key)
 st.markdown(f"## Target Group: {target.name}")
