@@ -15,7 +15,7 @@ SELECT /*+ Predictive Analytics: Read CRM data */
             where cm.responsible_user_nr = du.directory_user_nr) kuerzel,
         nvl(cc.company_no, c.company_no)                         endkunde_nr,
         (case when cc.company_no != c.company_no
-              then 'agentur' else 'direkt' end)                  typ,
+              then 'agentur' else 'direkt' end)                  kontakt_typ,
         (case when cc.company_no != c.company_no
               then c.company_no else null end)                   agentur_nr,
         (case when cc.company_no != c.company_no
