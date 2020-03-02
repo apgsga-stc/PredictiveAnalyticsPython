@@ -22,7 +22,7 @@
 #
 
 # prepare Python environment
-FROM python:3
+FROM python:3-slim
 COPY zielgruppen_requirements.txt ./
 RUN pip install --no-cache-dir -r zielgruppen_requirements.txt
 

@@ -1,5 +1,5 @@
 # exclude Jupyter notebooks
-**/*ipynb
+**/*.ipynb
 
 # exclude hidden & temporary stuff
 **/__pycache__
