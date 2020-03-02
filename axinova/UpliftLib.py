@@ -46,6 +46,10 @@ def poisson_sd(data: DataSeries) -> DataSeries:
     return data.pow(0.5)
 
 
+def poisson_sd_ratio(data: DataSeries) -> DataSeries:
+    return poisson_sd(data) / data
+
+
 def combine_sd_ratios(data1: DataSeries, data2: DataSeries) -> DataSeries:
     """Aggregate standard deviations of two independent var => sqrt(sd1^2 + sd2^2)."""
     return (data1.pow(2) + data2.pow(2)).pow(0.5)
