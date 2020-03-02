@@ -8,7 +8,6 @@ sys.path.append(str(parent_dir))
 
 import altair as alt
 import re
-import numpy as np
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Callable, TypeVar, Any
@@ -27,6 +26,8 @@ from axinova.UpliftLib import (
     DataFrame,
     DataSeries,
     poisson_sd,
+    poisson_sd_ratio,
+    combine_sd_ratios,
 )
 
 ########################################################################################
@@ -188,19 +189,16 @@ class _Target(ABC):
             .fillna(0)
         )
         station_day_table = station_day_table.assign(
-            target_ratio=(station_day_table["ax_pers"] / station_day_table["ax_total"]),
-            ax_sd_ratio=(
-                np.sqrt(station_day_table["ax_pers"]) / station_day_table["ax_pers"]
-            ),
-            spr_sd_ratio=(np.sqrt(station_day_table["spr"]) / station_day_table["spr"]),
+            target_ratio=station_day_table["ax_pers"] / station_day_table["ax_total"],
+            ax_sd_ratio=poisson_sd_ratio(station_day_table["ax_pers"]),
+            spr_sd_ratio=poisson_sd_ratio(station_day_table["spr"]),
         ).fillna(0)
         station_day_table = (
             station_day_table.assign(
                 target_pers=station_day_table["target_ratio"]
                 * station_day_table["spr"],
-                target_pers_sd_ratio=np.sqrt(
-                    np.power(station_day_table["spr_sd_ratio"], 2)
-                    + np.power(station_day_table["ax_sd_ratio"], 2)
+                target_pers_sd_ratio=combine_sd_ratios(
+                    station_day_table["spr_sd_ratio"], station_day_table["ax_sd_ratio"]
                 ),
             )
             .pipe(
@@ -218,6 +216,8 @@ class _Target(ABC):
             data = self.result.query(where)
         else:
             data = self.result
+        if top_n == -1:
+            top_n = data.shape[0]
         if show_col is None or show_col == list():
             show_col = [
                 "spr",
@@ -234,7 +234,7 @@ class _Target(ABC):
             .pipe(as_dtype, "int", incl_col=["spr", "target_pers", "pop_uplift_pers"])
             .reset_index()
             .pipe(unfactorize)
-            .set_index(["Station", "DayOfWeek", "Hour"])
+            .set_index(["Station", "DayOfWeek", self.timescale])
         )
         return data
 
@@ -243,7 +243,24 @@ class _Target(ABC):
         export_file_name = (
             f"{_make_file_name(self.name)} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         )
-        sheets = {_make_file_name(node.name): node.result for node in self.node_list}
+        ratios = self.result_summary()
+        summary = DataFrame.from_records(
+            index=["CH population ratio", "Ratio for all stations"],
+            columns=[self.name],
+            data=[
+                (ratios.loc["Population", "ratio"],),
+                (ratios.loc["All Stations", "ratio"],),
+            ],
+        )
+        sheets = {
+            "Summary": summary,
+            "Stations": self.best_stations(),
+            "Stations_Weekdays": self.best_station_days(),
+            "Time Slots": self.best_slots(
+                column=["target_pers", "pop_uplift_ratio"], top_n=-1
+            ),
+            "Full Result": self.result,
+        }
         with project_dir("axinova/zielgruppen_export"):
             store_xlsx(df=DataFrame(), file_name=export_file_name, sheets=sheets)
 
@@ -429,9 +446,7 @@ class Variable(_Target):
         )
         target_ratio = (ax_pers_count / ax_total_count).fillna(0)
         target_pers = target_ratio * spr_pers
-        target_pers_sd_ratio = np.sqrt(
-            np.power(ax_pers_sd_ratio, 2) + np.power(spr_sd_ratio, 2)
-        )
+        target_pers_sd_ratio = combine_sd_ratios(ax_pers_sd_ratio, spr_sd_ratio)
         target_pers_sd = target_pers * target_pers_sd_ratio
 
         # reference ratios for CH population / all _stations / each station
@@ -519,11 +534,6 @@ class _TargetCombination(_Target, ABC):
     def calculate_combination(
         self, combine_ratios: Callable[[DataSeries, DataSeries], DataSeries]
     ) -> None:
-        def combine_sd_ratios(
-            sd_ratio1: DataSeries, sd_ratio2: DataSeries
-        ) -> DataSeries:
-            return np.sqrt(np.power(sd_ratio1, 2) + np.power(sd_ratio2, 2))
-
         self.target1.calculate()
         self.target2.calculate()
         result1, result2 = self.target1.result, self.target2.result
@@ -576,11 +586,11 @@ class _TargetCombination(_Target, ABC):
 @dataclass
 class And(_TargetCombination):
     @staticmethod
-    def _and_ratio(ratio1: DataSeries, ratio2: DataSeries) -> DataSeries:
+    def and_ratio(ratio1: DataSeries, ratio2: DataSeries) -> DataSeries:
         return ratio1 * ratio2
 
     def calculate(self) -> None:
-        _TargetCombination.calculate_combination(self, combine_ratios=self._and_ratio)
+        _TargetCombination.calculate_combination(self, combine_ratios=self.and_ratio)
 
     def description(self, indent: str = "") -> str:
         description = _TargetCombination.describe_combination(self, "AND", indent)
@@ -590,11 +600,11 @@ class And(_TargetCombination):
 @dataclass
 class Or(_TargetCombination):
     @staticmethod
-    def _or_ratio(ratio1: DataSeries, ratio2: DataSeries) -> DataSeries:
+    def or_ratio(ratio1: DataSeries, ratio2: DataSeries) -> DataSeries:
         return ratio1 + ratio2 - (ratio1 * ratio2)
 
     def calculate(self) -> None:
-        _TargetCombination.calculate_combination(self, combine_ratios=self._or_ratio)
+        _TargetCombination.calculate_combination(self, combine_ratios=self.or_ratio)
 
     def description(self, indent: str = "") -> str:
         description = _TargetCombination.describe_combination(self, "OR", indent)
@@ -609,19 +619,19 @@ if __name__ == "__main__":
 
     line = "-" * 88
 
-    print(line)
-    TargetJungHoch = Variable(
-        "Jung und hohes Einkommen", variable="md_SexAgeEk", code_nr=[4, 5, 32, 33]
-    )
-    print(TargetJungHoch.description())
-    TargetJungHoch.set_timescale("Hour")
-    TargetJungHoch.calculate()
-
-    print(line)
-    TargetKMU = Variable("KMU", variable="md_920", code_nr=[1])
-    print(TargetKMU.description())
-    TargetKMU.set_timescale("Hour")
-    TargetKMU.calculate()
+    # print(line)
+    # TargetJungHoch = Variable(
+    #     "Jung und hohes Einkommen", variable="md_SexAgeEk", code_nr=[4, 5, 32, 33]
+    # )
+    # print(TargetJungHoch.description())
+    # TargetJungHoch.set_timescale("Hour")
+    # TargetJungHoch.calculate()
+    #
+    # print(line)
+    # TargetKMU = Variable("KMU", variable="md_920", code_nr=[1])
+    # print(TargetKMU.description())
+    # TargetKMU.set_timescale("Hour")
+    # TargetKMU.calculate()
 
     print(line)
     wenig_vermoegen = Variable(
@@ -638,14 +648,14 @@ if __name__ == "__main__":
         zielgruppe.calculate()
     print(zielgruppe.result.shape)
 
-    print(line)
-    zielgruppe.set_timescale("TimeSlot")
-    with time_log("calculating zielgruppe uplift per time slot"):
-        zielgruppe.calculate()
-    print(zielgruppe.result.shape)
-
-    print(line)
-    with time_log("plotting graphics"):
-        pop_heatmap = zielgruppe.plot_ch_uplift_heatmap()
-        pop_barplot = zielgruppe.plot_ch_uplift_barplot()
-        pop_stationmap = zielgruppe.plot_station_heatmap()
+    # print(line)
+    # zielgruppe.set_timescale("TimeSlot")
+    # with time_log("calculating zielgruppe uplift per time slot"):
+    #     zielgruppe.calculate()
+    # print(zielgruppe.result.shape)
+    #
+    # print(line)
+    # with time_log("plotting graphics"):
+    #     pop_heatmap = zielgruppe.plot_ch_uplift_heatmap()
+    #     pop_barplot = zielgruppe.plot_ch_uplift_barplot()
+    #     pop_stationmap = zielgruppe.plot_station_heatmap()
