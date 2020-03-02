@@ -1,0 +1,11 @@
+# exclude Jupyter notebooks
+**/*ipynb
+
+# exclude hidden & temporary stuff
+**/__pycache__
+**/.ipynb_checkpoints
+**/.git
+**/.idea
+**/.vscode
+**/.spyproject
+**/.vs
