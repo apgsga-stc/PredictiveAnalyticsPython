@@ -28,7 +28,7 @@ def show_results(target: _Target) -> None:
     stations_ranked = station_table.index.to_list()
 
     st.sidebar.markdown("### Station / Weekday Parameters")
-    station_list = st.sidebar.multiselect(
+    station_wday_list = st.sidebar.multiselect(
         label="Show stations:",
         options=source_data.all_stations,
         default=stations_ranked[:3],
@@ -36,7 +36,7 @@ def show_results(target: _Target) -> None:
     st.markdown("### Stations per weekday:")
     st.table(
         target.best_station_days(
-            where="Station == ['" + "', '".join(station_list) + "']"
+            where="Station == ['" + "', '".join(station_wday_list) + "']"
         )[["spr", "target_ratio", "target_pers", "target_pers_sd_ratio"]]
     )
 
@@ -80,11 +80,11 @@ def show_results(target: _Target) -> None:
 def show_plots(target: _Target) -> None:
     global stations_ranked
     st.sidebar.markdown("### Plot Parameters")
-    station_list = st.sidebar.multiselect(
+    station_plot_list = st.sidebar.multiselect(
         label="Show stations:",
         options=source_data.all_stations,
         default=stations_ranked[:5],
     )
-    st.markdown(f"### Plots für {', '.join(station_list)}:")
-    barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_list})
+    st.markdown(f"### Plots für {', '.join(station_plot_list)}:")
+    barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_plot_list})
     st.altair_chart(barplot, use_container_width=False)
