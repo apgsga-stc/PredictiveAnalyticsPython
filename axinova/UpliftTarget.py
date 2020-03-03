@@ -96,7 +96,7 @@ def _aggregate_spr_data(
 
 def _make_file_name(file_name: str) -> str:
     """Clean up file name (remove non-alphanumerics and space runs)"""
-    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", "", file_name))
+    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", " ", file_name))
     return new_name
 
 
