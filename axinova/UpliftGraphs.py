@@ -130,7 +130,7 @@ def barplot(
             row=alt.Row("DayOfWeek", title="Wochentag", sort=all_weekdays),
             column=alt.Column("Station", title="Bahnhof"),
         )
-        .resolve_scale(x=axes)  # "shared" | "independent"
+        .resolve_scale(x=axes, y=axes)  # "shared" | "independent"
     )
     return plot
 
