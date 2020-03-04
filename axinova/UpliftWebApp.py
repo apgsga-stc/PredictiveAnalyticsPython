@@ -1,5 +1,24 @@
+## make imports from pa_lib possible (parent directory of file's directory)
+import sys
+from pathlib import Path
+
+file_dir = Path.cwd()
+parent_dir = file_dir.parent
+sys.path.append(str(parent_dir))
+
+
 import streamlit as st
+import os
+import socket
+import urllib.parse
+
 from UpliftTarget import source_data, _Target
+from pa_lib.const import PA_DATA_DIR
+
+# Get environment if we're running in a container
+host_name = os.getenv("ZG_HOST_NAME", socket.getfqdn())
+host_port = os.getenv("ZG_EXPORT_PORT", 8081)
+export_dir = os.getenv("ZG_EXPORT_DIR", f"{PA_DATA_DIR}/axinova/zielgruppen_export")
 
 stations_ranked = list()
 
@@ -9,6 +28,18 @@ def calculate_target(target: _Target) -> _Target:
     target.set_timescale("Hour")
     target.calculate()
     return target
+
+
+def export_results(target: _Target) -> None:
+    global host_name, host_port, export_dir
+
+    export_file_name = target.export_result(to_directory=export_dir)
+    html_file_name = urllib.parse.quote(export_file_name.encode("utf-8"))
+    file_address = f"http://{host_name}:{host_port}/{html_file_name}"
+    st.markdown(
+        f'Download file: <a href="{file_address}">{export_file_name}</a>',
+        unsafe_allow_html=True,
+    )
 
 
 def describe_target(target: _Target) -> None:
