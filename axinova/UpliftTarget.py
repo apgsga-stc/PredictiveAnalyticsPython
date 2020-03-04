@@ -239,7 +239,7 @@ class _Target(ABC):
         return data
 
     ## Result export  ##################################################################
-    def export_result(self):
+    def export_result(self, to_directory: str = None) -> str:
         export_file_name = (
             f"{_make_file_name(self.name)} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         )
@@ -261,8 +261,12 @@ class _Target(ABC):
             ),
             "Full Result": self.result,
         }
-        with project_dir("axinova/zielgruppen_export"):
+        dir_name = (
+            "axinova/zielgruppen_export" if to_directory is None else to_directory
+        )
+        with project_dir(dir_name):
             store_xlsx(df=DataFrame(), file_name=export_file_name, sheets=sheets)
+        return export_file_name
 
     ## Visualisation methods ###########################################################
     def plot_ch_uplift_heatmap(
