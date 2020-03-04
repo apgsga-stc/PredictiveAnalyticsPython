@@ -1,7 +1,13 @@
 import streamlit as st
 
 from UpliftTarget import And, Variable
-from UpliftWebApp import calculate_target, describe_target, show_plots, show_results
+from UpliftWebApp import (
+    calculate_target,
+    describe_target,
+    export_results,
+    show_plots,
+    show_results,
+)
 
 
 # define target groups
@@ -32,10 +38,10 @@ target_key = st.selectbox(
 # calculate ratios for selected target
 target = calculate_target(all_targets[target_key])
 
+if st.button("Prepare XLSX file with results"):
+    export_results(target)
+
 # show results
 describe_target(target)
 show_results(target)
 show_plots(target)
-
-if st.button("Store results as XLSX"):
-    target.export_result()
