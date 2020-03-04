@@ -26,11 +26,16 @@ flatten_multi_cols = partial(flatten_multi_index_cols, sep="|")
 _project_dir = PA_DATA_DIR  # initialize to base data directory
 
 
-def set_project_dir(dir_name):
-    """Set current project dir under base data directory to work in.
-       Will be created if not present"""
+def set_project_dir(dir_name: str) -> None:
+    """Set current project dir to work in.
+       If dir_name starts with "/", path is supposed to be absolute.
+       Otherwise, it's interpreted to be below PA_DATA_DIR.
+       Directory will be created if not existing."""
     global _project_dir
-    new_project_dir = PA_DATA_DIR / dir_name
+    if str(dir_name)[0] == "/":
+        new_project_dir = Path(dir_name).resolve()
+    else:
+        new_project_dir = PA_DATA_DIR / dir_name
     if not new_project_dir.exists():
         new_project_dir.mkdir()
     if new_project_dir.is_dir():
@@ -55,12 +60,13 @@ def get_project_dir():
 @contextmanager
 def project_dir(dir_name):
     """Temporarily switch into another project dir"""
-    previous_project_dir = get_project_dir()
+    global _project_dir
+    previous_project_dir = _project_dir
     set_project_dir(dir_name)
     try:
         yield
     finally:
-        set_project_dir(previous_project_dir)
+        _project_dir = previous_project_dir
 
 
 ########################################################################################
@@ -158,6 +164,8 @@ def _normalize(df):
 
 def _store_df(df, file_name, file_type, **params):
     file_path = (_project_dir / file_name).resolve()
+    df_out = pd.DataFrame()
+
     # Pickle files support all python objects. For other formats, normalize df.
     if file_type == "xlsx":
         pass
