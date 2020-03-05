@@ -1,0 +1,29 @@
+{
+	"age_25_44": {
+		"type": "Variable",
+		"name": "Age 25-44",
+		"variable": "md_agenatrep",
+		"code_nr": [
+			1
+		]
+	},
+	"wohnen": {
+		"type": "And",
+		"target1": {
+			"type": "Variable",
+			"name": "Kind < 18",
+			"variable": "md_hhu18",
+			"code_nr": [
+				0
+			]
+		},
+		"target2": {
+			"type": "Variable",
+			"name": "Haushalt > 2",
+			"variable": "md_hhgr3",
+			"code_nr": [
+				2
+			]
+		}
+	}
+}
