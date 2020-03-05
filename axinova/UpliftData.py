@@ -163,6 +163,14 @@ def _load_data() -> UpliftData:
             Codes=struct["Label"].to_list(),
             Order=list(range(len(struct["Label_Nr"].to_list()))),
         )
+    data.combi_var = {
+        "md_SexAgeEk": (
+            data.variable_table("md_SexAgeEk")
+            .iloc[:, 0]
+            .str.split("/ ", expand=True)
+            .rename(columns={0: "md_sex", 1: "md_agenatrep", 2: "md_ek"})
+        )
+    }
     return data
 
 
