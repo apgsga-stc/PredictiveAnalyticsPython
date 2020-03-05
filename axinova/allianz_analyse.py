@@ -3,10 +3,16 @@ import streamlit as st
 from UpliftTarget import And, Variable
 from UpliftWebApp import (
     calculate_target,
+    choose_stations,
+    choose_target,
     describe_target,
     export_results,
-    show_plots,
-    show_results,
+    show_station_heatmaps_plot,
+    show_station_weekdays,
+    show_stations,
+    show_summary,
+    show_timeslot_plot,
+    show_timeslots,
 )
 
 
@@ -28,20 +34,26 @@ def create_targets() -> dict:
 
 # choose target group
 all_targets = create_targets()
-target_key = st.selectbox(
-    label="Choose Target Group:",
-    options=list(all_targets.keys()),
-    index=0,
-    format_func=lambda key: all_targets[key].name,
-)
+target_key = choose_target(all_targets)
 
 # calculate ratios for selected target
 target = calculate_target(all_targets[target_key])
 
-if st.button("Prepare XLSX file with results"):
+if st.button("Prepare XLSX file with all results"):
     export_results(target)
 
-# show results
+# show result header
+station_list = choose_stations()
 describe_target(target)
-show_results(target)
-show_plots(target)
+
+# choose detail result to show
+results = {
+    "Summary": lambda tgt, _: show_summary(tgt),
+    "All Stations": lambda tgt, _: show_stations(tgt),
+    "Stations / Weekdays": lambda tgt, sl: show_station_weekdays(tgt, sl),
+    "Station Heatmaps": lambda tgt, sl: show_station_heatmaps_plot(tgt, sl),
+    "Best Timeslots": lambda tgt, _: show_timeslots(tgt),
+    "Timeslot Plots": lambda tgt, sl: show_timeslot_plot(tgt, sl),
+}
+result_key = st.selectbox("Choose result:", options=list(results.keys()))
+results[result_key](target, station_list)
