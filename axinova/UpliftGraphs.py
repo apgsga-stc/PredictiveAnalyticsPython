@@ -11,7 +11,6 @@ from typing import Tuple, List
 
 from pa_lib.data import select_rows, as_dtype, unfactorize
 from .UpliftLib import all_weekdays, DataSeries, DataFrame
-from .UpliftData import SOURCE_DATA
 
 
 ########################################################################################
@@ -96,7 +95,6 @@ def barplot(
     title: str,
     timescale: str,
     target_col: str,
-    target_ci_col: str,
     target_threshold: float,
     target_title: str,
     axes: str,
@@ -135,7 +133,7 @@ def barplot(
     return plot
 
 
-def station_heatmap(
+def stations_weekday_heatmap(
     data: DataFrame,
     selectors: dict,
     title: str,
@@ -153,7 +151,7 @@ def station_heatmap(
         .mark_rect()
         .encode(
             y="Station:N",
-            x=alt.X("DayOfWeek:O", sort=SOURCE_DATA.all_weekdays),
+            x=alt.X("DayOfWeek:O", sort=all_weekdays),
             color=alt.Color(
                 f"{target_col}:Q",
                 title=target_title,
@@ -174,3 +172,51 @@ def station_heatmap(
         )
     )
     return chart
+
+
+def station_heatmaps(
+    data: DataFrame, selectors: dict, properties: dict, color_range: List[str] = None
+) -> alt.Chart:
+    if color_range is None:
+        color_range = ["white", "darkgreen"]
+    chart_data = prepare_chart_data(data, selectors)
+
+    def station_heatmap(station: str) -> alt.Chart:
+        single_chart_data = chart_data.query("Station == @station")
+        chart = (
+            alt.Chart(single_chart_data, title=station)
+            .properties(**properties)
+            .mark_rect()
+            .encode(
+                x=alt.X("DayOfWeek:O", sort=all_weekdays),
+                y=alt.Y("Hour:O"),
+                color=alt.Color(
+                    "target_pers:Q",
+                    title="Zielpersonen",
+                    scale=alt.Scale(
+                        range=color_range,
+                        type="linear",
+                        zero=True,
+                        domain=heatmap_range(
+                            single_chart_data["target_pers"], scale=0.8
+                        ),
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip("Station", title="Bahnhof"),
+                    alt.Tooltip("DayOfWeek", title="Wochentag"),
+                    alt.Tooltip("spr:Q", title="Total"),
+                    alt.Tooltip("target_pers", title="Zielgruppe"),
+                ],
+            )
+        )
+        return chart
+
+    charts = [
+        station_heatmap(station) for station in sorted(chart_data["Station"].unique())
+    ]
+    return (
+        alt.hconcat(*charts)
+        .properties(background="white")
+        .resolve_scale(color="independent")
+    )
