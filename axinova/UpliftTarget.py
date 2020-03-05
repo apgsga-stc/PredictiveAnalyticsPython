@@ -18,7 +18,12 @@ from pa_lib.util import list_items, default_dict
 from pa_lib.data import clean_up_categoricals, unfactorize, as_dtype
 from pa_lib.file import project_dir, store_xlsx
 from axinova.UpliftData import UpliftData, SOURCE_DATA
-from axinova.UpliftGraphs import heatmap, barplot, station_heatmap
+from axinova.UpliftGraphs import (
+    heatmap,
+    barplot,
+    stations_weekday_heatmap,
+    station_heatmaps,
+)
 from axinova.UpliftLib import (
     VarId,
     IntList,
@@ -298,7 +303,6 @@ class _Target(ABC):
         self,
         selectors: dict = None,
         target_col: str = "pop_uplift_pers",
-        target_ci_col: str = "target_pers_sd",
         target_threshold: float = 0,
         plot_properties: dict = None,
         axes: str = "independent",
@@ -317,7 +321,6 @@ class _Target(ABC):
             title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
             target_col=target_col,
-            target_ci_col=target_ci_col,
             target_threshold=target_threshold,
             target_title=target_col,
             axes=axes,
@@ -351,7 +354,7 @@ class _Target(ABC):
         )
         return chart
 
-    def plot_station_heatmap(
+    def plot_stations_weekday_heatmap(
         self,
         selectors: dict = None,
         target_col: str = "target_ratio",
@@ -365,13 +368,27 @@ class _Target(ABC):
         properties = default_dict(
             plot_properties, defaults=dict(width=400, height=800, background="white")
         )
-        chart = station_heatmap(
+        chart = stations_weekday_heatmap(
             data=self.result,
             selectors=selectors,
             title=f"{self.name}: Prozent",
             target_col=target_col,
             target_title="Zielgruppe [%]",
             properties=properties,
+        )
+        return chart
+
+    def plot_station_heatmaps(
+        self, selectors: dict = None, plot_properties: dict = None
+    ) -> alt.Chart:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(plot_properties, defaults=dict(width=250, height=600))
+        chart = station_heatmaps(
+            data=self.result, selectors=selectors, properties=properties
         )
         return chart
 

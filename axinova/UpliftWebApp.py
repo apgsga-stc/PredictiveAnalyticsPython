@@ -20,7 +20,14 @@ host_name = os.getenv("ZG_HOST_NAME", socket.getfqdn())
 host_port = os.getenv("ZG_EXPORT_PORT", 8081)
 export_dir = os.getenv("ZG_EXPORT_DIR", f"{PA_DATA_DIR}/axinova/zielgruppen_export")
 
-stations_ranked = list()
+
+def choose_target(all_targets) -> str:
+    return st.selectbox(
+        label="Choose Target Group:",
+        options=list(all_targets.keys()),
+        index=0,
+        format_func=lambda key: all_targets[key].name,
+    )
 
 
 @st.cache(allow_output_mutation=True)
@@ -42,6 +49,13 @@ def export_results(target: _Target) -> None:
     )
 
 
+def choose_stations() -> list:
+    st.sidebar.markdown("### Table / Plot Parameters")
+    return st.sidebar.multiselect(
+        label="Choose stations:", options=source_data.all_stations
+    )
+
+
 def describe_target(target: _Target) -> None:
     st.markdown("# Zielgruppen-Analyse")
     st.markdown(f"## Target Group: {target.name}")
@@ -49,28 +63,33 @@ def describe_target(target: _Target) -> None:
     st.text(target.description())
 
 
-def show_results(target: _Target) -> None:
-    global stations_ranked
+def show_summary(target: _Target) -> None:
     st.markdown("### Summary:")
     st.table(target.result_summary())
-    st.markdown("### Stations per week:")
+
+
+def show_stations(target: _Target) -> None:
+    st.markdown("### All stations (sum per week):")
     station_table = target.best_stations(where="spr > 0")
     st.table(station_table)
-    stations_ranked = station_table.index.to_list()
 
-    st.sidebar.markdown("### Station / Weekday Parameters")
-    station_wday_list = st.sidebar.multiselect(
-        label="Show stations:",
-        options=source_data.all_stations,
-        default=stations_ranked[:3],
-    )
+
+def show_station_weekdays(target: _Target, station_list: list) -> None:
     st.markdown("### Stations per weekday:")
     st.table(
         target.best_station_days(
-            where="Station == ['" + "', '".join(station_wday_list) + "']"
+            where="Station == ['" + "', '".join(station_list) + "']"
         )[["spr", "target_ratio", "target_pers", "target_pers_sd_ratio"]]
     )
 
+
+def show_station_heatmaps_plot(target: _Target, station_list: list) -> None:
+    st.markdown(f"### Heatmaps für {', '.join(sorted(station_list))}:")
+    heatmaps = target.plot_station_heatmaps(selectors={"Station": station_list})
+    st.altair_chart(heatmaps, use_container_width=False)
+
+
+def show_timeslots(target: _Target) -> None:
     st.sidebar.markdown("### Best Slot Parameters")
     sort_col_list = st.sidebar.multiselect(
         label="Sort by column(s) [descending]:",
@@ -108,14 +127,7 @@ def show_results(target: _Target) -> None:
     )
 
 
-def show_plots(target: _Target) -> None:
-    global stations_ranked
-    st.sidebar.markdown("### Plot Parameters")
-    station_plot_list = st.sidebar.multiselect(
-        label="Show stations:",
-        options=source_data.all_stations,
-        default=stations_ranked[:5],
-    )
-    st.markdown(f"### Plots für {', '.join(station_plot_list)}:")
-    barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_plot_list})
+def show_timeslot_plot(target: _Target, station_list: list) -> None:
+    st.markdown(f"### Plots für {', '.join(sorted(station_list))}:")
+    barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_list})
     st.altair_chart(barplot, use_container_width=False)
