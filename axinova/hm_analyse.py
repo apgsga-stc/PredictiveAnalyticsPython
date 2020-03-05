@@ -1,7 +1,12 @@
 import streamlit as st
 
 from UpliftTarget import Variable, And, Or, source_data
-from UpliftWebApp import calculate_target, describe_target, show_plots, show_results
+from UpliftWebApp import (
+    calculate_target,
+    describe_target,
+    show_timeslot_plot,
+    show_results,
+)
 
 
 # define target groups
@@ -60,7 +65,7 @@ target = calculate_target(all_targets[target_key])
 # show results
 describe_target(target)
 show_results(target)
-show_plots(target)
+show_timeslot_plot(target)
 
 if st.button("Store results as XLSX"):
     target.export_result()
