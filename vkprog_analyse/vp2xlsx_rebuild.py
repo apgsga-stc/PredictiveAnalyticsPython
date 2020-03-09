@@ -16,82 +16,74 @@ sys.path.append(str(parent_dir))
 ################################################################################
 # %% Load modules
 import os
-import pandas    as pd
-import numpy     as np
-from pathlib     import Path
-from os          import mkdir
-from pa_lib.log  import info
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from os import mkdir
+from pa_lib.log import info
 from pa_lib.util import excel_col
-from pa_lib.job  import request_job # lazy recursive job dependency request
-from pa_lib.file import (
-    project_dir,
-    load_bin,
-    load_csv,
-    )
+from pa_lib.job import request_job  # lazy recursive job dependency request
+from pa_lib.file import project_dir, load_bin, load_csv
 
 ################################################################################
 #%% Define data location and deployment folder
 
 # Cutoff for predictions:
-gv_MIN_PROB = 0.01 # I don't know. Has been defined back in the days.
+gv_MIN_PROB = 0.01  # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder  = '2020_02_24' # Example: '2019_10_21'
-ek_list_name      = "20200224_ek_list.feather"
+name_depl_folder = "2020_03_09"  # Example: '2019_10_21'
+ek_list_name = "20200309_ek_list.feather"
 
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = (
     ## Server or on your machine:
-    #Path('/mnt/predictiveanalytics/') / name_depl_folder
-    Path('P:\Service\Kennzahlen\Verkauf\PredictiveAnalytics') / name_depl_folder
-    )
+    # Path('/mnt/predictiveanalytics/') / name_depl_folder
+    Path("P:\Service\Kennzahlen\Verkauf\PredictiveAnalytics")
+    / name_depl_folder
+)
 
 os.mkdir(deployment_folder)
 
 ################################################################################
 ## Recursive Dependency Check:
-request_job(job_name="vkber_prepare.py", current= "This Week") 
+request_job(job_name="vkber_prepare.py", current="This Week")
 # output: vkber_data.csv
 
 ################################################################################
 # %% Load Data: Active VBs, Complete scoring list
 
 with project_dir("vkprog"):
-    vb_list = load_csv(
-        "vkber_data.csv",
-        sep=',',
-        encoding='UTF-8',
-        )
-  
-  
+    vb_list = load_csv("vkber_data.csv", sep=",", encoding="UTF-8")
+
+
 with project_dir("vkprog/predictions"):
     ek_list = load_bin(ek_list_name)
 
 ################################################################################
 ## Change KAM Thomas Macho (TMA) to None-KAM:
 
-vb_list.loc[vb_list.KURZZEICHEN == "TMA","KAM"] = False
+vb_list.loc[vb_list.KURZZEICHEN == "TMA", "KAM"] = False
 ################################################################################
 # %% Data Preparation:Complete Scoring Table
 
+
 def select_columns(df, pattern):
-    return (df.columns
-            .to_series()
-            .loc[df.columns.str.match(pattern)]
-            .to_list()
-            )
+    return df.columns.to_series().loc[df.columns.str.match(pattern)].to_list()
+
 
 # Column selection:
 
-_col_selection = ("""Endkunde_NR 
+_col_selection = (
+    """Endkunde_NR 
                     Endkunde 
                     HB_APG 
                     Agentur 
                     HB_Agentur 
                     PLZ 
-                    Ort""".split() +
-                  select_columns(ek_list, pattern='^Net_2') +
-                  """letzte_VBs
+                    Ort""".split()
+    + select_columns(ek_list, pattern="^Net_2")
+    + """letzte_VBs
                      letzter_Kontakt 
                      Datum_Letzter_Ktkt 
                      Kanal 
@@ -99,94 +91,90 @@ _col_selection = ("""Endkunde_NR
                      letzte_Kamp_erfasst 
                      letzte_Kamp_Beginn 
                      Verkaufsgebiet 
-                     VB_VK_Geb""".split() +
-                  select_columns(ek_list, pattern='^prob_KW'))
+                     VB_VK_Geb""".split()
+    + select_columns(ek_list, pattern="^prob_KW")
+)
 
 
 # Row selection/filter:
-prob_KW     = [col for col in ek_list.columns if col.startswith("prob_KW")][0]
+prob_KW = [col for col in ek_list.columns if col.startswith("prob_KW")][0]
 net_columns = [col for col in ek_list.columns if col.startswith("Net_")]
 
 pauschale_filter = (
     # Minimum Probability:
-    (ek_list.loc[:,prob_KW] > gv_MIN_PROB
-    ) &
-    
+    (ek_list.loc[:, prob_KW] > gv_MIN_PROB)
+    &
     # Insolvenz:
-    (ek_list.loc[:,"Insolvenz"] 
-         != True
-    ) &
-    
+    (ek_list.loc[:, "Insolvenz"] != True)
+    &
     # kuerzlich_gebucht (in den letzten 2 Monaten erfasste Kampagnen):
-    (ek_list.loc[:,"letzte_Kamp_erfasst"] 
+    (
+        ek_list.loc[:, "letzte_Kamp_erfasst"]
         < pd.Timestamp.now() - pd.DateOffset(months=2)
-    ) &
-    
-    # kuerzlich_im_aushang (Aushangbeginn vor 1 Monat oder später):
-    (ek_list.loc[:,"letzte_Kamp_Beginn"] 
-        < pd.Timestamp.now() - pd.DateOffset(months=1)
-    ) &
-    
-    # keine Kleinkunden (Ueber die letzten 4 Jahre nie mehr als 3'000 pro Jahr):
-    (ek_list.loc[:,net_columns].max(axis=1).fillna(0) 
-        > 3000
-    ) &
-    
-    # keine Neukunden (Alle, die erst im aktuellen Jahr Umsatz hatten):
-    ((ek_list.loc[:,sorted(net_columns, reverse=True)[1:]]
-             .max(axis=1)
-             .fillna(0))
-        > 0
-    ) &
-    
-    # Umsatz_erreicht (80% Netto-Umsatz gem. Vorjahr erreicht) 
-    ((ek_list.loc[:,sorted(net_columns, reverse=True)[0]]
-             .fillna(0))
-         <= 0.8*(ek_list.loc[:,sorted(net_columns, reverse=True)[1]]
-                        .fillna(0))
-    ) &
-    
-    # kuerzlich_im_kontakt (keine Kunden, mit CRM-Kontakt in den letzten 4 Wochen)
-    (ek_list.loc[:,"last_CRM_Ktkt_date"].fillna(pd.Timestamp.now() - pd.DateOffset(years=100)) 
-        < pd.Timestamp.now() - pd.DateOffset(months=1)
-    ) &
-    
-    # VB_FILTER_AKTIV (in CRM ist eine gültige Sperre für Kunden erfasst)
-     ~(# We define the evil ones, and take the boolean opposite:
-    
-         # Both entries exist: Customer is right now within "Sperre"
-        ((ek_list.loc[:,"VB_FILTER_VON"] < pd.Timestamp.now()) &
-         (pd.Timestamp.now() <= ek_list.loc[:,"VB_FILTER_BIS"]))
-
-        |# No end date, but begin date exists: 
-        ((ek_list.loc[:,"VB_FILTER_VON"] < pd.Timestamp.now()) &
-         (ek_list.loc[:,"VB_FILTER_BIS"].isna() ))
-
-        |# No begin date, but end date exists:
-        (ek_list.loc[:,"VB_FILTER_VON"].isna() & 
-         (ek_list.loc[:,"VB_FILTER_BIS"] <= pd.Timestamp.now() )) 
-     )
-    
     )
+    &
+    # kuerzlich_im_aushang (Aushangbeginn vor 1 Monat oder später):
+    (
+        ek_list.loc[:, "letzte_Kamp_Beginn"]
+        < pd.Timestamp.now() - pd.DateOffset(months=1)
+    )
+    &
+    # keine Kleinkunden (Ueber die letzten 4 Jahre nie mehr als 3'000 pro Jahr):
+    (ek_list.loc[:, net_columns].max(axis=1).fillna(0) > 3000)
+    &
+    # keine Neukunden (Alle, die erst im aktuellen Jahr Umsatz hatten):
+    ((ek_list.loc[:, sorted(net_columns, reverse=True)[1:]].max(axis=1).fillna(0)) > 0)
+    &
+    # Umsatz_erreicht (80% Netto-Umsatz gem. Vorjahr erreicht)
+    (
+        (ek_list.loc[:, sorted(net_columns, reverse=True)[0]].fillna(0))
+        <= 0.8 * (ek_list.loc[:, sorted(net_columns, reverse=True)[1]].fillna(0))
+    )
+    &
+    # kuerzlich_im_kontakt (keine Kunden, mit CRM-Kontakt in den letzten 4 Wochen)
+    (
+        ek_list.loc[:, "last_CRM_Ktkt_date"].fillna(
+            pd.Timestamp.now() - pd.DateOffset(years=100)
+        )
+        < pd.Timestamp.now() - pd.DateOffset(months=1)
+    )
+    &
+    # VB_FILTER_AKTIV (in CRM ist eine gültige Sperre für Kunden erfasst)
+    ~(  # We define the evil ones, and take the boolean opposite:
+        # Both entries exist: Customer is right now within "Sperre"
+        (
+            (ek_list.loc[:, "VB_FILTER_VON"] < pd.Timestamp.now())
+            & (pd.Timestamp.now() <= ek_list.loc[:, "VB_FILTER_BIS"])
+        )
+        | (  # No end date, but begin date exists:
+            (ek_list.loc[:, "VB_FILTER_VON"] < pd.Timestamp.now())
+            & (ek_list.loc[:, "VB_FILTER_BIS"].isna())
+        )
+        | (  # No begin date, but end date exists:
+            ek_list.loc[:, "VB_FILTER_VON"].isna()
+            & (ek_list.loc[:, "VB_FILTER_BIS"] <= pd.Timestamp.now())
+        )
+    )
+)
 
 # Apply: Row-Selection & Column Selection
-ek_list = (ek_list.loc[pauschale_filter , _col_selection])
+ek_list = ek_list.loc[pauschale_filter, _col_selection]
 
 ################################################################################
 # %% Data-Type Clean Up:
 
-ek_list.loc[:,prob_KW] = 100 * ek_list.loc[:,prob_KW] # shows percentage
+ek_list.loc[:, prob_KW] = 100 * ek_list.loc[:, prob_KW]  # shows percentage
+
 
 def parse_ints(df, columns):
     result = df.copy()
-    result.loc[:, columns] = result.loc[:, columns].fillna(0).astype('int64')
+    result.loc[:, columns] = result.loc[:, columns].fillna(0).astype("int64")
     return result
 
-int_columns  = ["PLZ", "Endkunde_NR"] + select_columns(ek_list, pattern='^Net_')
 
-ek_list = (ek_list
-           .pipe(parse_ints, int_columns)
-           )
+int_columns = ["PLZ", "Endkunde_NR"] + select_columns(ek_list, pattern="^Net_")
+
+ek_list = ek_list.pipe(parse_ints, int_columns)
 
 ################################################################################
 # %% Data Preparation: Active VB-list
@@ -194,14 +182,15 @@ ek_list = (ek_list
 
 vb_list = (
     vb_list.assign(
-        Vorname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[2]),
-        Nachname=vb_list['KOMBI_NAME'].apply(lambda x: x.rpartition(' ')[0])
-        )
-        .loc[vb_list['KAM'] == False,
-             ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"]
-            ]
-        .set_index("KURZZEICHEN")
+        Vorname=vb_list["KOMBI_NAME"].apply(lambda x: x.rpartition(" ")[2]),
+        Nachname=vb_list["KOMBI_NAME"].apply(lambda x: x.rpartition(" ")[0]),
     )
+    .loc[
+        vb_list["KAM"] == False,
+        ["Vorname", "Nachname", "E_MAIL", "FUNKTION", "KURZZEICHEN"],
+    ]
+    .set_index("KURZZEICHEN")
+)
 
 ################################################################################
 # %% Data Preparation:
@@ -209,92 +198,82 @@ vb_list = (
 vb_ek_map = {}
 
 for vb_kuerz in vb_list.index:
-    vb_ek_map[vb_kuerz] = (
-        ek_list.loc[
-            (ek_list.HB_APG == vb_kuerz) |  # VB Endkunde
-            (ek_list.HB_Agentur == vb_kuerz)  # VB Agentur
-            ].sort_values(
-                select_columns(ek_list,pattern='^prob_KW'),
-                ascending=False
-                )  # highest probability first.
-    )
+    vb_ek_map[vb_kuerz] = ek_list.loc[
+        (ek_list.HB_APG == vb_kuerz)
+        | (ek_list.HB_Agentur == vb_kuerz)  # VB Endkunde  # VB Agentur
+    ].sort_values(
+        select_columns(ek_list, pattern="^prob_KW"), ascending=False
+    )  # highest probability first.
 
 ################################################################################
 # %% Create VB overview with number of potential leads
 vb_nleads = pd.DataFrame.from_records(
-    columns = ['total_leads'],
-    data    = [(vb_ek_map[kuerz].shape[0],) for kuerz in vb_ek_map.keys()],
-    index   = vb_ek_map.keys()
-    )
+    columns=["total_leads"],
+    data=[(vb_ek_map[kuerz].shape[0],) for kuerz in vb_ek_map.keys()],
+    index=vb_ek_map.keys(),
+)
 
-vb_list = vb_list.merge(vb_nleads,
-                        left_index  = True,
-                        right_index = True)
+vb_list = vb_list.merge(vb_nleads, left_index=True, right_index=True)
 
 ################################################################################
 # %% Define overview-excel creator
-def overview_xlsx(df, file_name, sheet_name='df'):
+def overview_xlsx(df, file_name, sheet_name="df"):
     """
     Write df into a XLSX with fixed title row, enable auto filters
     """
 
     # column widths as max strlength of column's contents
-    col_width = (
-        df.astype('str')
-          .apply(lambda col: max(col.str.len()))
-          .to_list()
-        )
-    
+    col_width = df.astype("str").apply(lambda col: max(col.str.len())).to_list()
+
     title_width = list(map(len, df.columns))
 
     # open file, create workbook & sheet
     file_path = deployment_folder / file_name
-    info(f'Write file {file_path}')
-    writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
+    info(f"Write file {file_path}")
+    writer = pd.ExcelWriter(file_path, engine="xlsxwriter")
     df.to_excel(writer, index=False, sheet_name=sheet_name)
-    workbook  = writer.book
+    workbook = writer.book
     worksheet = writer.sheets[sheet_name]
 
     # add formatting
     ncols = df.shape[-1]
     title_cells = (0, 0, 0, ncols - 1)
-    bold = workbook.add_format({'bold': True, 'align': 'left'})
+    bold = workbook.add_format({"bold": True, "align": "left"})
     worksheet.set_row(0, cell_format=bold)
     worksheet.autofilter(*title_cells)
     worksheet.freeze_panes(1, 0)
 
     # Column autowidth: set each to max(col_width, title_width) + 1
     for col in range(ncols):
-        worksheet.set_column(col, 
-                             col,
-                             max(col_width[col], title_width[col]) + 1
-                            )
+        worksheet.set_column(col, col, max(col_width[col], title_width[col]) + 1)
     writer.save()
+
 
 ################################################################################
 # %% Excel column names
 # map all names on itself, then adjust those which need to be adjusted:
 
-xlsx_col_names = dict(zip(ek_list.keys(),
-                          ek_list.keys()))
+xlsx_col_names = dict(zip(ek_list.keys(), ek_list.keys()))
 xlsx_col_names.update(
-    {'Endkunde_NR': 'Gepard-Nr. Endkunde',
-     'HB_APG': 'VB Endkunde',
-     'HB_Agentur': 'VB Agentur',
-     'letzte_VBs': 'VBs letzte Kampagnen',
-     'letzter_Kontakt': 'Kz letzter Kontakt',
-     'Datum_Letzter_Ktkt': 'Letzter CRM-Kontakt',
-     'letzte_Kamp_erfasst': 'Letzte Kampagne erfasst am',
-     'letzte_Kamp_Beginn': 'Beginn letzte Kampagne',
-     'VB_VK_Geb': 'Gebiets-VB'}
+    {
+        "Endkunde_NR": "Gepard-Nr. Endkunde",
+        "HB_APG": "VB Endkunde",
+        "HB_Agentur": "VB Agentur",
+        "letzte_VBs": "VBs letzte Kampagnen",
+        "letzter_Kontakt": "Kz letzter Kontakt",
+        "Datum_Letzter_Ktkt": "Letzter CRM-Kontakt",
+        "letzte_Kamp_erfasst": "Letzte Kampagne erfasst am",
+        "letzte_Kamp_Beginn": "Beginn letzte Kampagne",
+        "VB_VK_Geb": "Gebiets-VB",
+    }
 )
 
 for x in xlsx_col_names.keys():
-    if 'prob_' in x:
-        xlsx_col_names[x] = 'Chance'
+    if "prob_" in x:
+        xlsx_col_names[x] = "Chance"
         break
 
-        
+
 ################################################################################
 # %% Excel Info text: This will be displayed in every Excel sheet.
 info_text = """Liste von potenziell interessanten Kundenkontakten.
@@ -310,12 +289,12 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
     Input: Dictionary mit VBs als Keys und Dataframes (Top20 pro VB) als value.
     Output: Pro VB wird ein formatiertes Excel generiert.
     """
-    file_name_templ = 'EK_LIST_2W_KOMPAKT_{0}.xlsx'
-    sheet_name_templ = 'EK_LIST_2W_KOMPAKT_{0}'
+    file_name_templ = "EK_LIST_2W_KOMPAKT_{0}.xlsx"
+    sheet_name_templ = "EK_LIST_2W_KOMPAKT_{0}"
 
     for vb in vb_lists.keys():
         if len(vb_lists[vb]) == 0:
-            info('Verkaufsberater ' + vb + ' hat keine Leads.')
+            info("Verkaufsberater " + vb + " hat keine Leads.")
             continue
 
         ## Technical Definitions:
@@ -323,25 +302,27 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         column_names = df_vb.keys()  # Column names, titles
         feedback_col = excel_col(len(column_names) + 1)  # Feedback-Spalte
         comment_col = excel_col(len(column_names) + 2)  # Kommentar-Spalte
-        lengths = (list(np.vectorize(len)(df_vb.values.astype(str))
-                        .max(axis=0)))
+        lengths = list(np.vectorize(len)(df_vb.values.astype(str)).max(axis=0))
         # => Maximal character length for each column
         types = dict(df_vb.dtypes.astype(str))  # Types for each column
-        excel_columns = {excel_col(i + 1): column_names[i]
-                         for i in range(0, len(column_names))}
+        excel_columns = {
+            excel_col(i + 1): column_names[i] for i in range(0, len(column_names))
+        }
         # => Dictionary: Column to Name
-        excel_width = {excel_col(i + 1): lengths[i] + 1
-                       for i in range(0, len(column_names))}
+        excel_width = {
+            excel_col(i + 1): lengths[i] + 1 for i in range(0, len(column_names))
+        }
         # => Dictionary: Column to Widths
 
         ## Define feedback list for Drop-Down:
-        feedback = {'validate': 'list',
-                    'source': ['hilfreich', 'nicht hilfreich',
-                               'nicht bearbeitet'],
-                    'input_title': 'Bitte beurteilen:',
-                    'input_message': '- hilfreich\n- nicht hilfreich\n- nicht bearbeitet',
-                    'error_title': 'Eingabe ungültig',
-                    'error_message': 'Bitte auswählen:\n  - hilfreich\n  - nicht hilfreich\n  - nicht bearbeitet'}
+        feedback = {
+            "validate": "list",
+            "source": ["hilfreich", "nicht hilfreich", "nicht bearbeitet"],
+            "input_title": "Bitte beurteilen:",
+            "input_message": "- hilfreich\n- nicht hilfreich\n- nicht bearbeitet",
+            "error_title": "Eingabe ungültig",
+            "error_message": "Bitte auswählen:\n  - hilfreich\n  - nicht hilfreich\n  - nicht bearbeitet",
+        }
 
         info(f"Write file {deployment_folder / file_name_templ.format(vb)}")
 
@@ -349,169 +330,192 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         writer = pd.ExcelWriter(
             str(deployment_folder / file_name_templ.format(vb)),
             # os.getcwd() + '\\output\\' + file_name_templ.format(vb)+'.xlsx',
-            engine='xlsxwriter',
-            datetime_format="dd.mm.yyyy"
-            )
+            engine="xlsxwriter",
+            datetime_format="dd.mm.yyyy",
+        )
 
         ## Convert the dataframe to an XlsxWriter Excel object:
-        df_vb.to_excel(writer,
-                       sheet_name=sheet_name_templ.format(vb),
-                       index=False,
-                       freeze_panes=(1, 5))
+        df_vb.to_excel(
+            writer,
+            sheet_name=sheet_name_templ.format(vb),
+            index=False,
+            freeze_panes=(1, 5),
+        )
 
         ## Create xlsxwriter workbook object:
         workbook = writer.book
         worksheet = writer.sheets[sheet_name_templ.format(vb)]
 
         ## Define column formats:
-        column_format_text = workbook.add_format(
-            {'align': 'left', 'valign': 'bottom'})
+        column_format_text = workbook.add_format({"align": "left", "valign": "bottom"})
         column_format_txt_wrap = workbook.add_format(
-            {'align': 'left', 'valign': 'bottom', 'text_wrap': True})
+            {"align": "left", "valign": "bottom", "text_wrap": True}
+        )
         # => Commentary fields need
         column_format_umsatz = workbook.add_format(
-            {'align': 'right', 'valign': 'bottom', 'num_format': "#,###"})
+            {"align": "right", "valign": "bottom", "num_format": "#,###"}
+        )
         # => Netto-Umsatz!
         column_format_prob = workbook.add_format(
-            {'align': 'right', 'valign': 'bottom', 'num_format': "#.0"})
+            {"align": "right", "valign": "bottom", "num_format": "#.0"}
+        )
         # => Probability
         column_format_integer = workbook.add_format(
-            {'align': 'right', 'valign': 'bottom', 'num_format': "#"})
+            {"align": "right", "valign": "bottom", "num_format": "#"}
+        )
         # => Integers for PLZ and Gepard-Nr
         column_format_left = workbook.add_format(
-            {'align': 'left', 'valign': 'bottom'})  #
+            {"align": "left", "valign": "bottom"}
+        )  #
         column_format_dropdown = workbook.add_format(
-            {'align': 'left', 'valign': 'bottom', 'bg_color': '#EAEAEA'})
-        column_format_error = workbook.add_format({'bg_color': 'black'})
+            {"align": "left", "valign": "bottom", "bg_color": "#EAEAEA"}
+        )
+        column_format_error = workbook.add_format({"bg_color": "black"})
 
         ## Define templates for special cell formats:
         cell_color_yellow = workbook.add_format(
-            {'align': 'center', 'valign': 'bottom', 'bg_color': '#ffff00',
-             'bold': True, 'text_wrap': True, 'rotation': 90})
+            {
+                "align": "center",
+                "valign": "bottom",
+                "bg_color": "#ffff00",
+                "bold": True,
+                "text_wrap": True,
+                "rotation": 90,
+            }
+        )
         cell_color_blue = workbook.add_format(
-            {'align': 'right', 'valign': 'bottom', 'bg_color': '#bdd7ee',
-             'bold': False, 'text_wrap': True})
+            {
+                "align": "right",
+                "valign": "bottom",
+                "bg_color": "#bdd7ee",
+                "bold": False,
+                "text_wrap": True,
+            }
+        )
         cell_color_rotate = workbook.add_format(
-            {'align': 'center', 'valign': 'bottom', 'bg_color': '#EAEAEA',
-             'bold': True, 'text_wrap': True, 'rotation': 90})
+            {
+                "align": "center",
+                "valign": "bottom",
+                "bg_color": "#EAEAEA",
+                "bold": True,
+                "text_wrap": True,
+                "rotation": 90,
+            }
+        )
         cell_color_norot = workbook.add_format(
-            {'align': 'left', 'valign': 'bottom', 'bg_color': '#EAEAEA',
-             'bold': True, 'text_wrap': True})
+            {
+                "align": "left",
+                "valign": "bottom",
+                "bg_color": "#EAEAEA",
+                "bold": True,
+                "text_wrap": True,
+            }
+        )
 
         ## Automatized Setting/formating columns and top-row cells:
         for i in excel_columns.keys():
             # Write Columns:
-            if types[excel_columns[i]] == 'float64':
-                worksheet.set_column(i + ':' + i,
-                                     5,  # fixed length
-                                     column_format_prob)
+            if types[excel_columns[i]] == "float64":
+                worksheet.set_column(i + ":" + i, 5, column_format_prob)  # fixed length
                 # => Net values.
-            elif types[excel_columns[i]] == 'int64':
+            elif types[excel_columns[i]] == "int64":
                 if "Net_" in excel_columns[i]:
-                    worksheet.set_column(i + ':' + i,
-                                         excel_width[i] + 1,
-                                         column_format_umsatz)
+                    worksheet.set_column(
+                        i + ":" + i, excel_width[i] + 1, column_format_umsatz
+                    )
                 else:
-                    worksheet.set_column(i + ':' + i,
-                                         excel_width[i],
-                                         column_format_integer)
+                    worksheet.set_column(
+                        i + ":" + i, excel_width[i], column_format_integer
+                    )
                     # => Should only effect PLZ and Gepard-Nr.
-            elif types[excel_columns[i]] == 'datetime64[ns]':
-                worksheet.set_column(i + ':' + i,
-                                     10,  # Fixed length!
-                                     column_format_text)
-            elif types[excel_columns[i]] == 'object':
+            elif types[excel_columns[i]] == "datetime64[ns]":
+                worksheet.set_column(
+                    i + ":" + i, 10, column_format_text  # Fixed length!
+                )
+            elif types[excel_columns[i]] == "object":
                 if "Betreff" in excel_columns[i]:
-                    worksheet.set_column(i + ':' + i,
-                                         40,  # fixed length
-                                         column_format_text)
+                    worksheet.set_column(
+                        i + ":" + i, 40, column_format_text  # fixed length
+                    )
                     # => Betreff: comments on last contact with customer
                 else:
-                    worksheet.set_column(i + ':' + i,
-                                         excel_width[i],
-                                         column_format_text)
+                    worksheet.set_column(
+                        i + ":" + i, excel_width[i], column_format_text
+                    )
             else:
-                worksheet.set_column(i + ':' + i,
-                                     excel_width[i],
-                                     column_format_error)
+                worksheet.set_column(i + ":" + i, excel_width[i], column_format_error)
                 # => If this gets triggered, these cells are turned black
 
             # Write Top-row cells:
             if excel_width[i] - 10 < len(xlsx_col_names[excel_columns[i]]):
-                worksheet.write(i + '1',
-                                xlsx_col_names[excel_columns[i]],
-                                cell_color_rotate)
+                worksheet.write(
+                    i + "1", xlsx_col_names[excel_columns[i]], cell_color_rotate
+                )
             else:
-                worksheet.write(i + '1',
-                                xlsx_col_names[excel_columns[i]],
-                                cell_color_norot)
+                worksheet.write(
+                    i + "1", xlsx_col_names[excel_columns[i]], cell_color_norot
+                )
 
         ## Manual Setting/formating columns and top-row cells:
 
         # Info-text box, should be vsible under the list on the left side:
-        worksheet.insert_textbox('B' + str(gv_VB_TOP_N + 2 + 1),
-                                 info_text,
-                                 {'width':  480,
-                                  'height': 120,
-                                  'fill': {'color': '#ddd9c3'},
-                                  'line': {'width': 3.25}})
+        worksheet.insert_textbox(
+            "B" + str(gv_VB_TOP_N + 2 + 1),
+            info_text,
+            {
+                "width": 480,
+                "height": 120,
+                "fill": {"color": "#ddd9c3"},
+                "line": {"width": 3.25},
+            },
+        )
 
         # Feedback-column:
-        worksheet.set_column(feedback_col + ':' + feedback_col,
-                             15,
-                             column_format_left)
-        worksheet.write(feedback_col + '1',
-                        'Feedback - bitte auswählen',
-                        cell_color_yellow)
+        worksheet.set_column(feedback_col + ":" + feedback_col, 15, column_format_left)
+        worksheet.write(
+            feedback_col + "1", "Feedback - bitte auswählen", cell_color_yellow
+        )
         for i in range(2, gv_VB_TOP_N + 2):
-            worksheet.write(feedback_col + str(i),
-                            '',
-                            column_format_dropdown)
-            
+            worksheet.write(feedback_col + str(i), "", column_format_dropdown)
+
         worksheet.data_validation(
-            feedback_col + '2:' + feedback_col + str(gv_VB_TOP_N + 2),
-            feedback
-            )
+            feedback_col + "2:" + feedback_col + str(gv_VB_TOP_N + 2), feedback
+        )
 
         # General feedback, below list, aligned with Feedback-column W:
         begin_merge_cell = excel_col(len(column_names) - 4) + str(gv_VB_TOP_N + 3)
         end_merge_cell = excel_col(len(column_names)) + str(gv_VB_TOP_N + 3)
-        worksheet.merge_range(begin_merge_cell + ':' + end_merge_cell,
-                              'hier ein generelles Feedback wählen:',
-                              cell_color_blue)
+        worksheet.merge_range(
+            begin_merge_cell + ":" + end_merge_cell,
+            "hier ein generelles Feedback wählen:",
+            cell_color_blue,
+        )
         worksheet.data_validation(feedback_col + str(gv_VB_TOP_N + 3), feedback)
-        
-        worksheet.write(feedback_col + str(gv_VB_TOP_N + 3),
-                        '',
-                        column_format_dropdown
-                       )
+
+        worksheet.write(feedback_col + str(gv_VB_TOP_N + 3), "", column_format_dropdown)
         # => Leave empty cell, so VBs have to fill out.
 
         # Comment column:
-        worksheet.write(comment_col + '1',
-                        'falls nicht hilfreich, bitte hier einen kurzen Kommentar angeben - entweder pro Zeile oder für die Gesamt-Liste',
-                        cell_color_norot)
-        
-        worksheet.set_column(comment_col + ':' + comment_col,
-                             44,
-                             column_format_txt_wrap)
+        worksheet.write(
+            comment_col + "1",
+            "falls nicht hilfreich, bitte hier einen kurzen Kommentar angeben - entweder pro Zeile oder für die Gesamt-Liste",
+            cell_color_norot,
+        )
+
+        worksheet.set_column(
+            comment_col + ":" + comment_col, 44, column_format_txt_wrap
+        )
 
         # Write file into working folder
         writer.save()
 
+
 ################################################################################
 # %% Create Excels
 
-vb_sales_xlsx(
-    vb_lists=    vb_ek_map,
-    gv_VB_TOP_N= 20
-    )
+vb_sales_xlsx(vb_lists=vb_ek_map, gv_VB_TOP_N=20)
 
-overview_xlsx(
-    df=         vb_list,
-    file_name=  "vkber_potential.xlsx",
-    sheet_name= 'VK'
-    )
+overview_xlsx(df=vb_list, file_name="vkber_potential.xlsx", sheet_name="VK")
 
 # %% End of file.
 ################################################################################
@@ -524,22 +528,18 @@ overview_xlsx(
 ##############
 # Email list #
 ##############
-notify_emails = (
-    vb_list
-    .query('total_leads > 0')
-    .loc[:, "E_MAIL"]
-    )
-notify_emails.at['RPE'] = 'reto.pensa@apgsga.ch'
-notify_emails.at['TMA'] = 'thomas.macho@apgsga.ch'
-notify_emails.at['KPF'] = 'kaspar.pflugshaupt@apgsga.ch'
-notify_emails.at['STC'] = 'sam.truong@apgsga.ch'
-notify_emails.at['JCA'] = 'jeremy.callner@apgsga.ch'
+notify_emails = vb_list.query("total_leads > 0").loc[:, "E_MAIL"]
+notify_emails.at["RPE"] = "reto.pensa@apgsga.ch"
+notify_emails.at["TMA"] = "thomas.macho@apgsga.ch"
+notify_emails.at["KPF"] = "kaspar.pflugshaupt@apgsga.ch"
+notify_emails.at["STC"] = "sam.truong@apgsga.ch"
+notify_emails.at["JCA"] = "jeremy.callner@apgsga.ch"
 notify_emails = notify_emails.reset_index().drop_duplicates()
 
-print(notify_emails.loc[:,"E_MAIL"])
+print(notify_emails.loc[:, "E_MAIL"])
 
 # For maintenance purposes:
-#notify_emails = notify_emails.iloc[-1:,:]
+# notify_emails = notify_emails.iloc[-1:,:]
 
 #########
 # libs ##
@@ -554,11 +554,12 @@ from email.headerregistry import Address
 ######################
 
 msg = EmailMessage()
-msg['Subject'] = "Verkaufsprognose: Excel-Listen"
-msg['From'] = Address("Predictive Analytics", "predictive_analytics", "apgsga.ch")
-msg['To'] = ', '.join(map(str,list(notify_emails.loc[:,"E_MAIL"])))
+msg["Subject"] = "Verkaufsprognose: Excel-Listen"
+msg["From"] = Address("Predictive Analytics", "predictive_analytics", "apgsga.ch")
+msg["To"] = ", ".join(map(str, list(notify_emails.loc[:, "E_MAIL"])))
 
-msg.set_content(fr"""
+msg.set_content(
+    fr"""
 Guten Tag miteinander,
 
 Im folgenden Verzeichnis findet ihr unter eurem Kürzel die aktuellen Verkaufsprognose-Listen
@@ -584,12 +585,14 @@ Pensez à ajouter votre feedback directement dans la liste Excel (colonne jaune 
 
 Avec nos remerciements anticipés et meilleures salutations.
 Votre Data Analytics Team
-""")
+"""
+)
 
 # Add the html version.  This converts the message into a multipart/alternative
 # container, with the original text message as the first part and the new html
 # message as the second part.
-msg.add_alternative(fr"""
+msg.add_alternative(
+    fr"""
 <html>
   <head></head>
   <body>
@@ -612,7 +615,9 @@ msg.add_alternative(fr"""
     <p>Votre Data Analytics Team</p>
   </body>
 </html>
-""", subtype='html')
+""",
+    subtype="html",
+)
 
 print(msg.as_string())
 
@@ -620,8 +625,8 @@ print(msg.as_string())
 # Send emails #
 ###############
 
-with SMTP(host='mailint.apgsga.ch') as mail_gateway:
+with SMTP(host="mailint.apgsga.ch") as mail_gateway:
     mail_gateway.set_debuglevel(True)
     mail_gateway.send_message(msg)
-    
+
 # End of file.
