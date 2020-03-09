@@ -10,26 +10,33 @@ import altair as alt
 from typing import Tuple, List
 
 from pa_lib.data import select_rows, as_dtype, unfactorize
+from pa_lib.util import as_percent
 from .UpliftLib import all_weekdays, DataSeries, DataFrame
 
 
 ########################################################################################
 # Helper Functions
 ########################################################################################
-def heatmap_range(s: DataSeries, scale: float = 1) -> Tuple[float, float, float]:
-    """Return min, middle, and max of a series, but centers range at 0 if it contains 0.
-       Parameter scale [0..1] allows to tighten the range."""
-    maximum = s.max()
-    minimum = s.min()
-    if maximum * minimum < 0:  # different sign
-        middle = 0
+def heatmap_range(s: DataSeries, scale: float = 1.0) -> Tuple[float, float, float]:
+    """Return min, middle, and max of a series, centering range at 0 if it contains 0.
+       Parameter scale allows to tighten/widen the range."""
+    maximum = s.max().astype("float")
+    minimum = s.min().astype("float")
+    if maximum * minimum < 0.0:  # different sign --> 0 is in range
+        middle = 0.0
         result_range = (min(-maximum, minimum), middle, max(-minimum, maximum))
+        if scale != 1.0:
+            scaled = (result_range[2] - middle) * scale
+            result_range = (middle - scaled, middle, middle + scaled)
     else:
+        is_positive = minimum >= 0
         middle = (minimum + maximum) / 2
         result_range = (minimum, middle, maximum)
-    if scale != 1:
-        scaled = (result_range[2] - middle) * scale
-        result_range = (middle - scaled, middle, middle + scaled)
+        if scale != 1.0:
+            if is_positive:
+                result_range = (minimum, middle * scale, maximum * scale)
+            else:
+                result_range = (minimum * scale, middle * scale, maximum)
     return result_range
 
 
@@ -174,15 +181,14 @@ def stations_weekday_heatmap(
     return chart
 
 
-def station_heatmaps(
-    data: DataFrame, selectors: dict, properties: dict, color_range: List[str] = None
-) -> alt.Chart:
-    if color_range is None:
-        color_range = ["white", "palegreen", "darkgreen"]
+def station_heatmaps(data: DataFrame, selectors: dict, properties: dict) -> alt.Chart:
     chart_data = prepare_chart_data(data, selectors)
 
     def station_heatmap(station: str) -> alt.Chart:
         single_chart_data = chart_data.query("Station == @station")
+        single_chart_data["target_error"] = (
+            as_percent(single_chart_data["target_pers_sd_ratio"]).astype("str") + "%"
+        )
         chart = (
             alt.Chart(single_chart_data, title=station)
             .properties(**properties)
@@ -194,19 +200,23 @@ def station_heatmaps(
                     "target_pers:Q",
                     title="Zielpersonen",
                     scale=alt.Scale(
-                        range=["white", "palegreen", "darkgreen"],
+                        range=[
+                            "#FEFEFE",
+                            "DarkGreen",
+                        ],  # near-white ("white" has display problems) to dark green
                         type="linear",
-                        zero=True,
                         domain=heatmap_range(
-                            single_chart_data["target_pers"], scale=0.8
+                            single_chart_data["target_pers"], scale=1.1
                         ),
                     ),
                 ),
                 tooltip=[
                     alt.Tooltip("Station", title="Bahnhof"),
                     alt.Tooltip("DayOfWeek", title="Wochentag"),
+                    alt.Tooltip("Hour", title="Stunde"),
                     alt.Tooltip("spr:Q", title="Total"),
                     alt.Tooltip("target_pers", title="Zielgruppe"),
+                    alt.Tooltip("target_error", title="Fehler"),
                 ],
             )
         )
