@@ -178,7 +178,7 @@ def station_heatmaps(
     data: DataFrame, selectors: dict, properties: dict, color_range: List[str] = None
 ) -> alt.Chart:
     if color_range is None:
-        color_range = ["white", "darkgreen"]
+        color_range = ["white", "palegreen", "darkgreen"]
     chart_data = prepare_chart_data(data, selectors)
 
     def station_heatmap(station: str) -> alt.Chart:
@@ -194,7 +194,7 @@ def station_heatmaps(
                     "target_pers:Q",
                     title="Zielpersonen",
                     scale=alt.Scale(
-                        range=color_range,
+                        range=["white", "palegreen", "darkgreen"],
                         type="linear",
                         zero=True,
                         domain=heatmap_range(
