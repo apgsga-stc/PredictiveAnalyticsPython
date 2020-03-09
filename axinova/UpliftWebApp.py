@@ -15,10 +15,13 @@ import urllib.parse
 from UpliftTarget import source_data, _Target
 from pa_lib.const import PA_DATA_DIR
 
-# Get environment if we're running in a container
-host_name = os.getenv("ZG_HOST_NAME", socket.getfqdn())
-host_port = os.getenv("ZG_EXPORT_PORT", 8081)
-export_dir = os.getenv("ZG_EXPORT_DIR", f"{PA_DATA_DIR}/axinova/zielgruppen_export")
+
+# Get environment (different if we're running in a container)
+def get_run_environment() -> tuple:
+    host_name = os.getenv("ZG_HOST_NAME", socket.getfqdn())
+    host_port = os.getenv("ZG_EXPORT_PORT", 8081)
+    export_dir = os.getenv("ZG_EXPORT_DIR", f"{PA_DATA_DIR}/axinova/zielgruppen_export")
+    return host_name, host_port, export_dir
 
 
 def choose_target(all_targets) -> str:
@@ -38,8 +41,7 @@ def calculate_target(target: _Target) -> _Target:
 
 
 def export_results(target: _Target) -> None:
-    global host_name, host_port, export_dir
-
+    host_name, host_port, export_dir = get_run_environment()
     export_file_name = target.export_result(to_directory=export_dir)
     html_file_name = urllib.parse.quote(export_file_name.encode("utf-8"))
     file_address = f"http://{host_name}:{host_port}/{html_file_name}"
