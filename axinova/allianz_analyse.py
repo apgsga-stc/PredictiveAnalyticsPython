@@ -51,7 +51,9 @@ results = {
     "Summary": lambda tgt, _: show_summary(tgt),
     "All Stations": lambda tgt, _: show_stations(tgt),
     "Stations / Weekdays": lambda tgt, sl: show_station_weekdays(tgt, sl),
-    "Station Heatmaps": lambda tgt, sl: show_station_heatmaps_plot(tgt, sl),
+    "Station Heatmaps: Zielpersonen": lambda tgt, sl: show_station_heatmaps_plot(
+        tgt, sl
+    ),
     "Best Timeslots": lambda tgt, _: show_timeslots(tgt),
     "Timeslot Plots": lambda tgt, sl: show_timeslot_plot(tgt, sl),
 }
