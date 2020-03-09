@@ -162,4 +162,4 @@ _job_tree = _load_job_struct()
 # TESTING CODE
 ###############################################################################
 if __name__ == "__main__":
-    request_job("jobtest_1.py", current="Today", show_stdout=False)
+    request_job("jobtest_1.py", current="Today")
