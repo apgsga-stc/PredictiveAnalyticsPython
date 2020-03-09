@@ -188,40 +188,37 @@ def station_heatmaps(
 
     def station_heatmap(station: str) -> alt.Chart:
         single_chart_data = chart_data.query("Station == @station")
-        single_chart_data["target_error"] = as_percent(
-            single_chart_data["target_pers_sd_ratio"]
+        single_chart_data.loc[:, "target_error_txt"] = (
+            single_chart_data["target_error_prc"].astype("str") + "%"
         )
-        single_chart_data["target_error_txt"] = (
-            single_chart_data["target_error"].astype("str") + "%"
+        base_encodings = dict(
+            x=alt.X("DayOfWeek:O", sort=all_weekdays), y=alt.Y("Hour:O")
         )
+        base_tooltips = [
+            alt.Tooltip("Station", title="Bahnhof"),
+            alt.Tooltip("DayOfWeek", title="Wochentag"),
+            alt.Tooltip("Hour", title="Stunde"),
+            alt.Tooltip("spr:Q", title="Total"),
+            alt.Tooltip("target_pers", title="Zielgruppe"),
+            alt.Tooltip("target_error_txt", title="Unsicherheit"),
+        ]
         base_heatmap = (
             alt.Chart(single_chart_data, title=station)
             .mark_rect()
             .encode(
-                x=alt.X("DayOfWeek:O", sort=all_weekdays),
-                y=alt.Y("Hour:O"),
+                **base_encodings,
                 color=alt.Color(
                     "target_pers:Q",
                     title="Zielpersonen",
                     scale=alt.Scale(
-                        range=[
-                            "#FEFEFE",
-                            "DarkGreen",
-                        ],  # near-white ("white" has display problems) to dark green
-                        type="linear",
+                        # near-white ("white" has display problems) to dark green
+                        range=["#FEFEFE", "DarkGreen"],
                         domain=heatmap_range(
                             single_chart_data["target_pers"], scale=1.1
                         ),
                     ),
                 ),
-                tooltip=[
-                    alt.Tooltip("Station", title="Bahnhof"),
-                    alt.Tooltip("DayOfWeek", title="Wochentag"),
-                    alt.Tooltip("Hour", title="Stunde"),
-                    alt.Tooltip("spr:Q", title="Total"),
-                    alt.Tooltip("target_pers", title="Zielgruppe"),
-                    alt.Tooltip("target_error_txt", title="Unsicherheit"),
-                ],
+                tooltip=base_tooltips,
             )
         )
         if show_uncertainty:
@@ -229,24 +226,15 @@ def station_heatmaps(
                 alt.Chart(single_chart_data)
                 .mark_circle(size=50)
                 .encode(
-                    x=alt.X("DayOfWeek:O", sort=all_weekdays),
-                    y=alt.Y("Hour:O"),
+                    **base_encodings,
                     color=alt.Color(
-                        "target_error:Q",
+                        "target_error_prc:Q",
                         title="Unsicherheit [%]",
                         scale=alt.Scale(
-                            range=["darkgreen", "yellow", "red"],
-                            type="linear",
-                            domain=[0, 100],
+                            range=["darkgreen", "yellow", "red"], domain=[0, 100]
                         ),
                     ),
-                    tooltip=[
-                        alt.Tooltip("Station", title="Bahnhof"),
-                        alt.Tooltip("DayOfWeek", title="Wochentag"),
-                        alt.Tooltip("spr:Q", title="Total"),
-                        alt.Tooltip("target_pers", title="Zielgruppe"),
-                        alt.Tooltip("target_error_txt", title="Unsicherheit"),
-                    ],
+                    tooltip=base_tooltips,
                 )
             )
             base_heatmap += error_marks
