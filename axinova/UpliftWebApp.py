@@ -12,7 +12,7 @@ import os
 import socket
 import urllib.parse
 
-from UpliftTarget import source_data, _Target
+from UpliftTarget import source_data, Target
 from pa_lib.const import PA_DATA_DIR
 
 
@@ -34,13 +34,13 @@ def choose_target(all_targets) -> str:
 
 
 @st.cache(allow_output_mutation=True)
-def calculate_target(target: _Target) -> _Target:
+def calculate_target(target: Target) -> Target:
     target.set_timescale("Hour")
     target.calculate()
     return target
 
 
-def export_results(target: _Target) -> None:
+def export_results(target: Target) -> None:
     host_name, host_port, export_dir = get_run_environment()
     export_file_name = target.export_result(to_directory=export_dir)
     html_file_name = urllib.parse.quote(export_file_name.encode("utf-8"))
@@ -58,40 +58,43 @@ def choose_stations() -> list:
     )
 
 
-def describe_target(target: _Target) -> None:
+def describe_target(target: Target) -> None:
     st.markdown("# Zielgruppen-Analyse")
     st.markdown(f"## Target Group: {target.name}")
     st.markdown("### Definition:")
     st.text(target.description())
 
 
-def show_summary(target: _Target) -> None:
+def show_summary(target: Target) -> None:
     st.markdown("### Summary:")
     st.table(target.result_summary())
 
 
-def show_stations(target: _Target) -> None:
+def show_stations(target: Target) -> None:
     st.markdown("### All stations (sum per week):")
     station_table = target.best_stations(where="spr > 0")
     st.table(station_table)
 
 
-def show_station_weekdays(target: _Target, station_list: list) -> None:
-    st.markdown("### Stations per weekday:")
+def show_station_weekdays(target: Target, station_list: list) -> None:
+    st.markdown(f"### Stationen pro Wochentag für {', '.join(sorted(station_list))}:")
     st.table(
         target.best_station_days(
             where="Station == ['" + "', '".join(station_list) + "']"
-        )[["spr", "target_ratio", "target_pers", "target_pers_sd_ratio"]]
+        )[["spr", "target_ratio", "target_pers", "target_error_prc"]]
     )
 
 
-def show_station_heatmaps_plot(target: _Target, station_list: list) -> None:
+def show_station_heatmaps_plot(target: Target, station_list: list) -> None:
     st.markdown(f"### Heatmaps für {', '.join(sorted(station_list))}:")
-    heatmaps = target.plot_station_heatmaps(selectors={"Station": station_list})
+    show_uncertainty = st.checkbox("Unsicherheit anzeigen")
+    heatmaps = target.plot_station_heatmaps(
+        selectors={"Station": station_list}, show_uncertainty=show_uncertainty
+    )
     st.altair_chart(heatmaps, use_container_width=False)
 
 
-def show_timeslots(target: _Target) -> None:
+def show_timeslots(target: Target) -> None:
     st.sidebar.markdown("### Best Slot Parameters")
     sort_col_list = st.sidebar.multiselect(
         label="Sort by column(s) [descending]:",
@@ -107,12 +110,11 @@ def show_timeslots(target: _Target) -> None:
             "target_pers",
             "pop_uplift_ratio",
             "pop_uplift_pers",
-            "target_pers_sd_ratio",
+            "target_error_prc",
         ],
     )
     target_where = st.sidebar.text_area(
-        "Filter for best slots:",
-        value="target_pers_sd_ratio < 0.1 and target_pers > 360",
+        "Filter for best slots:", value="target_error_prc < 10 and target_pers > 360"
     ).replace("\n", " ")
     nr_best_slots = st.sidebar.number_input(
         "Number of best slots:", min_value=1, max_value=500, value=20, format="%d"
@@ -129,7 +131,7 @@ def show_timeslots(target: _Target) -> None:
     )
 
 
-def show_timeslot_plot(target: _Target, station_list: list) -> None:
+def show_timeslot_plot(target: Target, station_list: list) -> None:
     st.markdown(f"### Plots für {', '.join(sorted(station_list))}:")
     barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_list})
     st.altair_chart(barplot, use_container_width=False)

@@ -14,7 +14,7 @@ from typing import List, Tuple, Dict, Callable, TypeVar, Any
 from datetime import datetime as dt
 from textwrap import indent as indent_by
 
-from pa_lib.util import list_items, default_dict
+from pa_lib.util import list_items, default_dict, as_percent
 from pa_lib.data import clean_up_categoricals, unfactorize, as_dtype
 from pa_lib.file import project_dir, store_xlsx
 from axinova.UpliftData import UpliftData, SOURCE_DATA
@@ -51,9 +51,9 @@ source_data: UpliftData = SOURCE_DATA
 ########################################################################################
 # HELPER FUNCTIONS
 ########################################################################################
-def _validate_target(target: "_Target") -> None:
+def _validate_target(target: "Target") -> None:
     assert isinstance(
-        target, _Target
+        target, Target
     ), f"target of wrong type {target.__class__}, must be one of: Variable, Or, And"
 
 
@@ -109,7 +109,7 @@ def _make_file_name(file_name: str) -> str:
 # CLASSES
 ########################################################################################
 @dataclass
-class _Target(ABC):
+class Target(ABC):
     name: str
     _stations: StringList = field(init=False, default_factory=list)
     _timescale: str = field(init=False, default="Hour")
@@ -198,13 +198,15 @@ class _Target(ABC):
             ax_sd_ratio=poisson_sd_ratio(station_day_table["ax_pers"]),
             spr_sd_ratio=poisson_sd_ratio(station_day_table["spr"]),
         ).fillna(0)
+        station_day_table = station_day_table.assign(
+            target_pers=station_day_table["target_ratio"] * station_day_table["spr"],
+            target_pers_sd_ratio=combine_sd_ratios(
+                station_day_table["spr_sd_ratio"], station_day_table["ax_sd_ratio"]
+            ),
+        )
         station_day_table = (
             station_day_table.assign(
-                target_pers=station_day_table["target_ratio"]
-                * station_day_table["spr"],
-                target_pers_sd_ratio=combine_sd_ratios(
-                    station_day_table["spr_sd_ratio"], station_day_table["ax_sd_ratio"]
-                ),
+                target_error_prc=as_percent(station_day_table["target_pers_sd_ratio"])
             )
             .pipe(
                 as_dtype, "int", incl_col=["spr", "ax_total", "ax_pers", "target_pers"]
@@ -229,7 +231,7 @@ class _Target(ABC):
                 "ax_pers",
                 "target_ratio",
                 "target_pers",
-                "target_pers_sd_ratio",
+                "target_error_prc",
                 "pop_uplift_ratio",
                 "pop_uplift_pers",
             ]
@@ -379,7 +381,10 @@ class _Target(ABC):
         return chart
 
     def plot_station_heatmaps(
-        self, selectors: dict = None, plot_properties: dict = None
+        self,
+        selectors: dict = None,
+        plot_properties: dict = None,
+        show_uncertainty: bool = False,
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
@@ -388,13 +393,16 @@ class _Target(ABC):
 
         properties = default_dict(plot_properties, defaults=dict(width=250, height=600))
         chart = station_heatmaps(
-            data=self.result, selectors=selectors, properties=properties
+            data=self.result,
+            selectors=selectors,
+            properties=properties,
+            show_uncertainty=show_uncertainty,
         )
         return chart
 
 
 @dataclass
-class Variable(_Target):
+class Variable(Target):
     variable: VarId
     code_nr: IntList
     var_label: str = field(init=False)
@@ -469,6 +477,7 @@ class Variable(_Target):
         target_pers = target_ratio * spr_pers
         target_pers_sd_ratio = combine_sd_ratios(ax_pers_sd_ratio, spr_sd_ratio)
         target_pers_sd = target_pers * target_pers_sd_ratio
+        target_error_prc = as_percent(target_pers_sd_ratio)
 
         # reference ratios for CH population / all _stations / each station
         pop_ratio = self.data.ax_population_ratios(self.variable)[self.code_labels].sum(
@@ -498,6 +507,7 @@ class Variable(_Target):
                     "target_pers": target_pers,
                     "target_pers_sd": target_pers_sd,
                     "target_pers_sd_ratio": target_pers_sd_ratio,
+                    "target_error_prc": target_error_prc,
                 }
             )
             .reindex(ax_total_count.index)  # include all possible variants
@@ -526,9 +536,9 @@ class Variable(_Target):
 
 
 @dataclass
-class _TargetCombination(_Target, ABC):
-    target1: _Target
-    target2: _Target
+class _TargetCombination(Target, ABC):
+    target1: Target
+    target2: Target
 
     @abstractmethod
     def calculate(self) -> None:
@@ -582,6 +592,7 @@ class _TargetCombination(_Target, ABC):
         result = result.assign(
             target_pers=result["spr"] * result["target_ratio"],
             ax_pers=result["ax_total"] * result["target_ratio"],
+            target_error_prc=as_percent(result["target_pers_sd_ratio"]),
         ).build_uplift_columns()
         self.result = result
 
