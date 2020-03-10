@@ -5,7 +5,13 @@ from UpliftWebApp import (
     calculate_target,
     describe_target,
     show_timeslot_plot,
-    show_results,
+    show_summary,
+    show_stations,
+    show_station_weekdays,
+    show_station_heatmaps_plot,
+    show_timeslots,
+    choose_stations,
+    export_results,
 )
 
 
@@ -62,10 +68,23 @@ target_key = st.selectbox(
 # calculate ratios for selected target
 target = calculate_target(all_targets[target_key])
 
-# show results
-describe_target(target)
-show_results(target)
-show_timeslot_plot(target)
+if st.button("Prepare XLSX file with all results"):
+    export_results(target)
 
-if st.button("Store results as XLSX"):
-    target.export_result()
+# show result header
+station_list = choose_stations()
+describe_target(target)
+
+# choose detail result to show
+results = {
+    "Summary": lambda tgt, _: show_summary(tgt),
+    "All Stations": lambda tgt, _: show_stations(tgt),
+    "Stations / Weekdays": lambda tgt, sl: show_station_weekdays(tgt, sl),
+    "Station Heatmaps: Zielpersonen": lambda tgt, sl: show_station_heatmaps_plot(
+        tgt, sl
+    ),
+    "Best Timeslots": lambda tgt, _: show_timeslots(tgt),
+    "Timeslot Plots": lambda tgt, sl: show_timeslot_plot(tgt, sl),
+}
+result_key = st.selectbox("Choose result:", options=list(results.keys()))
+results[result_key](target, station_list)
