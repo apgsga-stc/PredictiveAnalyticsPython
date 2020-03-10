@@ -6,6 +6,10 @@
 ## Load Modules ##
 ##################
 
+# make imports from pa_lib possible (parent directory of file's directory)
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -13,25 +17,16 @@ import pandas as pd
 ## Datenaufbereitung ##
 #######################
 
-
-# make imports from pa_lib possible (parent directory of file's directory)
-import sys
-from pathlib import Path
-
 file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
-
 ## Libraries & Settings ##
 from pa_lib.file import load_bin
 from pa_lib.util import cap_words, iso_to_datetime
-from pa_lib.log import time_log, info, warn
+from pa_lib.log import info, warn
 
-import datetime as dt
-from dateutil.relativedelta import relativedelta
-
-from pa_lib.data import clean_up_categoricals, unfactorize, clean_up_categoricals
+from pa_lib.data import unfactorize, clean_up_categoricals
 
 ## Lazy Recursive Job Dependency Request:
 from pa_lib.job import request_job
@@ -40,7 +35,9 @@ from pa_lib.job import request_job
 ## Recursive Dependency Check:
 request_job(job_name="bd_prepare.py", current="Today")  # output: bd_data.feather
 
+
 ################################################################################
+
 
 ###################
 ## Load raw data ##
@@ -61,12 +58,12 @@ def load_booking_data():
 def filter_dataset(dataframe):
     container_df = (
         dataframe.query("Dauer < 62")
-        .query(
+            .query(
             'Auftragsart != ["Eigenwerbung APG|SGA", "Aushangauftrag Partner", "Logistik für Dritte", "Politisch"]'
         )
-        .query('not Segment == "Airport" and not KV_Typ == "KPGL"')
-        .pipe(clean_up_categoricals)
-        .reset_index(drop=True)
+            .query('not Segment == "Airport" and not KV_Typ == "KPGL"')
+            .pipe(clean_up_categoricals)
+            .reset_index(drop=True)
     )
     return container_df
 
@@ -76,22 +73,13 @@ def filter_dataset(dataframe):
 ######################################################
 
 
-def sum_calc(df, col_year, col_week, keine_annulierten=True):
-    if keine_annulierten == True:
-        filter_spalte = pd.Series(df.loc[:, "Kampagnen_Status"] != 3)
-    else:
-        filter_spalte = pd.Series(
-            df.loc[:, "Kampagnen_Status"] != 99999999999999
-        )  # Series of "True", no filter.
-
-    pass
-
+def sum_calc(df, col_year, col_week):
     return (
         df.loc[:, ["Endkunde_NR", col_year, col_week, "Netto"]]
-        .pipe(unfactorize)
-        .groupby(["Endkunde_NR", col_year, col_week], observed=True, as_index=False)
-        .agg({"Netto": ["sum"]})
-        .set_axis(
+            .pipe(unfactorize)
+            .groupby(["Endkunde_NR", col_year, col_week], observed=True, as_index=False)
+            .agg({"Netto": ["sum"]})
+            .set_axis(
             f"Endkunde_NR {col_year} {col_week} Netto_Sum".split(),
             axis="columns",
             inplace=False,
@@ -103,17 +91,17 @@ def aggregate_bookings(df, period):
     info(f"Period: {period}")
     info("Calculate Reservation...")
     df_res = sum_calc(
-        df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}", keine_annulierten=True
+        df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}"
     )
 
     info("Calculate Aushang...")
     df_aus = df.copy().loc[df.Kamp_Beginn_Jahr.notnull()]
     if df.shape[0] != df_aus.shape[0]:
         warn(
-            f"Kampagnen ohne Aushangdatum gelöscht: {df.shape[0]-df_aus.shape[0]} Einträge"
+            f"Kampagnen ohne Aushangdatum gelöscht: {df.shape[0] - df_aus.shape[0]} Einträge"
         )
     df_aus = sum_calc(
-        df_aus, "Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}", keine_annulierten=True
+        df_aus, "Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}"
     )
 
     info("Merge Results...")
@@ -136,11 +124,11 @@ def aggregate_bookings(df, period):
                 "Netto_Sum_Aus": 0,
             }
         )
-        .drop(["Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}"], axis="columns")
-        .astype({"Jahr": "int16"})
-        .astype({period: "int8"})
-        .sort_values(["Jahr", "Endkunde_NR", period])
-        .reset_index(drop=True)
+            .drop(["Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}"], axis="columns")
+            .astype({"Jahr": "int16"})
+            .astype({period: "int8"})
+            .sort_values(["Jahr", "Endkunde_NR", period])
+            .reset_index(drop=True)
     )
 
     # Needed for data preparation
@@ -155,7 +143,7 @@ def aggregate_bookings(df, period):
 ######################
 
 import datetime as dt
-from dateutil.relativedelta import relativedelta
+
 
 #############################
 ## Data Prep: Booking Data ##
@@ -181,12 +169,12 @@ def booking_yearly_totals(YYYYKW, year_span):
         # bd_aggr_2w.loc[:,"YYYYKW_2"] = bd_aggr_2w.Jahr.map(lambda x: x*100) + bd_aggr_2w.KW_2
 
         bd_filtered = bd_aggr_2w.loc[
-            (
-                (bd_aggr_2w.loc[:, "YYYYKW_2"] < YYYYKW - 100 * ry)
-                & (bd_aggr_2w.loc[:, "YYYYKW_2"] >= YYYYKW - 100 * (1 + ry))
-            ),
-            :,
-        ].copy()
+                      (
+                              (bd_aggr_2w.loc[:, "YYYYKW_2"] < YYYYKW - 100 * ry)
+                              & (bd_aggr_2w.loc[:, "YYYYKW_2"] >= YYYYKW - 100 * (1 + ry))
+                      ),
+                      :,
+                      ].copy()
 
         bd_filtered.loc[:, "Year_Total"] = "_RY_" + str(ry)
 
@@ -200,7 +188,8 @@ def booking_yearly_totals(YYYYKW, year_span):
                 "Netto_Sum_Aus",
             ],  # Cash amount of Resevation placed per in weeks of YYYYKW and YYYY(KW+1)
             aggfunc="sum",
-            fill_value=0,  # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
+            fill_value=0,
+            # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
         )
 
         # Flatten down dataframe:
@@ -212,10 +201,10 @@ def booking_yearly_totals(YYYYKW, year_span):
         # Renaming column names:
         bd_flattened.columns = [
             x.replace("', '", "")
-            .replace("', ", "")
-            .replace("('", "")
-            .replace(")", "")
-            .replace("'", "")
+                .replace("', ", "")
+                .replace("('", "")
+                .replace(")", "")
+                .replace("'", "")
             for x in bd_flattened.columns
         ]
 
@@ -240,7 +229,7 @@ def booking_data(YYYYKW, year_span):
     """
     # Select the last four years based on new reference-column
     row_select = (bd_aggr_2w.loc[:, "YYYYKW_2"] <= YYYYKW) & (
-        bd_aggr_2w.loc[:, "YYYYKW_2"] >= YYYYKW - year_span * 100
+            bd_aggr_2w.loc[:, "YYYYKW_2"] >= YYYYKW - year_span * 100
     )
 
     bd_filtered = bd_aggr_2w.loc[row_select, :].copy()
@@ -249,7 +238,7 @@ def booking_data(YYYYKW, year_span):
     # pd.options.mode.chained_assignment = None  # default='warn'
     max_Jahr = YYYYKW // 100
     bd_filtered.loc[:, "Jahr_relative"] = (
-        "_RY_" + (max_Jahr - bd_filtered.loc[:, "Jahr"]).astype("str") + "_KW_"
+            "_RY_" + (max_Jahr - bd_filtered.loc[:, "Jahr"]).astype("str") + "_KW_"
     )
     # pd.options.mode.chained_assignment = 'warn'  # default='warn'
 
@@ -263,7 +252,8 @@ def booking_data(YYYYKW, year_span):
             "Netto_Sum_Aus",
         ],  # Cash amount of Resevation placed per in weeks of YYYYKW and YYYY(KW+1)
         aggfunc="sum",
-        fill_value=0,  # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
+        fill_value=0,
+        # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
     )
     # Flatten down dataframe
     bd_flattened = pd.DataFrame(bd_pivot.to_records(index=False))
@@ -287,13 +277,13 @@ def booking_data(YYYYKW, year_span):
         inplace=True,
     )
     bd_flattened.loc[:, "Target_Res_flg"] = bd_flattened.loc[
-        :, "Target_Sum_Res_RY_0_" + KW
-    ].astype(
+                                            :, "Target_Sum_Res_RY_0_" + KW
+                                            ].astype(
         "bool"
     )  # Reservation?: Yes/No - True/False
     bd_flattened.loc[:, "Target_Aus_flg"] = bd_flattened.loc[
-        :, "Target_Sum_Aus_RY_0_" + KW
-    ].astype(
+                                            :, "Target_Sum_Aus_RY_0_" + KW
+                                            ].astype(
         "bool"
     )  # Aushang?: Yes/No - True/False
 
@@ -325,8 +315,8 @@ def dates_bd(view_date):
             view_date > bd.loc[:, "Kampagne_Erfassungsdatum"],
             ["Endkunde_NR", "Kampagne_Erfassungsdatum"],
         ]
-        .groupby("Endkunde_NR")
-        .agg(["min", "max"])
+            .groupby("Endkunde_NR")
+            .agg(["min", "max"])
     ).reset_index()
 
     min_max_erfass_dt = pd.DataFrame(min_max_erfass_dt.to_records(index=False))
@@ -352,16 +342,16 @@ def dates_bd(view_date):
     )
 
     min_max_erfass_dt.loc[:, "Erste_Letzte_Buchung_Delta"] = (
-        min_max_erfass_dt.loc[:, "Erste_Buchung_Delta"]
-        - min_max_erfass_dt.loc[:, "Letzte_Buchung_Delta"]
+            min_max_erfass_dt.loc[:, "Erste_Buchung_Delta"]
+            - min_max_erfass_dt.loc[:, "Letzte_Buchung_Delta"]
     )
     # Kick all customer, who just booked in the last two weeks
     final_selection = min_max_erfass_dt.loc[
-        min_max_erfass_dt.loc[:, "Kampagne_Erfass_Datum_max"]
-        # .apply(lambda x: x + relativedelta(weeks=2) < view_date),:])
-        .apply(lambda x: x <= view_date),
-        :,
-    ]
+                      min_max_erfass_dt.loc[:, "Kampagne_Erfass_Datum_max"]
+                          # .apply(lambda x: x + relativedelta(weeks=2) < view_date),:])
+                          .apply(lambda x: x <= view_date),
+                      :,
+                      ]
 
     return final_selection
 
@@ -372,16 +362,15 @@ def dates_bd(view_date):
 
 
 def branchen_data(date_view):
-
     # bd = load_booking_data()
 
     kunden_branchen_df = bd.loc[
-        :, ["Endkunde_NR", "Kampagne_Erfassungsdatum", "Endkunde_Branchengruppe_ID"]
-    ]
+                         :, ["Endkunde_NR", "Kampagne_Erfassungsdatum", "Endkunde_Branchengruppe_ID"]
+                         ]
 
     auftrag_branchen_df = bd.loc[
-        :, ["Endkunde_NR", "Kampagne_Erfassungsdatum", "Auftrag_Branchengruppe_ID"]
-    ]
+                          :, ["Endkunde_NR", "Kampagne_Erfassungsdatum", "Auftrag_Branchengruppe_ID"]
+                          ]
 
     kunden_branchen_df.columns = [
         "Endkunde_NR",
@@ -411,8 +400,8 @@ def branchen_data(date_view):
     branchen_df = pd.DataFrame(branchen_df.to_records(index=True))
     new_col_names = [
         x.replace("('Kampagne_Erfassungsdatum',", "B")
-        .replace(" '", "")
-        .replace("')", "")
+            .replace(" '", "")
+            .replace("')", "")
         for x in branchen_df.columns
     ]
 
@@ -449,7 +438,7 @@ def scaling_bd(dataset, col_bookings=[], col_dates=[]):
         max_ = np.max(logtransformed)
         if min_ != max_:
             dataset[x] = (logtransformed - min_) / (
-                max_ - min_
+                    max_ - min_
             )  # standardise into floats in [0,1]
         else:
             dataset[x] = 0
@@ -470,13 +459,13 @@ def scaling_bd(dataset, col_bookings=[], col_dates=[]):
 
 
 def bd_train_scoring(
-    day,
-    month,
-    year_score,
-    year_train,
-    year_span,
-    sales_filter=True,
-    scale_features=True,
+        day,
+        month,
+        year_score,
+        year_train,
+        year_span,
+        sales_filter=True,
+        scale_features=True,
 ):
     """
     Creates scoring-dataset, training-dataset, feature columns name lists for bookings and booking-dates
