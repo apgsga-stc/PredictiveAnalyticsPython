@@ -114,7 +114,7 @@ def request_job(job_name, current=None, show_stdout=False):
     """
     Make sure that job 'job_name' has been run recently.
     'current' can be set to any of ["Today", "This Week"], or to None (default)
-    If set to None, the job starts immediately.
+    If None, the job starts immediately.
     In case of job failure, STDERR from the job is shown.
     In case of job success, STDOUT from the job is only shown if show_stdout=True.
     """
