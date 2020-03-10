@@ -31,6 +31,32 @@ from pa_lib.file import (
 )
 from pa_lib.job import request_job
 
+from vkprog_analyse.vkprog_data_prep import bd_train_scoring
+from vkprog_analyse.vkprog_crm_prep import crm_train_scoring
+from sklearn.model_selection import train_test_split
+from scipy import stats
+from imblearn.over_sampling import SMOTE
+
+from sklearn.feature_selection import (
+    SelectKBest,
+    mutual_info_classif,
+    # SelectPercentile
+)
+
+from sklearn.ensemble import RandomForestClassifier
+
+from sklearn.metrics import (
+    confusion_matrix,
+    classification_report,
+    precision_recall_curve,
+    average_precision_score,
+    roc_curve,
+    roc_auc_score,
+)
+
+from pa_lib.file import load_bin
+
+
 ################################################################################
 info("sales_pred_master.py: START")
 ################################################################################
@@ -48,10 +74,6 @@ year_predict = 2020
 year_training = 2019
 
 ################################################################################
-# Lazy Recursive Job Dependency Request:
-
-
-################################################################################
 ## Recursive Dependency Check:
 
 request_job(
@@ -65,7 +87,7 @@ request_job(
 # # Load Dataset (Data Preparation)
 ################################################################################
 
-from .vkprog_data_prep import bd_train_scoring
+
 
 # 2019-10-21 => Calendar week 43
 (training_all,
@@ -87,8 +109,6 @@ from .vkprog_data_prep import bd_train_scoring
 
 ################################################################################
 # ## CRM Data
-
-from .vkprog_crm_prep import crm_train_scoring
 
 (crm_train_df,
  crm_score_df,
@@ -216,8 +236,6 @@ print(f"df_target.shape:   {df_target.shape}")
 
 ################################################################################
 
-from sklearn.model_selection import train_test_split
-
 (X_train, X_test, y_train, y_test) = train_test_split(
     df_features,
     df_target,
@@ -233,8 +251,6 @@ info(f"df_scoring_features.shape: {df_scoring_features.shape}")
 
 ################################################################################
 
-from scipy import stats
-
 print('y_train:')
 print(pd.DataFrame(y_train).groupby(0)[0].count())
 print(stats.describe(y_train))
@@ -246,9 +262,6 @@ print(list(stats.describe(y_test)))
 ################################################################################
 # ## Balance Training Dataset
 
-
-from imblearn.over_sampling import SMOTE
-
 sm = SMOTE(random_state=42)
 
 (X_train_balanced, y_train_balanced) = sm.fit_resample(X_train, y_train)
@@ -259,14 +272,6 @@ print(stats.describe(y_train_balanced))
 
 ################################################################################
 # ## Feature selection: SelectkBest
-
-from sklearn.feature_selection import (
-    SelectKBest,
-    mutual_info_classif,
-    # SelectPercentile
-)
-
-################################################################################
 
 select = SelectKBest(
     score_func=mutual_info_classif,
@@ -300,7 +305,6 @@ print("X_scoring.shape:", X_scoring.shape)
 ################################################################################
 # ### Model Training: Random Forest
 
-from sklearn.ensemble import RandomForestClassifier
 
 # Wall time: 13min
 forest_01 = RandomForestClassifier(
@@ -320,7 +324,6 @@ forest_01.fit(
 info(f"Accuracy on balanced training set:   {forest_01.score(X_train_balanced, y_train_balanced)}"[:42])
 info(f"Accuracy on unbalanced training set: {forest_01.score(X_train, y_train)}"[:42])
 info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:42])
-
 
 ################################################################################
 
@@ -371,11 +374,6 @@ plot_feature_importances(forest_01, feature_columns)
 
 ################################################################################
 # ## Confusion Matrix
-
-from sklearn.metrics import confusion_matrix
-
-
-################################################################################
 
 def confusion_matrices(X_test, y_test):
     global pred_forest_01
@@ -428,8 +426,6 @@ confusion_matrices(
 ################################################################################
 # ## Classification Report
 
-from sklearn.metrics import classification_report
-
 print("Random Forest:")
 print(
     classification_report(
@@ -441,9 +437,6 @@ print(
 
 ################################################################################
 # ## Precision-Recall Curve
-
-from sklearn.metrics import precision_recall_curve
-
 
 def prec_rec_values(X_test, y_test):
     global precision_forest_01, recall_forest_01, thresholds_forest_01
@@ -529,8 +522,6 @@ prec_rec_curve(
 
 ################################################################################
 
-from sklearn.metrics import average_precision_score
-
 avg_precision_forest_01 = (
     average_precision_score(
         y_test,
@@ -542,9 +533,6 @@ info(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
 
 ################################################################################
 # ## Receiver Operating Characteristics (ROC) and AUC
-
-from sklearn.metrics import roc_curve
-
 
 def roc_curve_graph(X_test, y_test):
     global fpr_forest_01, tpr_forest_01, thresholds_forest_01
@@ -609,9 +597,6 @@ def roc_curve_graph(X_test, y_test):
 
 ################################################################################
 
-from sklearn.metrics import roc_auc_score
-
-
 def roc_auc(X_test, y_test):
     forest_01_auc = roc_auc_score(
         y_test,
@@ -619,7 +604,6 @@ def roc_auc(X_test, y_test):
     )
 
     info("AUC for forest_01:    {:.3f}".format(forest_01_auc))
-
 
 ################################################################################
 
@@ -677,8 +661,6 @@ scoring_all_prob = (pd.merge(scoring_all,
 
 ################################################################################
 # ## Adding additional information for delivery lists ``EK_LIST_2W_KOMPLETT.csv``
-
-from pa_lib.file import load_bin
 
 ek_info = load_bin("vkprog/ek_info.feather")
 
