@@ -91,7 +91,7 @@ def show_station_heatmaps_plot(target: Target, station_list: list) -> None:
     heatmaps = target.plot_station_heatmaps(
         selectors={"Station": station_list}, show_uncertainty=show_uncertainty
     )
-    st.altair_chart(heatmaps, use_container_width=False)
+    st.altair_chart(heatmaps, use_container_width=True)
 
 
 def show_timeslots(target: Target) -> None:
