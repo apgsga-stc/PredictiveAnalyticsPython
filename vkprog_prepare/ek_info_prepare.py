@@ -46,6 +46,9 @@ def load_crm():
     #get the raw data
     with project_dir("vkprog"):
         crm_data = load_bin("crm_data.feather").astype({"ENDKUNDE_NR": "int64"})
+                
+        _only_directly_contacted_ = (crm_data_raw.KONTAKT_TYP == 'direkt')
+        crm_data = crm_data_raw.loc[_only_directly_contacted_,:]
     return crm_data
 
 ########################################################################################
