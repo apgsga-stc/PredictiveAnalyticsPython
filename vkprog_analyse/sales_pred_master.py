@@ -29,6 +29,7 @@ from pa_lib.file import (
     project_dir,
     store_bin
 )
+from pa_lib.job import request_job
 
 ################################################################################
 info("sales_pred_master.py: START")
@@ -48,7 +49,7 @@ year_training = 2019
 
 ################################################################################
 # Lazy Recursive Job Dependency Request:
-from pa_lib.job import request_job
+
 
 ################################################################################
 ## Recursive Dependency Check:
@@ -64,7 +65,7 @@ request_job(
 # # Load Dataset (Data Preparation)
 ################################################################################
 
-from vkprog_data_prep import bd_train_scoring
+from .vkprog_data_prep import bd_train_scoring
 
 # 2019-10-21 => Calendar week 43
 (training_all,
@@ -87,7 +88,7 @@ from vkprog_data_prep import bd_train_scoring
 ################################################################################
 # ## CRM Data
 
-from vkprog_crm_prep import crm_train_scoring
+from .vkprog_crm_prep import crm_train_scoring
 
 (crm_train_df,
  crm_score_df,
@@ -99,6 +100,7 @@ from vkprog_crm_prep import crm_train_scoring
     year_train=year_training,
     year_span=4  # we take the last four years into account
 )
+
 
 ################################################################################
 
@@ -155,6 +157,7 @@ def scaling_crm_add2master(master_df, crm_df, feature_colnames_crm):
             # scaling, doesn't need 0
 
     return container_df
+
 
 ################################################################################
 
@@ -318,6 +321,7 @@ info(f"Accuracy on balanced training set:   {forest_01.score(X_train_balanced, y
 info(f"Accuracy on unbalanced training set: {forest_01.score(X_train, y_train)}"[:42])
 info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:42])
 
+
 ################################################################################
 
 # %% Plot: Feature importance
@@ -356,6 +360,7 @@ def plot_feature_importances(
     plt.ylim(-1, n_features)
     plt.show()
 
+
 ################################################################################
 
 plot_feature_importances(forest_01, feature_columns)
@@ -368,6 +373,7 @@ plot_feature_importances(forest_01, feature_columns)
 # ## Confusion Matrix
 
 from sklearn.metrics import confusion_matrix
+
 
 ################################################################################
 
@@ -400,6 +406,7 @@ def confusion_matrices(X_test, y_test):
 
     print("\nRandom Forest (forest_01):")
     print(df_confusion_forest_01)
+
 
 ################################################################################
 
@@ -437,6 +444,7 @@ print(
 
 from sklearn.metrics import precision_recall_curve
 
+
 def prec_rec_values(X_test, y_test):
     global precision_forest_01, recall_forest_01, thresholds_forest_01
 
@@ -447,6 +455,7 @@ def prec_rec_values(X_test, y_test):
             forest_01.predict_proba(X_test)[:, 1]
         )
     )
+
 
 ################################################################################
 
@@ -536,6 +545,7 @@ info(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
 
 from sklearn.metrics import roc_curve
 
+
 def roc_curve_graph(X_test, y_test):
     global fpr_forest_01, tpr_forest_01, thresholds_forest_01
 
@@ -596,9 +606,11 @@ def roc_curve_graph(X_test, y_test):
     plt.legend(loc=4)
     plt.show()
 
+
 ################################################################################
 
 from sklearn.metrics import roc_auc_score
+
 
 def roc_auc(X_test, y_test):
     forest_01_auc = roc_auc_score(
@@ -607,6 +619,7 @@ def roc_auc(X_test, y_test):
     )
 
     info("AUC for forest_01:    {:.3f}".format(forest_01_auc))
+
 
 ################################################################################
 
