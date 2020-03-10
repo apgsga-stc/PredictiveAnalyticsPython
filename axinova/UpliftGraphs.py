@@ -10,7 +10,6 @@ import altair as alt
 from typing import Tuple, List
 
 from pa_lib.data import select_rows, as_dtype, unfactorize
-from pa_lib.util import as_percent
 from .UpliftLib import all_weekdays, DataSeries, DataFrame
 
 
