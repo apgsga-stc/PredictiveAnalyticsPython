@@ -33,6 +33,8 @@ from pa_lib.job import request_job
 
 from vkprog_analyse.vkprog_data_prep import bd_train_scoring
 from vkprog_analyse.vkprog_crm_prep import crm_train_scoring
+from vkprog_analyse.vkprog_model_validation import roc_auc, prec_rec_curve, confusion_matrices
+
 from sklearn.model_selection import train_test_split
 from scipy import stats
 from imblearn.over_sampling import SMOTE
@@ -55,6 +57,8 @@ from sklearn.metrics import (
 )
 
 from pa_lib.file import load_bin
+
+
 
 ################################################################################
 info("sales_pred_master.py: START")
@@ -337,7 +341,7 @@ info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:
 def plot_feature_importances(
         model,
         feature_columns,
-        figsize=(20, 100)
+        figsize=(20, 150)
 ):
     from operator import itemgetter
 
@@ -382,53 +386,9 @@ plot_feature_importances(forest_01, feature_columns)
 ################################################################################
 # ## Confusion Matrix
 
-def confusion_matrices(X_test, y_test):
-    global pred_forest_01
-
-    pred_forest_01 = forest_01.predict(X_test)
-
-    # Wall time: 20.9ms
-
-    confusion_forest_01 = (
-        confusion_matrix(
-            y_test,
-            pred_forest_01
-        )
-    )
-
-    df_confusion_forest_01 = (
-        pd.DataFrame(
-            confusion_forest_01,
-            index=["Fact 0", "Fact 1"],
-            columns=["Pred 0", "Pred 1"]
-        )
-    )
-
-    print("Test set balance:")
-    print(pd.Series(y_test).value_counts())
-
-    print("\nConfusion Matrices:")
-
-    print("\nRandom Forest (forest_01):")
-    print(df_confusion_forest_01)
-
-
-################################################################################
-
-confusion_matrices(
-    X_test=X_train_balanced,
-    y_test=y_train_balanced
-)
-
-confusion_matrices(
-    X_test=X_train,
-    y_test=y_train
-)
-
-confusion_matrices(
-    X_test=X_test,
-    y_test=y_test
-)
+confusion_matrices(X_test=X_train_balanced, y_test=y_train_balanced, model=forest_01,)
+confusion_matrices(X_test=X_train, y_test=y_train, model=forest_01,)
+confusion_matrices(X_test=X_test,  y_test=y_test, model=forest_01,)
 
 ################################################################################
 # ## Classification Report
@@ -437,96 +397,16 @@ print("Random Forest:")
 print(
     classification_report(
         y_test,
-        pred_forest_01,
+        forest_01.predict(X_test),
         target_names=["not booking = 0", "booking = 1"]
     )
 )
 
-
-################################################################################
-# ## Precision-Recall Curve
-
-def prec_rec_values(X_test, y_test):
-    global precision_forest_01, recall_forest_01, thresholds_forest_01
-
-    # RandomForestClassifier has predict_proba, but not decision_function
-    (precision_forest_01, recall_forest_01, thresholds_forest_01) = (
-        precision_recall_curve(
-            y_test,
-            forest_01.predict_proba(X_test)[:, 1]
-        )
-    )
-
-
 ################################################################################
 
-def prec_rec_curve(X_train, y_train):
-    prec_rec_values(X_train, y_train)
-
-    plt.figure(figsize=(15, 12))
-    plt.grid()
-
-    def optimum_point(precision_forest_01,
-                      recall_forest_01,
-                      thresholds_forest_01,
-                      name,
-                      dot):
-        optimum_idx = (
-            pd.Series.idxmin(
-                np.power(1 - pd.Series(precision_forest_01), 2)
-                + np.power(1 - pd.Series(recall_forest_01), 2)
-            )
-        )
-
-        return plt.plot(precision_forest_01[optimum_idx],
-                        recall_forest_01[optimum_idx],
-                        dot,
-                        markersize=10,
-                        label=f"{name}: threshold {thresholds_forest_01[optimum_idx]}",
-                        fillstyle="none",
-                        c='k',
-                        mew=2
-                        )
-
-    ## Apply optium_point():
-
-    # Optimum: Forest
-    optimum_point(precision_forest_01,
-                  recall_forest_01,
-                  thresholds_forest_01,
-                  name="forest_01",
-                  dot='o'
-                  )
-
-    # Prec-Rec Curve: Forest
-    plt.plot(precision_forest_01,
-             recall_forest_01,
-             label="Random Forest"
-             )
-
-    plt.xlabel("Precision")
-    plt.ylabel("Recall")
-    plt.legend(loc="best")
-
-    plt.show()
-
-
-################################################################################
-
-prec_rec_curve(
-    X_train=X_train_balanced,
-    y_train=y_train_balanced
-)
-
-prec_rec_curve(
-    X_train=X_train,
-    y_train=y_train
-)
-
-prec_rec_curve(
-    X_train=X_test,
-    y_train=y_test
-)
+prec_rec_curve(X_train=X_train_balanced, y_train=y_train_balanced, model=forest_01,)
+prec_rec_curve(X_train=X_train, y_train=y_train, model=forest_01,)
+prec_rec_curve(X_train=X_test, y_train=y_test, model=forest_01,)
 
 ################################################################################
 
@@ -604,52 +484,20 @@ def roc_curve_graph(X_test, y_test):
     plt.show()
 
 
-################################################################################
-
-def roc_auc(X_test, y_test):
-    forest_01_auc = roc_auc_score(
-        y_test,
-        forest_01.predict_proba(X_test)[:, 1]
-    )
-
-    info("AUC for forest_01:    {:.3f}".format(forest_01_auc))
 
 
 ################################################################################
 
-# Wall time: 10.6 s
-roc_curve_graph(
-    X_train_balanced,
-    y_train_balanced
-)
-
-roc_auc(
-    X_train_balanced,
-    y_train_balanced
-)
+roc_curve_graph(X_train_balanced, y_train_balanced,)
+roc_auc(X_train_balanced, y_train_balanced, forest_01,)
 #
 
-roc_curve_graph(
-    X_train,
-    y_train
-)
+roc_curve_graph(X_train, y_train)
+roc_auc(X_train, y_train, forest_01,)
 #
 
-roc_auc(
-    X_train,
-    y_train
-)
-#
-
-roc_curve_graph(
-    X_test,
-    y_test
-)
-
-roc_auc(
-    X_test,
-    y_test
-)
+roc_curve_graph(X_test, y_test)
+roc_auc(X_test, y_test, forest_01,)
 
 ################################################################################
 # # Scoring
