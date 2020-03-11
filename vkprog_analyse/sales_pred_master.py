@@ -111,23 +111,18 @@ if do_debug():
 
 ################################################################################
 
-
 def scaling_crm_add2master(master_df, crm_df, features_crm):
     container_df = pd.merge(master_df, crm_df, how="left", on="Endkunde_NR")
 
     for col_name in list(
         np.compress(["RY" == x[0:2] for x in features_crm], features_crm)
     ):
-
         container_df.loc[:, col_name] = container_df.loc[:, col_name].fillna(0)
-
         max_ = np.nanmax(container_df.loc[:, col_name])
-
         min_ = np.nanmin(container_df.loc[:, col_name])
 
         if min_ == max_:
             container_df.loc[:, col_name] = 0
-
         else:
             container_df.loc[:, col_name] = (container_df.loc[:, col_name] - min_) / (
                 max_ - min_
@@ -136,24 +131,19 @@ def scaling_crm_add2master(master_df, crm_df, features_crm):
     for col_name in list(
         np.compress(["Letzter" == x[0:7] for x in features_crm], features_crm)
     ):
-
         max_ = np.nanmax(container_df.loc[:, col_name])
         # -> those who have never been contacted
         #    will be put together with the max-ones.
-
         container_df.loc[:, col_name] = container_df.loc[:, col_name].fillna(
             max_
         )  # No more NaNs!
-
         min_ = np.nanmin(container_df.loc[:, col_name])
 
         if max_ == min_:
             container_df.loc[:, col_name] = 1
-
         else:
             container_df.loc[:, col_name] = container_df.loc[:, col_name] / max_
             # scaling, doesn't need 0
-
     return container_df
 
 
@@ -194,9 +184,7 @@ info(f"Target columns: {target_columns}")
 # ## Split ``training_all`` into training-set (``X_train``,``y_train``) and test-set (``X_test``,``y_test``)
 
 df_features = training_all.loc[:, feature_columns].to_numpy()
-
 df_target = training_all.loc[:, "Target_Res_flg"].to_numpy()
-
 df_scoring_features = scoring_all.loc[:, feature_columns].to_numpy()
 
 print(f"df_features.shape: {df_features.shape}")
@@ -243,7 +231,6 @@ select = SelectKBest(
 )
 
 select.fit(X_train_balanced, y_train_balanced)
-
 mask = select.get_support()  # boolean array.
 
 info(f"X_train_balanced.shape: {X_train_balanced.shape}")
@@ -260,12 +247,9 @@ X_scoring = df_scoring_features[:, mask]
 
 print("X_scoring.shape:", X_scoring.shape)
 
-################################################################################
-# ## Model Training
 
-################################################################################
+########################################################################################
 # ### Model Training: Random Forest
-
 
 # Wall time: 13min
 forest_01 = RandomForestClassifier(
@@ -297,23 +281,21 @@ plot_rforest_features(
 )
 
 
-################################################################################
+########################################################################################
 # # Model Validation
-################################################################################
-
+########################################################################################
 info("Model Validation")
 
-################################################################################
 # ## Confusion Matrix
 
 confusion_matrices(x_test=X_train_balanced, y_test=y_train_balanced, model=forest_01)
 confusion_matrices(x_test=X_train, y_test=y_train, model=forest_01)
 confusion_matrices(x_test=X_test, y_test=y_test, model=forest_01)
 
-################################################################################
+
 # ## Classification Report
 
-print("Random Forest:")
+info("Calssification Report:")
 print(
     classification_report(
         y_test,
@@ -322,22 +304,21 @@ print(
     )
 )
 
-################################################################################
+
+# ## Precision-Recall Curve:
 
 prec_rec_curve(x_train=X_train_balanced, y_train=y_train_balanced, model=forest_01)
 prec_rec_curve(x_train=X_train, y_train=y_train, model=forest_01)
 prec_rec_curve(x_train=X_test, y_train=y_test, model=forest_01)
 
-################################################################################
 
+# ## Average Precision:
 avg_precision_forest_01 = average_precision_score(
     y_test, forest_01.predict_proba(X_test)[:, 1]
 )
-
 info(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
 
 
-################################################################################
 # ## Receiver Operating Characteristics (ROC) and AUC
 
 roc_curve_graph(X_train_balanced, y_train_balanced, model=forest_01)
@@ -350,9 +331,9 @@ roc_curve_graph(X_test, y_test, model=forest_01)
 roc_auc(X_test, y_test, forest_01)
 
 
-################################################################################
+########################################################################################
 # # Scoring
-################################################################################
+########################################################################################
 # ## Score Class Probabilities (Booking: No/Yes)
 
 scoring_prob = forest_01.predict_proba(X_scoring)

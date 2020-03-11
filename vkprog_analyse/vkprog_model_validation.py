@@ -33,8 +33,6 @@ from operator import itemgetter
 ################################################################################
 # # Model Validation
 
-################################################################################
-
 # %% Plot: Feature importance
 def plot_rforest_features(model, features_col, figsize=(20, 150)):
     # from operator import itemgetter
@@ -65,11 +63,8 @@ def plot_rforest_features(model, features_col, figsize=(20, 150)):
 
 
 def confusion_matrices(x_test, y_test, model):
-    # global pred_forest_01
 
     pred_forest_01 = model.predict(x_test)
-
-    # Wall time: 20.9ms
 
     confusion_forest_01 = confusion_matrix(y_test, pred_forest_01)
 
