@@ -28,16 +28,46 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from operator import itemgetter
+
 ################################################################################
 # # Model Validation
 
 ################################################################################
+
+# %% Plot: Feature importance
+def plot_rforest_features(model, features_col, figsize=(20, 150)):
+    #from operator import itemgetter
+
+    dict_feature_importance = sorted(
+        dict(zip(features_col, model.feature_importances_)).items(), key=itemgetter(1)
+    )
+
+    n_features = len(features_col)
+
+    plt.figure(figsize=figsize)
+    plt.grid()
+
+    plt.barh(
+        np.arange(n_features), [y for (x, y) in dict_feature_importance], align="center"
+    )
+
+    plt.yticks(np.arange(n_features), [x for (x, y) in dict_feature_importance])
+
+    plt.xlabel("Feature importance")
+    plt.ylabel("Feature")
+    plt.ylim(-1, n_features)
+    plt.show()
+
+
+
+################################################################################
 # ## Confusion Matrix
 
-def confusion_matrices(X_test, y_test,model):
+def confusion_matrices(x_test, y_test, model):
     #global pred_forest_01
 
-    pred_forest_01 = model.predict(X_test)
+    pred_forest_01 = model.predict(x_test)
 
     # Wall time: 20.9ms
 
@@ -81,8 +111,8 @@ def prec_rec_values(X_test, y_test,model):
 
 ################################################################################
 
-def prec_rec_curve(X_train, y_train,model):
-    prec_rec_values(X_train, y_train,model)
+def prec_rec_curve(x_train, y_train, model):
+    prec_rec_values(x_train, y_train, model)
 
     plt.figure(figsize=(15, 12))
     plt.grid()
@@ -94,8 +124,9 @@ def prec_rec_curve(X_train, y_train,model):
                       dot):
         optimum_idx = (
             pd.Series.idxmin(
-                np.power(1 - pd.Series(precision_forest_01), 2)
-                + np.power(1 - pd.Series(recall_forest_01), 2)
+                #np.power(1 - pd.Series(precision_forest_01), 2)
+                pd.Series(precision_forest_01).apply(lambda x: np.power(1-x,2))
+                + pd.Series(recall_forest_01).apply(lambda x: np.power(1-x,2))
             )
         )
 
@@ -134,12 +165,12 @@ def prec_rec_curve(X_train, y_train,model):
 ################################################################################
 # ## Receiver Operating Characteristics (ROC) and AUC
 
-def roc_curve_graph(X_test, y_test, model):
+def roc_curve_graph(x_test, y_test, model):
 
     (fpr_forest_01, tpr_forest_01, thresholds_forest_01) = (
         roc_curve(
             y_test,
-            model.predict_proba(X_test)[:, 1]
+            model.predict_proba(x_test)[:, 1]
         )
     )
 
@@ -150,7 +181,7 @@ def roc_curve_graph(X_test, y_test, model):
                              dot):
         close_default_index_forest_01 = (
             pd.Series.idxmin(
-                np.power(1 - pd.Series(tpr_forest_01), 2)
+                pd.Series(tpr_forest_01).apply(lambda x: np.power(1-x,2))
                 + np.power(pd.Series(fpr_forest_01), 2)
             )
         )
@@ -195,10 +226,10 @@ def roc_curve_graph(X_test, y_test, model):
 
 ################################################################################
 
-def roc_auc(X_test, y_test, model):
+def roc_auc(x_test, y_test, model):
     forest_01_auc = roc_auc_score(
         y_test,
-        model.predict_proba(X_test)[:, 1]
+        model.predict_proba(x_test)[:, 1]
     )
 
     info("AUC for forest_01:    {:.3f}".format(forest_01_auc))
