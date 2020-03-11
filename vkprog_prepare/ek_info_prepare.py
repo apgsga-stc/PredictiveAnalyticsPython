@@ -46,9 +46,9 @@ def load_crm():
     #get the raw data
     with project_dir("vkprog"):
         crm_data = load_bin("crm_data.feather").astype({"ENDKUNDE_NR": "int64"})
-                
-        _only_directly_contacted_ = (crm_data_raw.KONTAKT_TYP == 'direkt')
-        crm_data = crm_data_raw.loc[_only_directly_contacted_,:]
+
+        _only_directly_contacted_ = (crm_data.KONTAKT_TYP == 'direkt')
+        crm_data = crm_data.loc[_only_directly_contacted_,:]
     return crm_data
 
 ########################################################################################
@@ -61,7 +61,7 @@ def last_notna(s):
         return s.loc[s.notnull()].iat[-1]
     except IndexError:
         return np.NaN
-    
+
 ########################################################################################
 def aggregate_per_customer(bookings):
     """def last_notna(s):
@@ -437,10 +437,10 @@ def endkunde2vkgeb():
 
         cust_matched     = cust_matched.append(cust_matched_plz).drop_duplicates()
         cust_unmatched   = cust_container_ort.loc[ row_select,"""Endkunde_NR PLZ GEMEINDE KANTON EK_Land""".split()]
-        
+
         # End of one iteration
 
-        
+
     info(f"Verkaufsgebiete Matched: {cust_matched.shape[0]/cust_current.shape[0]}")
     return cust_matched
 
@@ -497,11 +497,11 @@ def crm_info():
                                   "STARTTERMIN": "Datum_Letzter_Ktkt",
                                   "ENDKUNDE_NR": "Endkunde_NR",})
                      )
-    
+
     # Combine
     container_crm = pd.merge(container_crm, crm_letzte_vbs, on="Endkunde_NR",how="left")
     container_crm = pd.merge(container_crm, crm_letzte_datum_vbs, on="Endkunde_NR",how="left")
-    
+
     return container_crm
 
 ########################################################################################
@@ -512,7 +512,7 @@ def booking_nettos_vbs(booking_raw):
     ##
     row_select = ((booking_raw.loc[:,"Kampagnen_Status"] != 3) & # nur nicht-annulierte Kampagnen
                   (booking_raw.loc[:,"Kamp_Erfass_Jahr"] <= today.isocalendar()[0]) &
-                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-4) 
+                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-4)
                  )
 
     booking_nettos = pd.pivot_table(
@@ -522,7 +522,7 @@ def booking_nettos_vbs(booking_raw):
         columns = ["Kamp_Erfass_Jahr"],
         index   = ["Endkunde_NR"],
         fill_value= 0
-        ) 
+        )
 
     booking_nettos_flattened = pd.DataFrame(booking_nettos.to_records(index=False))
     booking_nettos_flattened.loc[:,"Endkunde_NR"] = pd.Series(booking_nettos.index)
@@ -532,7 +532,7 @@ def booking_nettos_vbs(booking_raw):
     ##
     row_select = ((booking_raw.loc[:,"Kampagnen_Status"] != 3) & # nur nicht-annulierte Kampagnen
                   (booking_raw.loc[:,"Kamp_Erfass_Jahr"] <= today.isocalendar()[0]) &
-                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-2) 
+                  (booking_raw.loc[:,"Kamp_Erfass_Jahr"] >= (today.isocalendar()[0])-2)
                  )
 
     booking_letzte_vbs = (booking_raw
@@ -548,7 +548,7 @@ def booking_nettos_vbs(booking_raw):
         booking_letzte_vbs,
         on="Endkunde_NR",
         how="outer")
-    
+
     return ek_booking
 
 ########################################################################################
