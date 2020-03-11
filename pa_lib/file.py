@@ -7,6 +7,7 @@ File handling for PA data
 """
 import pandas as pd
 import numpy as np
+import re
 import sys
 import pickle
 from contextlib import contextmanager
@@ -137,6 +138,12 @@ def rm_file(file_name):
 def rm_data_file(file_name):
     file_path = _project_dir / file_name
     rm_file(file_path)
+
+
+def make_file_name(file_name: str) -> str:
+    """Clean up file name (remove non-alphanumerics and space runs)"""
+    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", " ", file_name))
+    return new_name
 
 
 ########################################################################################
