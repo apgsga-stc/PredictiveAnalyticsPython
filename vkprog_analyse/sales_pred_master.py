@@ -72,6 +72,8 @@ year_predict = 2020
 # Year for training the model (Random Forest) on:
 year_training = 2019
 
+pred_forest_01: np.ndarray = np.array([])
+
 
 def do_debug() -> bool:
     return False
