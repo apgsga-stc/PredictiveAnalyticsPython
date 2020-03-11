@@ -31,13 +31,31 @@
 
 # prepare Python environment
 FROM python:3.8-slim
+
+# Install prerequisites for Chrome
+RUN apt-get update && apt-get -qy install curl apt-utils unzip libxss1 wget
+RUN apt-get -qy install fonts-liberation libappindicator3-1 libasound2 libatk-bridge2.0-0 \
+                        libatspi2.0-0 libcups2 libdbus-1-3 libgtk-3-0 libnspr4 libnss3 \
+                      	libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxi6 \
+                      	libxrandr2 libxtst6 xdg-utils libgconf-2-4
+
+# Install Chrome for Selenium
+RUN curl https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb
+RUN dpkg -i /tmp/chrome.deb || apt-get install -yf
+RUN rm /tmp/chrome.deb
+
+# Install chromedriver for Selenium
+RUN curl https://chromedriver.storage.googleapis.com/2.36/chromedriver_linux64.zip -o /tmp/chromedriver.zip
+RUN unzip -o /tmp/chromedriver.zip -d /usr/local/bin
+RUN chmod +x /usr/local/bin/chromedriver
+
 COPY zielgruppen_requirements.txt /tmp
 RUN pip install --no-cache-dir -r /tmp/zielgruppen_requirements.txt
 
 # server parameters
 ARG server_script_dir="/app/axinova"
 ARG server_lib_dir="/app/pa_lib"
-ARG server_script="allianz_analyse.py"
+ARG server_script="hm_analyse.py"
 ARG server_port=8080
 ARG src_data_dir="/root/data"
 ARG export_dir="/app/output"

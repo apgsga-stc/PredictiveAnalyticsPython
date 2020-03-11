@@ -40,15 +40,16 @@ def calculate_target(target: Target) -> Target:
     return target
 
 
-def export_results(target: Target) -> None:
-    host_name, host_port, export_dir = get_run_environment()
-    export_file_name = target.export_result(to_directory=export_dir)
-    html_file_name = urllib.parse.quote(export_file_name.encode("utf-8"))
-    file_address = f"http://{host_name}:{host_port}/{html_file_name}"
-    st.markdown(
-        f'Download file: <a href="{file_address}">{export_file_name}</a>',
-        unsafe_allow_html=True,
-    )
+def download_results(target: Target) -> None:
+    if st.button("Create XLSX file with all results"):
+        host_name, host_port, export_dir = get_run_environment()
+        export_file_name = target.export_result(to_directory=export_dir)
+        html_file_name = urllib.parse.quote(export_file_name.encode("utf-8"))
+        file_address = f"http://{host_name}:{host_port}/{html_file_name}"
+        st.markdown(
+            f'Download: <a href="{file_address}">{export_file_name}</a>',
+            unsafe_allow_html=True,
+        )
 
 
 def choose_stations() -> list:
@@ -77,6 +78,9 @@ def show_stations(target: Target) -> None:
 
 
 def show_station_weekdays(target: Target, station_list: list) -> None:
+    if station_list == list():
+        st.warning("Choose at least one station!")
+        return
     st.markdown(f"### Stationen pro Wochentag für {', '.join(sorted(station_list))}:")
     st.table(
         target.best_station_days(
@@ -86,6 +90,9 @@ def show_station_weekdays(target: Target, station_list: list) -> None:
 
 
 def show_station_heatmaps_plot(target: Target, station_list: list) -> None:
+    if station_list == list():
+        st.warning("Choose at least one station!")
+        return
     st.markdown(f"### Heatmaps für {', '.join(sorted(station_list))}:")
     show_uncertainty = st.checkbox("Unsicherheit anzeigen")
     heatmaps = target.plot_station_heatmaps(
@@ -132,6 +139,27 @@ def show_timeslots(target: Target) -> None:
 
 
 def show_timeslot_plot(target: Target, station_list: list) -> None:
+    if station_list == list():
+        st.warning("Choose at least one station!")
+        return
     st.markdown(f"### Plots für {', '.join(sorted(station_list))}:")
     barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_list})
     st.altair_chart(barplot, use_container_width=False)
+
+
+def download_timeslot_plots(target: Target, station_list: list) -> None:
+    if station_list == list():
+        st.warning("Choose at least one station!")
+        return
+    st.warning("This will take ca. 15 sec per station!")
+    if st.button("Create ZIP file with all plots"):
+        host_name, host_port, export_dir = get_run_environment()
+        plot_file_name = target.store_timeslot_plots(
+            to_directory=export_dir, selectors={"Station": station_list}
+        )
+        html_file_name = urllib.parse.quote(plot_file_name.encode("utf-8"))
+        file_address = f"http://{host_name}:{host_port}/{html_file_name}"
+        st.markdown(
+            f'Download: <a href="{file_address}">{plot_file_name}</a>',
+            unsafe_allow_html=True,
+        )

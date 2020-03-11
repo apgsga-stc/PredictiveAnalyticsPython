@@ -6,7 +6,7 @@ from UpliftWebApp import (
     choose_stations,
     choose_target,
     describe_target,
-    export_results,
+    download_results,
     show_station_heatmaps_plot,
     show_station_weekdays,
     show_stations,
@@ -40,7 +40,7 @@ target_key = choose_target(all_targets)
 target = calculate_target(all_targets[target_key])
 
 if st.button("Prepare XLSX file with all results"):
-    export_results(target)
+    download_results(target)
 
 # show result header
 station_list = choose_stations()

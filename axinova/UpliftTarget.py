@@ -7,7 +7,6 @@ parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
 import altair as alt
-import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Callable, TypeVar, Any
@@ -16,13 +15,14 @@ from textwrap import indent as indent_by
 
 from pa_lib.util import list_items, default_dict, as_percent
 from pa_lib.data import clean_up_categoricals, unfactorize, as_dtype
-from pa_lib.file import project_dir, store_xlsx
+from pa_lib.file import project_dir, store_xlsx, make_file_name
 from axinova.UpliftData import UpliftData, SOURCE_DATA
 from axinova.UpliftGraphs import (
     heatmap,
     barplot,
     stations_weekday_heatmap,
     station_heatmaps,
+    barplot_zipfile,
 )
 from axinova.UpliftLib import (
     VarId,
@@ -99,12 +99,6 @@ def _aggregate_spr_data(
         return spr_pers, spr_sd, spr_sd_ratio
 
 
-def _make_file_name(file_name: str) -> str:
-    """Clean up file name (remove non-alphanumerics and space runs)"""
-    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", " ", file_name))
-    return new_name
-
-
 ########################################################################################
 # CLASSES
 ########################################################################################
@@ -120,12 +114,24 @@ class Target(ABC):
         self._validate()
 
     def stations(self, empty_means_all: bool = True) -> StringList:
+        """
+        Return list of stations for this target group
+
+        :param bool empty_means_all: Interpret empty station list as "all stations"
+        :return: List of station names
+        """
         if empty_means_all and self._stations == list():
             return self.data.all_stations
         return self._stations
 
     @abstractmethod
     def set_stations(self, stations: StringList) -> None:
+        """
+        Set list of stations for this target group
+
+        :param StringList stations: List of station names
+        :type stations:
+        """
         pass
 
     @property
@@ -248,7 +254,7 @@ class Target(ABC):
     ## Result export  ##################################################################
     def export_result(self, to_directory: str = None) -> str:
         export_file_name = (
-            f"{_make_file_name(self.name)} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            f"{make_file_name(self.name)} {dt.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         )
         ratios = self.result_summary()
         summary = DataFrame.from_records(
@@ -329,6 +335,34 @@ class Target(ABC):
             properties=properties,
         )
         return chart
+
+    def store_timeslot_plots(
+        self,
+        to_directory: str,
+        selectors: dict = None,
+        target_col: str = "pop_uplift_pers",
+        target_threshold: float = 0,
+        plot_properties: dict = None,
+    ) -> str:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(
+            plot_properties, defaults=dict(width=300, height=450, background="white")
+        )
+        file_name = barplot_zipfile(
+            data=self.result,
+            to_directory=to_directory,
+            archive_name=f"Plots {self.name}",
+            selectors=selectors,
+            timescale=self.timescale,
+            target_col=target_col,
+            target_threshold=target_threshold,
+            properties=properties,
+        )
+        return file_name
 
     def plot_target_pers_heatmap(
         self,

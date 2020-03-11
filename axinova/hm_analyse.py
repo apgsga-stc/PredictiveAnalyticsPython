@@ -1,17 +1,18 @@
 import streamlit as st
 
-from UpliftTarget import Variable, And, Or, source_data
+from UpliftTarget import And, Or, Variable
 from UpliftWebApp import (
     calculate_target,
-    describe_target,
-    show_timeslot_plot,
-    show_summary,
-    show_stations,
-    show_station_weekdays,
-    show_station_heatmaps_plot,
-    show_timeslots,
     choose_stations,
-    export_results,
+    describe_target,
+    download_results,
+    download_timeslot_plots,
+    show_station_heatmaps_plot,
+    show_station_weekdays,
+    show_stations,
+    show_summary,
+    show_timeslot_plot,
+    show_timeslots,
 )
 
 
@@ -67,9 +68,7 @@ target_key = st.selectbox(
 
 # calculate ratios for selected target
 target = calculate_target(all_targets[target_key])
-
-if st.button("Prepare XLSX file with all results"):
-    export_results(target)
+download_results(target)
 
 # show result header
 station_list = choose_stations()
@@ -85,6 +84,7 @@ results = {
     ),
     "Best Timeslots": lambda tgt, _: show_timeslots(tgt),
     "Timeslot Plots": lambda tgt, sl: show_timeslot_plot(tgt, sl),
+    "Download Timeslot Plots": lambda tgt, sl: download_timeslot_plots(tgt, sl),
 }
 result_key = st.selectbox("Choose result:", options=list(results.keys()))
 results[result_key](target, station_list)
