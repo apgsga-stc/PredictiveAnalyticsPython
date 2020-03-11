@@ -33,7 +33,7 @@ from pa_lib.job import request_job
 
 from vkprog_analyse.vkprog_data_prep import bd_train_scoring
 from vkprog_analyse.vkprog_crm_prep import crm_train_scoring
-from vkprog_analyse.vkprog_model_validation import roc_auc, prec_rec_curve, confusion_matrices
+from vkprog_analyse.vkprog_model_validation import roc_auc, prec_rec_curve, confusion_matrices, roc_curve_graph
 
 from sklearn.model_selection import train_test_split
 from scipy import stats
@@ -340,19 +340,19 @@ info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:
 # %% Plot: Feature importance
 def plot_feature_importances(
         model,
-        feature_columns,
+        features_col,
         figsize=(20, 150)
 ):
     from operator import itemgetter
 
     dict_feature_importance = sorted(
         dict(
-            zip(feature_columns, model.feature_importances_)
+            zip(features_col, model.feature_importances_)
         ).items(),
         key=itemgetter(1)
     )
 
-    n_features = len(feature_columns)
+    n_features = len(features_col)
 
     plt.figure(figsize=figsize)
     plt.grid()
@@ -376,7 +376,7 @@ def plot_feature_importances(
 
 ################################################################################
 
-plot_feature_importances(forest_01, feature_columns)
+plot_feature_importances(model=forest_01, features_col=feature_columns, figsize=(20, 150))
 
 
 ################################################################################
@@ -423,81 +423,15 @@ info(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
 ################################################################################
 # ## Receiver Operating Characteristics (ROC) and AUC
 
-def roc_curve_graph(X_test, y_test):
-    global fpr_forest_01, tpr_forest_01, thresholds_forest_01
-
-    (fpr_forest_01, tpr_forest_01, thresholds_forest_01) = (
-        roc_curve(
-            y_test,
-            forest_01.predict_proba(X_test)[:, 1]
-        )
-    )
-
-    def threshold_dot_50perc(fpr_forest_01,
-                             tpr_forest_01,
-                             thresholds_forest_01,
-                             name,
-                             dot):
-        close_default_index_forest_01 = (
-            pd.Series.idxmin(
-                np.power(1 - pd.Series(tpr_forest_01), 2)
-                + np.power(pd.Series(fpr_forest_01), 2)
-            )
-        )
-
-        return plt.plot(
-            fpr_forest_01[close_default_index_forest_01],
-            tpr_forest_01[close_default_index_forest_01],
-            dot,
-            markersize=10,
-            label=f"{name} threshold: {thresholds_forest_01[close_default_index_forest_01]}",
-            fillstyle="none",
-            c='k',
-            mew=2)
-
-    plt.figure(figsize=(15, 12))
-    plt.grid()
-
-    plt.plot(fpr_forest_01,
-             fpr_forest_01,
-             linestyle='dotted',
-             label="base line"
-             )
-
-    plt.plot(fpr_forest_01,
-             tpr_forest_01,
-             label="forest_01"
-             )
-
-    plt.xlabel("False-Postive Rate (FPR)")
-    plt.ylabel("True-Positive Rate (TPR) aka. Recall")
-
-    # find threshold closest to zero
-    threshold_dot_50perc(fpr_forest_01,
-                         tpr_forest_01,
-                         thresholds_forest_01,
-                         'forest_01',
-                         dot='^'
-                         )
-
-    plt.legend(loc=4)
-    plt.show()
-
-
-
-
-################################################################################
-
-roc_curve_graph(X_train_balanced, y_train_balanced,)
+roc_curve_graph(X_train_balanced, y_train_balanced,model=forest_01)
 roc_auc(X_train_balanced, y_train_balanced, forest_01,)
-#
 
-roc_curve_graph(X_train, y_train)
+roc_curve_graph(X_train, y_train,model=forest_01)
 roc_auc(X_train, y_train, forest_01,)
-#
 
-roc_curve_graph(X_test, y_test)
+roc_curve_graph(X_test, y_test,model=forest_01)
 roc_auc(X_test, y_test, forest_01,)
+
 
 ################################################################################
 # # Scoring

@@ -134,13 +134,12 @@ def prec_rec_curve(X_train, y_train,model):
 ################################################################################
 # ## Receiver Operating Characteristics (ROC) and AUC
 
-def roc_curve_graph(X_test, y_test):
-    global fpr_forest_01, tpr_forest_01, thresholds_forest_01
+def roc_curve_graph(X_test, y_test, model):
 
     (fpr_forest_01, tpr_forest_01, thresholds_forest_01) = (
         roc_curve(
             y_test,
-            forest_01.predict_proba(X_test)[:, 1]
+            model.predict_proba(X_test)[:, 1]
         )
     )
 
