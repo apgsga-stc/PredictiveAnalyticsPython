@@ -72,6 +72,10 @@ year_predict = 2020
 # Year for training the model (Random Forest) on:
 year_training = 2019
 
+
+def do_debug() -> bool:
+    return False
+
 ################################################################################
 ## Recursive Dependency Check:
 
@@ -85,7 +89,8 @@ request_job(
 ################################################################################
 # # Load Dataset (Data Preparation)
 ################################################################################
-
+if do_debug():
+    print(f"start bd_train_scoring: {day_predict}, {month_predict}, {year_predict}")
 
 # 2019-10-21 => Calendar week 43
 (training_all,
@@ -118,6 +123,7 @@ request_job(
     year_train=year_training,
     year_span=4  # we take the last four years into account
 )
+
 
 ################################################################################
 
@@ -322,6 +328,7 @@ info(f"Accuracy on balanced training set:   {forest_01.score(X_train_balanced, y
 info(f"Accuracy on unbalanced training set: {forest_01.score(X_train, y_train)}"[:42])
 info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:42])
 
+
 ################################################################################
 
 # %% Plot: Feature importance
@@ -364,6 +371,7 @@ def plot_feature_importances(
 ################################################################################
 
 plot_feature_importances(forest_01, feature_columns)
+
 
 ################################################################################
 # # Model Validation
@@ -431,6 +439,7 @@ print(
         target_names=["not booking = 0", "booking = 1"]
     )
 )
+
 
 ################################################################################
 # ## Precision-Recall Curve
@@ -528,6 +537,7 @@ avg_precision_forest_01 = (
 
 info(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
 
+
 ################################################################################
 # ## Receiver Operating Characteristics (ROC) and AUC
 
@@ -601,6 +611,7 @@ def roc_auc(X_test, y_test):
     )
 
     info("AUC for forest_01:    {:.3f}".format(forest_01_auc))
+
 
 ################################################################################
 
