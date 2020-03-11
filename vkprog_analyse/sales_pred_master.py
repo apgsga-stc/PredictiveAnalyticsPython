@@ -59,12 +59,8 @@ year_predict = 2020
 # Year for training the model (Random Forest) on:
 year_training = 2019
 
-pred_forest_01: np.ndarray = np.array([])
-
-
 def do_debug() -> bool:
     return False
-
 
 ################################################################################
 ## Recursive Dependency Check:
@@ -294,6 +290,7 @@ info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:
 
 
 ################################################################################
+# ## Plot features ranked by importance.
 
 plot_rforest_features(
     model=forest_01, features_col=feature_columns, figsize=(20, 150)

@@ -87,7 +87,7 @@ def confusion_matrices(x_test, y_test, model):
 
 
 ################################################################################
-# ## Precision-Recall Curve
+# ## Values: Precision, Recall, Threshold
 
 
 def prec_rec_values(x_test, y_test, model):
@@ -102,7 +102,7 @@ def prec_rec_values(x_test, y_test, model):
 
 
 ################################################################################
-
+# ## Precision-Recall Curve
 
 def prec_rec_curve(x_train, y_train, model):
 
@@ -202,7 +202,7 @@ def roc_curve_graph(x_test, y_test, model):
 
 
 ################################################################################
-
+# ## Value: Area Under the Curve
 
 def roc_auc(x_test, y_test, model):
     forest_01_auc = roc_auc_score(y_test, model.predict_proba(x_test)[:, 1])
