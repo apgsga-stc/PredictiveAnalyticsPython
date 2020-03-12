@@ -203,7 +203,7 @@ X_train = X_train[:, mask]
 X_test = X_test[:, mask]
 X_scoring = df_scoring_features[:, mask]
 
-info("X_scoring.shape:", X_scoring.shape)
+info(f"X_scoring.shape:{X_scoring.shape}")
 
 ########################################################################################
 # Model Training: Random Forest

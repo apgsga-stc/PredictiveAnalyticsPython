@@ -12,6 +12,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import datetime as dt
+
 
 #######################
 ## Datenaufbereitung ##
@@ -43,8 +45,8 @@ def load_booking_data():
     bd_raw = load_bin("vkprog/bd_data.feather").rename(
         mapper=lambda name: cap_words(name, sep="_"), axis="columns"
     )
-    bd = bd_raw.loc[(bd_raw.Netto > 0)].pipe(clean_up_categoricals)
-    return bd
+    _bd_ = bd_raw.loc[(bd_raw.Netto > 0)].pipe(clean_up_categoricals)
+    return _bd_
 
 
 ######################################
@@ -135,8 +137,6 @@ def aggregate_bookings(df, period):
 ## Global Variables ##
 ######################
 
-import datetime as dt
-
 
 #############################
 ## Data Prep: Booking Data ##
@@ -145,7 +145,7 @@ import datetime as dt
 ## Functions ##
 
 
-def booking_yearly_totals(YYYYKW, year_span):
+def booking_yearly_totals(yyyykw, year_span):
     """
     Computing yearly totals for Aushang and Reservation.
     Warning: Yearly totals do not necessarily align with calendar years!
@@ -163,8 +163,8 @@ def booking_yearly_totals(YYYYKW, year_span):
 
         bd_filtered = bd_aggr_2w.loc[
             (
-                (bd_aggr_2w.loc[:, "YYYYKW_2"] < YYYYKW - 100 * ry)
-                & (bd_aggr_2w.loc[:, "YYYYKW_2"] >= YYYYKW - 100 * (1 + ry))
+                (bd_aggr_2w.loc[:, "YYYYKW_2"] < yyyykw - 100 * ry)
+                & (bd_aggr_2w.loc[:, "YYYYKW_2"] >= yyyykw - 100 * (1 + ry))
             ),
             :,
         ].copy()
@@ -216,26 +216,26 @@ def booking_yearly_totals(YYYYKW, year_span):
 ##
 
 
-def booking_data(YYYYKW, year_span):
+def booking_data(yyyykw, year_span):
     """
     Creates pivot table for time span between YYYYKW and back the selected amount of years year_span
     """
     # Select the last four years based on new reference-column
-    row_select = (bd_aggr_2w.loc[:, "YYYYKW_2"] <= YYYYKW) & (
-        bd_aggr_2w.loc[:, "YYYYKW_2"] >= YYYYKW - year_span * 100
+    row_select = (bd_aggr_2w.loc[:, "YYYYKW_2"] <= yyyykw) & (
+        bd_aggr_2w.loc[:, "YYYYKW_2"] >= yyyykw - year_span * 100
     )
 
     bd_filtered = bd_aggr_2w.loc[row_select, :].copy()
 
     # Create new column containing names of the relative years:
     # pd.options.mode.chained_assignment = None  # default='warn'
-    max_Jahr = YYYYKW // 100
+    max_jahr = yyyykw // 100
     bd_filtered.loc[:, "Jahr_relative"] = (
-        "_RY_" + (max_Jahr - bd_filtered.loc[:, "Jahr"]).astype("str") + "_KW_"
+        "_RY_" + (max_jahr - bd_filtered.loc[:, "Jahr"]).astype("str") + "_KW_"
     )
     # pd.options.mode.chained_assignment = 'warn'  # default='warn'
 
-    # Computing Sums for each KW and customer
+    # Computing Sums for each kw and customer
     # info("Computing: Pivot Table")
     bd_pivot = bd_filtered.pivot_table(
         index=["Endkunde_NR"],
@@ -243,7 +243,7 @@ def booking_data(YYYYKW, year_span):
         values=[
             "Netto_Sum_Res",
             "Netto_Sum_Aus",
-        ],  # Cash amount of Resevation placed per in weeks of YYYYKW and YYYY(KW+1)
+        ],  # Cash amount of Resevation placed per in weeks of YYYYKW and YYYY(kw+1)
         aggfunc="sum",
         fill_value=0,
         # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
@@ -261,21 +261,21 @@ def booking_data(YYYYKW, year_span):
     ]
 
     # Label target variables:
-    KW = "KW_" + str(int(YYYYKW - (YYYYKW // 100) * 100))
+    kw = "KW_" + str(int(yyyykw - (yyyykw // 100) * 100))
     bd_flattened.rename(
         columns={
-            "Netto_Sum_Res_RY_0_" + KW: "Target_Sum_Res_RY_0_" + KW,
-            "Netto_Sum_Aus_RY_0_" + KW: "Target_Sum_Aus_RY_0_" + KW,
+            "Netto_Sum_Res_RY_0_" + kw: "Target_Sum_Res_RY_0_" + kw,
+            "Netto_Sum_Aus_RY_0_" + kw: "Target_Sum_Aus_RY_0_" + kw,
         },
         inplace=True,
     )
     bd_flattened.loc[:, "Target_Res_flg"] = bd_flattened.loc[
-        :, "Target_Sum_Res_RY_0_" + KW
+        :, "Target_Sum_Res_RY_0_" + kw
     ].astype(
         "bool"
     )  # Reservation?: Yes/No - True/False
     bd_flattened.loc[:, "Target_Aus_flg"] = bd_flattened.loc[
-        :, "Target_Sum_Aus_RY_0_" + KW
+        :, "Target_Sum_Aus_RY_0_" + kw
     ].astype(
         "bool"
     )  # Aushang?: Yes/No - True/False
@@ -285,7 +285,7 @@ def booking_data(YYYYKW, year_span):
 
     # Compute yearly totals
     # info("Running: booking_yearly_totals(YYYYKW, year_span) ")
-    yearly_totals = booking_yearly_totals(YYYYKW, year_span)
+    yearly_totals = booking_yearly_totals(yyyykw, year_span)
 
     # Left join yearly totals, and return it
     # info("Final merge")
@@ -414,12 +414,12 @@ def branchen_data(date_view):
 ################
 
 
-def scaling_bd(dataset, col_bookings=[], col_dates=[]):
+def scaling_bd(dataset, col_bookings, col_dates):
     """
     Booking columns are heavily right-skewed:
      1. log-transform all columns => achieving approx. gaussian distribution
      2. Standardise log-transformed values into interval [0,1]
-     
+
     Return transformed dataframe
     """
     # Scaling: booking
@@ -468,11 +468,7 @@ def bd_train_scoring(
         year_score, month, day
     )  # only works for odd calendar weeks!!!
     kw_now = date_now.isocalendar()[1]
-
     date_training = iso_to_datetime(year=year_train, kw=kw_now, day=1)
-
-    global current_yyyykw
-    global training_yyyykw
 
     current_yyyykw = year_score * 100 + kw_now
     training_yyyykw = year_train * 100 + kw_now
@@ -482,7 +478,7 @@ def bd_train_scoring(
 
     bd = load_booking_data()
 
-    if sales_filter == True:
+    if sales_filter:
         bd = filter_dataset(bd)
         info("True: Filters applied, defined by Sales")
 
@@ -537,7 +533,7 @@ def bd_train_scoring(
 
     scoring_all = pd.merge(scoring_all, scoring_branchen, on="Endkunde_NR", how="left")
 
-    if scale_features == True:
+    if scale_features:
         info("Scaling features")
         training_all = scaling_bd(
             training_all,
@@ -564,27 +560,4 @@ def bd_train_scoring(
         feature_colnames_branchen,
     )
 
-
 #####################################################################
-
-"""
-(training_all, scoring_all, feature_colnames_bd, feature_colnames_dates) = bd_train_scoring(
-    day=23,
-    month=9,
-    year_score=2019,
-    year_train=2018,
-    year_span=4,
-    scale_features=True)
-
-
-#check
-training_all.head(3)
-training_all.describe()
-scoring_all.head(3)
-feature_colnames_bd
-feature_colnames_dates
-
-
-#training_all.to_csv("C:\\Users\\stc\\data\\scaled_training_all.csv")
-
-"""
