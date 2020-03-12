@@ -33,6 +33,10 @@ from pa_lib.data import unfactorize, clean_up_categoricals
 ## Lazy Recursive Job Dependency Request:
 from pa_lib.job import request_job
 
+
+bd = pd.DataFrame()
+bd_aggr_2w = pd.DataFrame()
+
 ################################################################################
 ## Recursive Dependency Check:
 request_job(job_name="bd_prepare.py", current="Today")  # output: bd_data.feather
@@ -87,11 +91,8 @@ def sum_calc(df, col_year, col_week):
 
 
 def aggregate_bookings(df, period):
-    info(f"Period: {period}")
-    info("Calculate Reservation...")
     df_res = sum_calc(df, "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}")
 
-    info("Calculate Aushang...")
     df_aus = df.copy().loc[df.Kamp_Beginn_Jahr.notnull()]
     if df.shape[0] != df_aus.shape[0]:
         warn(
@@ -99,7 +100,6 @@ def aggregate_bookings(df, period):
         )
     df_aus = sum_calc(df_aus, "Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}")
 
-    info("Merge Results...")
     df_aggr = df_res.merge(
         right=df_aus,
         left_on=["Endkunde_NR", "Kamp_Erfass_Jahr", f"Kamp_Erfass_{period}"],
@@ -129,7 +129,6 @@ def aggregate_bookings(df, period):
     # Needed for data preparation
     df_aggr.eval("YYYYKW_2 = Jahr * 100 + KW_2", inplace=True)
 
-    info("aggregate_bookings: Done.")
     return df_aggr
 
 
@@ -448,8 +447,15 @@ def scaling_bd(dataset, col_bookings, col_dates):
     return dataset
 
 
-########################################################################################################
+########################################################################################
 
+
+def remove_list(input_list, to_remove):
+    for x in list(set(to_remove) & set(input_list)):
+        input_list.remove(x)
+    return input_list
+
+##
 
 def bd_train_scoring(
     day,
@@ -469,7 +475,6 @@ def bd_train_scoring(
     )  # only works for odd calendar weeks!!!
     kw_now = date_now.isocalendar()[1]
     date_training = iso_to_datetime(year=year_train, kw=kw_now, day=1)
-
     current_yyyykw = year_score * 100 + kw_now
     training_yyyykw = year_train * 100 + kw_now
 
@@ -477,39 +482,37 @@ def bd_train_scoring(
     global bd_aggr_2w
 
     bd = load_booking_data()
-
     if sales_filter:
         bd = filter_dataset(bd)
         info("True: Filters applied, defined by Sales")
-
     else:
         info("False: Filters applied, defined by Sales")
-
     bd_aggr_2w = aggregate_bookings(bd, "KW_2")
 
-    info(f"current_yyyykw: {current_yyyykw}")
-    info(f"date_now:       {date_now}")
-    info(f"training_yyyykw:{training_yyyykw}")
-    info(f"date_training:  {date_training}")
+    info(f"(current_yyyykw / training_yyyykw): ({current_yyyykw} / {training_yyyykw})")
+    info(f"(date_now / date_training): ({date_now} / {date_training})")
 
     scoring_bd = booking_data(current_yyyykw, year_span)
     training_bd = booking_data(training_yyyykw, year_span)
 
     ##  Store booking-feature names in a list ##
-    feature_colnames_bd = list(training_bd.columns)
-    feature_colnames_bd.remove("Endkunde_NR")
-    feature_colnames_bd.remove("Target_Aus_flg")
-    feature_colnames_bd.remove("Target_Res_flg")
-
+    feature_colnames_bd = remove_list(
+        input_list=list(training_bd.columns),
+        to_remove=["Endkunde_NR", "Target_Aus_flg", "Target_Res_flg"],
+    )
     ## Relative Dates
     training_dates = dates_bd(date_training)
     scoring_dates = dates_bd(date_now)
 
     ##  Store date-feature names in a list ##
-    feature_colnames_dates = list(training_dates.columns)
-    feature_colnames_dates.remove("Endkunde_NR")
-    feature_colnames_dates.remove("Kampagne_Erfass_Datum_min")
-    feature_colnames_dates.remove("Kampagne_Erfass_Datum_max")
+    feature_colnames_dates = remove_list(
+        input_list=list(training_dates.columns),
+        to_remove=[
+            "Endkunde_NR",
+            "Kampagne_Erfass_Datum_min",
+            "Kampagne_Erfass_Datum_max",
+        ],
+    )
 
     ## Branchen:
     training_branchen = branchen_data(date_training)
@@ -524,13 +527,11 @@ def bd_train_scoring(
 
     ## Merge all data
     training_all = pd.merge(training_dates, training_bd, on="Endkunde_NR", how="inner")
-
     training_all = pd.merge(
         training_all, training_branchen, on="Endkunde_NR", how="left"
     )
 
     scoring_all = pd.merge(scoring_dates, scoring_bd, on="Endkunde_NR", how="inner")
-
     scoring_all = pd.merge(scoring_all, scoring_branchen, on="Endkunde_NR", how="left")
 
     if scale_features:
@@ -550,8 +551,6 @@ def bd_train_scoring(
     else:
         info("Unscaled features")
 
-    info("Finished.")
-
     return (
         training_all,
         scoring_all,
@@ -559,5 +558,6 @@ def bd_train_scoring(
         feature_colnames_dates,
         feature_colnames_branchen,
     )
+
 
 #####################################################################
