@@ -142,7 +142,7 @@ def rm_data_file(file_name):
 
 def make_file_name(file_name: str) -> str:
     """Clean up file name (remove non-alphanumerics and space runs)"""
-    new_name = re.sub(r" +", " ", re.sub(r"[^A-Za-z0-9]", " ", file_name))
+    new_name = re.sub(r" +", " ", re.sub(r"\W", " ", file_name))
     return new_name
 
 
