@@ -19,10 +19,9 @@ from pa_lib.file import project_dir, store_xlsx, make_file_name
 from axinova.UpliftData import UpliftData, SOURCE_DATA
 from axinova.UpliftGraphs import (
     heatmap,
-    barplot,
     stations_weekday_heatmap,
     station_heatmaps,
-    barplot_zipfile,
+    barplots,
 )
 from axinova.UpliftLib import (
     VarId,
@@ -307,38 +306,32 @@ class Target(ABC):
         )
         return chart
 
-    def plot_ch_uplift_barplot(
+    def plot_timeslot_plots(
         self,
         selectors: dict = None,
         target_col: str = "pop_uplift_pers",
         target_threshold: float = 0,
         plot_properties: dict = None,
-        axes: str = "independent",
     ) -> alt.Chart:
         if selectors is None:
             selectors = {}
         if plot_properties is None:
             plot_properties = {}
 
-        properties = default_dict(
-            plot_properties, defaults=dict(width=200, height=300, background="white")
-        )
-        chart = barplot(
+        properties = default_dict(plot_properties, defaults=dict(width=200, height=300))
+        chart = barplots(
             data=self.result,
             selectors=selectors,
-            title=f"{self.name}: Uplift vs. CH population",
             timescale=self.timescale,
             target_col=target_col,
             target_threshold=target_threshold,
-            target_title=target_col,
-            axes=axes,
             properties=properties,
         )
         return chart
 
     def store_timeslot_plots(
         self,
-        to_directory: str,
+        directory: str,
         selectors: dict = None,
         target_col: str = "pop_uplift_pers",
         target_threshold: float = 0,
@@ -349,18 +342,17 @@ class Target(ABC):
         if plot_properties is None:
             plot_properties = {}
 
-        properties = default_dict(
-            plot_properties, defaults=dict(width=300, height=450, background="white")
-        )
-        file_name = barplot_zipfile(
+        properties = default_dict(plot_properties, defaults=dict(width=300, height=450))
+        file_name = barplots(
             data=self.result,
-            to_directory=to_directory,
-            archive_name=f"Plots {self.name}",
             selectors=selectors,
             timescale=self.timescale,
             target_col=target_col,
             target_threshold=target_threshold,
             properties=properties,
+            result_type="zip",
+            directory=directory,
+            archive_name=f"Uplift Plots {self.name}",
         )
         return file_name
 
@@ -433,6 +425,30 @@ class Target(ABC):
             show_uncertainty=show_uncertainty,
         )
         return chart
+
+    def store_station_heatmaps(
+        self,
+        selectors: dict = None,
+        plot_properties: dict = None,
+        show_uncertainty: bool = False,
+        directory: str = None,
+    ) -> str:
+        if selectors is None:
+            selectors = {}
+        if plot_properties is None:
+            plot_properties = {}
+
+        properties = default_dict(plot_properties, defaults=dict(width=350, height=800))
+        zip_file_name = station_heatmaps(
+            data=self.result,
+            selectors=selectors,
+            properties=properties,
+            show_uncertainty=show_uncertainty,
+            result_type="zip",
+            directory=directory,
+            archive_name=f"Target Group Heatmaps {self.name}",
+        )
+        return zip_file_name
 
 
 @dataclass

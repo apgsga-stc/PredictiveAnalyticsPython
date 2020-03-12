@@ -7,11 +7,10 @@ from UpliftWebApp import (
     choose_target,
     describe_target,
     download_results,
-    show_station_heatmaps_plot,
+    show_station_heatmaps,
     show_station_weekdays,
-    show_stations,
     show_summary,
-    show_timeslot_plot,
+    show_timeslot_plots,
     show_timeslots,
 )
 
@@ -49,13 +48,10 @@ describe_target(target)
 # choose detail result to show
 results = {
     "Summary": lambda tgt, _: show_summary(tgt),
-    "All Stations": lambda tgt, _: show_stations(tgt),
     "Stations / Weekdays": lambda tgt, sl: show_station_weekdays(tgt, sl),
-    "Station Heatmaps: Zielpersonen": lambda tgt, sl: show_station_heatmaps_plot(
-        tgt, sl
-    ),
+    "Station Heatmaps: Zielkontakte": lambda tgt, sl: show_station_heatmaps(tgt, sl),
     "Best Timeslots": lambda tgt, _: show_timeslots(tgt),
-    "Timeslot Plots": lambda tgt, sl: show_timeslot_plot(tgt, sl),
+    "Timeslot Plots": lambda tgt, sl: show_timeslot_plots(tgt, sl),
 }
 result_key = st.selectbox("Choose result:", options=list(results.keys()))
 results[result_key](target, station_list)

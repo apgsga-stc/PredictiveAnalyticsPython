@@ -106,5 +106,5 @@ station_list = st.sidebar.multiselect(
     default=["Basel SBB", "Bern", "Genève Cornavin", "Winterthur", "Zürich HB"],
 )
 st.markdown(f"### Plots für {', '.join(station_list)}:")
-barplot = target.plot_ch_uplift_barplot(selectors={"Station": station_list})
+barplot = target.plot_timeslot_plots(selectors={"Station": station_list})
 st.altair_chart(barplot, use_container_width=False)
