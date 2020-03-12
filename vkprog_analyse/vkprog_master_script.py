@@ -44,7 +44,7 @@ from vkprog_analyse.vkprog_model_validation import (
     roc_curve_graph,
 )
 ################################################################################
-info("sales_pred_master.py: START")
+info("vkprog_master_script.py: START")
 ################################################################################
 # Global Variables
 
@@ -417,6 +417,6 @@ with project_dir("vkprog\\predictions"):
 
 ################################################################################
 # End of file.
-info("Continue with: vp2xlsx_rebuild.py")
-info("sales_pred_master.py: END")
+info("Continue with: vkprog_deployment.py")
+info("vkprog_master_script.py: END")
 ################################################################################
