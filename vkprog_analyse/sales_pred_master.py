@@ -34,7 +34,7 @@ from pa_lib.job import request_job
 from pa_lib.file import load_bin
 from pa_lib.log import info
 
-from vkprog_analyse.vkprog_data_prep import bd_train_scoring
+from vkprog_analyse.vkprog_booking_prep import bd_train_scoring
 from vkprog_analyse.vkprog_crm_prep import crm_train_scoring
 from vkprog_analyse.vkprog_model_validation import (
     plot_rforest_features,
