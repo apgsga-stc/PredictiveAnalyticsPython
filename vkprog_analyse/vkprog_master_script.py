@@ -1,27 +1,20 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-################################################################################
-# # Master File
+# Master File
 
 ################################################################################
 # # Tools & Libraries
 ################################################################################
 
 # make imports from pa_lib possible (parent directory of file's directory)
-
 import sys
 from pathlib import Path
 
 file_dir = Path.cwd()
-print(file_dir)
 parent_dir = file_dir.parent
-print(parent_dir)
 sys.path.append(str(parent_dir))
 
-
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from scipy import stats
 from imblearn.over_sampling import SMOTE
@@ -29,13 +22,16 @@ from sklearn.feature_selection import SelectKBest, mutual_info_classif
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, average_precision_score
 
+# Utilities:
 from pa_lib.file import project_dir, store_bin
 from pa_lib.job import request_job
 from pa_lib.file import load_bin
 from pa_lib.log import info
 
+# Special libs:
 from vkprog_analyse.vkprog_dataprep_booking import bd_train_scoring
 from vkprog_analyse.vkprog_dataprep_crm import crm_train_scoring
+from vkprog_analyse.vkprog_feature_scaling import scaling_crm_add2master
 from vkprog_analyse.vkprog_model_validation import (
     plot_rforest_features,
     roc_auc,
@@ -43,10 +39,22 @@ from vkprog_analyse.vkprog_model_validation import (
     confusion_matrices,
     roc_curve_graph,
 )
-################################################################################
+
 info("vkprog_master_script.py: START")
-################################################################################
+
+########################################################################################
+# Recursive Dependency Check:
+########################################################################################
+info("Recursive Dependency Check")
+
+request_job(
+    job_name="ek_info_prepare.py",
+    current="Today",
+)
+
+########################################################################################
 # Global Variables
+########################################################################################
 
 # Output: Name of scored list (saved in data/vkprog/predictions)
 ek_list_name = "20200323_ek_list.feather"
@@ -59,26 +67,24 @@ year_predict = 2020
 # Year for training the model (Random Forest) on:
 year_training = 2019
 
+
 def do_debug() -> bool:
     return False
 
-################################################################################
-## Recursive Dependency Check:
 
-request_job(
-    job_name="ek_info_prepare.py",
-    # current = "This Week",
-    current="Today",
-)
-# output: ek_info.feather
+info(f"ek_list_name: {ek_list_name}")
 
-################################################################################
-# # Load Dataset (Data Preparation)
-################################################################################
+
+########################################################################################
+# Data Preparation
+########################################################################################
+info("Data Preparation")
+
 if do_debug():
     print(f"start bd_train_scoring: {day_predict}, {month_predict}, {year_predict}")
 
-# 2019-10-21 => Calendar week 43
+## IT21 Data (booking data):
+
 (
     training_all,
     scoring_all,
@@ -97,8 +103,7 @@ if do_debug():
     #              Logistik für Dritte, politisch... etc.
 )
 
-################################################################################
-# ## CRM Data
+## CRM Data:
 
 (crm_train_df, crm_score_df, feature_colnames_crm) = crm_train_scoring(
     day=day_predict,
@@ -108,46 +113,7 @@ if do_debug():
     year_span=4,  # we take the last four years into account
 )
 
-
-################################################################################
-
-def scaling_crm_add2master(master_df, crm_df, features_crm):
-    container_df = pd.merge(master_df, crm_df, how="left", on="Endkunde_NR")
-
-    for col_name in list(
-        np.compress(["RY" == x[0:2] for x in features_crm], features_crm)
-    ):
-        container_df.loc[:, col_name] = container_df.loc[:, col_name].fillna(0)
-        max_ = np.nanmax(container_df.loc[:, col_name])
-        min_ = np.nanmin(container_df.loc[:, col_name])
-
-        if min_ == max_:
-            container_df.loc[:, col_name] = 0
-        else:
-            container_df.loc[:, col_name] = (container_df.loc[:, col_name] - min_) / (
-                max_ - min_
-            )
-
-    for col_name in list(
-        np.compress(["Letzter" == x[0:7] for x in features_crm], features_crm)
-    ):
-        max_ = np.nanmax(container_df.loc[:, col_name])
-        # -> those who have never been contacted
-        #    will be put together with the max-ones.
-        container_df.loc[:, col_name] = container_df.loc[:, col_name].fillna(
-            max_
-        )  # No more NaNs!
-        min_ = np.nanmin(container_df.loc[:, col_name])
-
-        if max_ == min_:
-            container_df.loc[:, col_name] = 1
-        else:
-            container_df.loc[:, col_name] = container_df.loc[:, col_name] / max_
-            # scaling, doesn't need 0
-    return container_df
-
-
-################################################################################
+## Feature Scaling:
 
 training_all = scaling_crm_add2master(
     master_df=training_all, crm_df=crm_train_df, features_crm=feature_colnames_crm
@@ -157,10 +123,7 @@ scoring_all = scaling_crm_add2master(
     master_df=scoring_all, crm_df=crm_score_df, features_crm=feature_colnames_crm
 )
 
-################################################################################
-# # Modeling
-################################################################################
-# ## Define Columns: Features versus Targets
+## Define Columns: Features versus Targets:
 
 features = (
     feature_colnames_bd  # Booking data
@@ -175,23 +138,23 @@ feature_columns = pd.Series(features).loc[~feature_columns_boolean]
 feature_columns_boolean = pd.Series(training_all.columns).str.match("^Target")
 target_columns = pd.Series(training_all.columns).loc[feature_columns_boolean]
 
-del feature_columns_boolean
-
 info(f"Number of features: {len(feature_columns)}\n")
 info(f"Target columns: {target_columns}")
 
-################################################################################
-# ## Split ``training_all`` into training-set (``X_train``,``y_train``) and test-set (``X_test``,``y_test``)
+########################################################################################
+# Modeling
+########################################################################################
+info("Modeling")
 
 df_features = training_all.loc[:, feature_columns].to_numpy()
 df_target = training_all.loc[:, "Target_Res_flg"].to_numpy()
 df_scoring_features = scoring_all.loc[:, feature_columns].to_numpy()
 
-print(f"df_features.shape: {df_features.shape}")
-print(f"df_target.shape:   {df_target.shape}")
+info(f"df_features.shape: {df_features.shape}")
+info(f"df_target.shape:   {df_target.shape}")
+info(f"df_scoring_features.shape: {df_scoring_features.shape}")
 
-################################################################################
-
+## Splitting df_features in two sets for training and validation:
 (X_train, X_test, y_train, y_test) = train_test_split(
     df_features, df_target, train_size=0.75, random_state=42
 )
@@ -200,31 +163,27 @@ info(f"X_train.shape: {X_train.shape}")
 info(f"y_train.shape: {y_train.shape}")
 info(f"X_test.shape.: {X_test.shape}")
 info(f"y_test.shape:  {y_test.shape}")
-info(f"df_scoring_features.shape: {df_scoring_features.shape}")
+info("y_train:")
+info(pd.DataFrame(y_train).groupby(0)[0].count())
+info(stats.describe(y_train))
+info("\ny_test:")
+info(pd.DataFrame(y_test).groupby(0)[0].count())
+info(list(stats.describe(y_test)))
 
-################################################################################
+## Balance Training Dataset:
 
-print("y_train:")
-print(pd.DataFrame(y_train).groupby(0)[0].count())
-print(stats.describe(y_train))
-
-print("\ny_test:")
-print(pd.DataFrame(y_test).groupby(0)[0].count())
-print(list(stats.describe(y_test)))
-
-################################################################################
-# ## Balance Training Dataset
+info("SMOTE: Synthetic Minority Over-sampling Technique")
 
 sm = SMOTE(random_state=42)
-
 (X_train_balanced, y_train_balanced) = sm.fit_resample(X_train, y_train)
 
-print("y_train_balanced:")
-print(pd.DataFrame(y_train_balanced).groupby(0)[0].count())
-print(stats.describe(y_train_balanced))
+info("y_train_balanced:")
+info(pd.DataFrame(y_train_balanced).groupby(0)[0].count())
+info(stats.describe(y_train_balanced))
 
-################################################################################
-# ## Feature selection: SelectkBest
+## Feature selection:
+
+info("Feature selection")
 
 select = SelectKBest(
     score_func=mutual_info_classif, k=150  # How many features? (currently 219 is max)
@@ -236,22 +195,20 @@ mask = select.get_support()  # boolean array.
 info(f"X_train_balanced.shape: {X_train_balanced.shape}")
 info(f"X_train_balanced[:,mask].shape: {X_train_balanced[:, mask].shape}")
 
-################################################################################
+## Reassign variable names due to lazyness:
 
-# Reassign variable names due to lazyness
 feature_columns = feature_columns.loc[mask]
 X_train_balanced = X_train_balanced[:, mask]
 X_train = X_train[:, mask]
 X_test = X_test[:, mask]
 X_scoring = df_scoring_features[:, mask]
 
-print("X_scoring.shape:", X_scoring.shape)
-
+info("X_scoring.shape:", X_scoring.shape)
 
 ########################################################################################
-# ### Model Training: Random Forest
+# Model Training: Random Forest
+########################################################################################
 
-# Wall time: 13min
 forest_01 = RandomForestClassifier(
     n_estimators=5 * 10 ** 3,
     max_depth=10,
@@ -262,7 +219,6 @@ forest_01 = RandomForestClassifier(
 
 forest_01.fit(X_train_balanced, y_train_balanced)
 
-# %% Validate Accuracy
 info(
     f"Accuracy on balanced training set:   {forest_01.score(X_train_balanced, y_train_balanced)}"[
         :42
@@ -271,29 +227,22 @@ info(
 info(f"Accuracy on unbalanced training set: {forest_01.score(X_train, y_train)}"[:42])
 info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:42])
 
+## Plot features ranked by importance:
 
-
-################################################################################
-# ## Plot features ranked by importance.
-
-plot_rforest_features(
-    model=forest_01, features_col=feature_columns, figsize=(20, 150)
-)
-
+plot_rforest_features(model=forest_01, features_col=feature_columns, figsize=(20, 150))
 
 ########################################################################################
 # # Model Validation
 ########################################################################################
 info("Model Validation")
 
-# ## Confusion Matrix
+## Confusion Matrix:
 
-confusion_matrices(x_test=X_train_balanced, y_test=y_train_balanced, model=forest_01)
-confusion_matrices(x_test=X_train, y_test=y_train, model=forest_01)
+#confusion_matrices(x_test=X_train_balanced, y_test=y_train_balanced, model=forest_01)
+#confusion_matrices(x_test=X_train, y_test=y_train, model=forest_01)
 confusion_matrices(x_test=X_test, y_test=y_test, model=forest_01)
 
-
-# ## Classification Report
+## Classification Report:
 
 info("Calssification Report:")
 print(
@@ -304,37 +253,35 @@ print(
     )
 )
 
+## Precision-Recall Curve:
 
-# ## Precision-Recall Curve:
-
-prec_rec_curve(x_train=X_train_balanced, y_train=y_train_balanced, model=forest_01)
-prec_rec_curve(x_train=X_train, y_train=y_train, model=forest_01)
+#prec_rec_curve(x_train=X_train_balanced, y_train=y_train_balanced, model=forest_01)
+#prec_rec_curve(x_train=X_train, y_train=y_train, model=forest_01)
 prec_rec_curve(x_train=X_test, y_train=y_test, model=forest_01)
 
+## Average Precision:
 
-# ## Average Precision:
 avg_precision_forest_01 = average_precision_score(
     y_test, forest_01.predict_proba(X_test)[:, 1]
 )
 info(f"Average Precision of forest_01: {avg_precision_forest_01}"[:37])
 
+## Receiver Operating Characteristics (ROC) and AUC:
 
-# ## Receiver Operating Characteristics (ROC) and AUC
+#roc_curve_graph(X_train_balanced, y_train_balanced, model=forest_01)
+#roc_auc(X_train_balanced, y_train_balanced, forest_01)
 
-roc_curve_graph(X_train_balanced, y_train_balanced, model=forest_01)
-roc_auc(X_train_balanced, y_train_balanced, forest_01)
-
-roc_curve_graph(X_train, y_train, model=forest_01)
-roc_auc(X_train, y_train, forest_01)
+#roc_curve_graph(X_train, y_train, model=forest_01)
+#roc_auc(X_train, y_train, forest_01)
 
 roc_curve_graph(X_test, y_test, model=forest_01)
 roc_auc(X_test, y_test, forest_01)
 
+########################################################################################
+# Scoring:
+########################################################################################
 
-########################################################################################
-# # Scoring
-########################################################################################
-# ## Score Class Probabilities (Booking: No/Yes)
+# Score Class Probabilities (Booking: No/Yes)
 
 scoring_prob = forest_01.predict_proba(X_scoring)
 
@@ -344,16 +291,12 @@ scoring_all_prob = pd.merge(
     scoring_all, scoring_prob_df, left_index=True, right_index=True
 ).sort_values("Prob_1", ascending=False)
 
-################################################################################
-# ## Adding additional information for delivery lists ``EK_LIST_2W_KOMPLETT.csv``
+########################################################################################
+# Preparation: Deployment
+########################################################################################
 
 ek_info = load_bin("vkprog/ek_info.feather")
-
-################################################################################
-
 ek_list_raw = pd.merge(scoring_all_prob, ek_info, on="Endkunde_NR", how="left")
-
-################################################################################
 
 net_columns = [col for col in ek_info.columns if col.startswith("Net_")]
 
@@ -366,7 +309,7 @@ col_row_filter = [
     "VB_FILTER_BIS",
 ]
 
-listing = (
+relevant_cols_deploy = (
     [
         "Endkunde_NR",  # Endkunde_NR
         "Endkunde",  # Endkunde
@@ -393,7 +336,7 @@ listing = (
     + col_row_filter
 )
 
-ek_list = ek_list_raw.loc[:, listing].rename(
+ek_list = ek_list_raw.loc[:, relevant_cols_deploy].rename(
     columns={
         "EK_HB_Apg_Kurzz": "HB_APG",
         "AG_Hauptbetreuer": "HB_Agentur",
