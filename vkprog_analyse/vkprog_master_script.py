@@ -353,7 +353,7 @@ ek_list = ek_list_raw.loc[:, relevant_cols_deploy].rename(
 info(f"ek_list.shape: {ek_list.shape}")
 
 ################################################################################
-# ## Deployment for ``vp2xlsx.py``
+# ## Deployment for ``vkprog_deployment.py``
 
 with project_dir("vkprog\\predictions"):
     store_bin(ek_list, ek_list_name)  # Output name.
