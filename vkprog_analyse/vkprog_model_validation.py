@@ -28,34 +28,27 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from operator import itemgetter
-
 ################################################################################
 # # Model Validation
 
 # %% Plot: Feature importance
-def plot_rforest_features(model, features_col, figsize=(20, 150)):
+def rforest_features_report(model, features_col):
     # from operator import itemgetter
-
-    dict_feature_importance = sorted(
-        dict(zip(features_col, model.feature_importances_)).items(), key=itemgetter(1)
+    feature_importance_df = (
+        pd.DataFrame(
+            {
+                "Features": features_col,
+                "Importance": model.feature_importances_,
+            }
+        )
+        .sort_values("Importance", ascending=False)
+        .reset_index()
+        .drop(columns=["index"])
+        .head(50)
     )
+    feature_importance_df.loc[:,"CumSum"] = feature_importance_df.Importance.cumsum()
 
-    n_features = len(features_col)
-
-    plt.figure(figsize=figsize)
-    plt.grid()
-
-    plt.barh(
-        np.arange(n_features), [y for (x, y) in dict_feature_importance], align="center"
-    )
-
-    plt.yticks(np.arange(n_features), [x for (x, y) in dict_feature_importance])
-
-    plt.xlabel("Feature importance")
-    plt.ylabel("Feature")
-    plt.ylim(-1, n_features)
-    plt.show()
+    print(feature_importance_df)
 
 
 ################################################################################
@@ -99,6 +92,7 @@ def prec_rec_values(x_test, y_test, model):
 ################################################################################
 # ## Precision-Recall Curve
 
+
 def prec_rec_curve(x_train, y_train, model):
 
     (precision_forest_01, recall_forest_01, thresholds_forest_01) = prec_rec_values(
@@ -108,9 +102,7 @@ def prec_rec_curve(x_train, y_train, model):
     plt.figure(figsize=(15, 12))
     plt.grid()
 
-    def optimum_point(
-        precision_model, recall_model, thresholds_model, name, dot
-    ):
+    def optimum_point(precision_model, recall_model, thresholds_model, name, dot):
         optimum_idx = pd.Series.idxmin(
             pd.Series(precision_model).apply(lambda x: np.power(1 - x, 2))
             + pd.Series(recall_model).apply(lambda x: np.power(1 - x, 2))
@@ -158,9 +150,7 @@ def roc_curve_graph(x_test, y_test, model):
         y_test, model.predict_proba(x_test)[:, 1]
     )
 
-    def threshold_dot_50perc(
-        fpr_model, tpr_model, thresholds_model, name, dot
-    ):
+    def threshold_dot_50perc(fpr_model, tpr_model, thresholds_model, name, dot):
         close_default_index_forest_01 = pd.Series.idxmin(
             pd.Series(tpr_model).apply(lambda x: np.power(1 - x, 2))
             + np.power(pd.Series(fpr_model), 2)
@@ -198,6 +188,7 @@ def roc_curve_graph(x_test, y_test, model):
 
 ################################################################################
 # ## Value: Area Under the Curve
+
 
 def roc_auc(x_test, y_test, model):
     forest_01_auc = roc_auc_score(y_test, model.predict_proba(x_test)[:, 1])

@@ -33,7 +33,7 @@ from vkprog_analyse.vkprog_dataprep_booking import bd_train_scoring
 from vkprog_analyse.vkprog_dataprep_crm import crm_train_scoring
 from vkprog_analyse.vkprog_feature_scaling import scaling_crm_add2master
 from vkprog_analyse.vkprog_model_validation import (
-    plot_rforest_features,
+    rforest_features_report,
     roc_auc,
     prec_rec_curve,
     confusion_matrices,
@@ -229,7 +229,7 @@ info(f"Accuracy on test set (validation):   {forest_01.score(X_test, y_test)}"[:
 
 ## Plot features ranked by importance:
 
-plot_rforest_features(model=forest_01, features_col=feature_columns, figsize=(20, 150))
+rforest_features_report(model=forest_01, features_col=feature_columns)
 
 ########################################################################################
 # # Model Validation
@@ -291,7 +291,7 @@ scoring_all_prob = pd.merge(
     scoring_all, scoring_prob_df, left_index=True, right_index=True
 ).sort_values("Prob_1", ascending=False)
 
-########################################################################################
+###############################################################################re_columns, "Importance": forest_01.feature_importances_}).sort_values("Importance")asfasfasd#########
 # Preparation: Deployment
 ########################################################################################
 
