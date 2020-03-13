@@ -291,7 +291,7 @@ scoring_all_prob = pd.merge(
     scoring_all, scoring_prob_df, left_index=True, right_index=True
 ).sort_values("Prob_1", ascending=False)
 
-###############################################################################re_columns, "Importance": forest_01.feature_importances_}).sort_values("Importance")asfasfasd#########
+########################################################################################
 # Preparation: Deployment
 ########################################################################################
 
