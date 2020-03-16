@@ -19,6 +19,7 @@ from datetime import datetime as dtt
 from itertools import chain
 from collections import OrderedDict, deque
 from contextlib import contextmanager
+from typing import Sequence, Union
 
 
 ###############################################################################
@@ -224,23 +225,23 @@ def value(expr):
 
 
 ###############################################################################
-def normalize_cols(df):
+def normalize_cols(df: pd.DataFrame):
     return df.div(df.sum(axis="index"), axis="columns")
 
 
-def as_percent(df, decimals=0):
-    rounded = (df * 100).fillna(0).round(decimals)
+def as_percent(obj: Union[pd.DataFrame, pd.Series], decimals: int = 0):
+    rounded = obj.mul(100).fillna(0).round(decimals)
     if decimals < 1:
         return rounded.astype("int")
     else:
         return rounded
 
 
-def normalize_rows(df):
+def normalize_rows(df: pd.DataFrame):
     return df.div(df.sum(axis="columns"), axis="index")
 
 
-def clear_row_max(df):
+def clear_row_max(df: pd.DataFrame):
     """
     Return a series of row maximum indexes of df, where they are clear maxima.
     Clear means: given a row with n not-null values and one maximum max,
@@ -261,7 +262,7 @@ def clear_row_max(df):
 
 
 ###############################################################################
-def excel_col(nr):
+def excel_col(nr: int):
     """
     Return the nr-th column label of an Excel sheet (A..Z,AA..AZ,BA..BZ,...)
     nr starts at 1!
@@ -274,14 +275,14 @@ def excel_col(nr):
 
 
 ###############################################################################
-def max_is_outlier(series):
+def max_is_outlier(series: pd.Series):
     """Tukey's outlier test on the series' maximum"""
     q25 = series.quantile(0.25)
     q75 = series.quantile(0.75)
     return series.max() >= (q75 + 1.5 * (q75 - q25))
 
 
-def peaks(series):
+def peaks(series: pd.Series):
     """Return a boolean mask selecting local maxima of a series."""
     s_true = pd.Series(True)
     s_false = pd.Series(False)
@@ -290,12 +291,12 @@ def peaks(series):
     return result
 
 
-def non_repeated(series):
+def non_repeated(series: pd.Series):
     """Strip value repetitions from a series"""
     return series.loc[series.diff() != 0]
 
 
-def collect(series, sep=","):
+def collect(series: pd.Series, sep: str = ","):
     """Sorted string concatenation of a series' unique values"""
     values = np.sort(series[series.notna()].unique())
     return sep.join(map(str, values))
@@ -303,11 +304,37 @@ def collect(series, sep=","):
 
 ###############################################################################
 def default_dict(d: dict = None, defaults: dict = None) -> dict:
+    """
+    Add default items from a second dictionary to a dictionary if it does not contain
+    items of the same key.
+
+    :param d: Dictionary
+    :type d: dict
+    :param defaults: Dictionary containing default items
+    :type defaults: dict
+    :return: Resulting Dictionary
+    :rtype: dict
+    """
     if defaults is None:
         defaults = {}
     if d is None:
         d = {}
     return dict(defaults, **d)
+
+
+def chunkify(s: Sequence, n: int) -> Sequence:
+    """
+    Generator, splitting any sequence s into fixed-length chunks, last chunk may be shorter
+
+    :param s: Any iterable sequence
+    :type s: Sequence
+    :param n: Chunk length
+    :type n: int
+    :return: Chunk of s having length n
+    :rtype: Sequence
+    """
+    for i in range(0, len(s), n):
+        yield s[i : i + n]
 
 
 ###############################################################################
