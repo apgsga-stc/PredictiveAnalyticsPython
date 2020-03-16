@@ -35,7 +35,7 @@ from email.headerregistry import Address
 ########################################################################################
 # Cutoff for predictions:
 gv_MIN_PROB = 0.01  # I don't know. Has been defined back in the days.
-exit(0)
+
 # please adjust accordingly:
 name_depl_folder = "2020_03_23"  # Example: '2019_10_21'
 ek_list_name = "20200323_ek_list.feather"
@@ -160,9 +160,7 @@ pauschale_filter = (
 # Apply: Row-Selection & Column Selection
 ek_list = ek_list.loc[pauschale_filter, _col_selection]
 
-########################################################################################
 # %% Data-Type Clean Up:
-
 ek_list.loc[:, prob_KW] = 100 * ek_list.loc[:, prob_KW]  # shows percentage
 
 def parse_ints(df, columns):
@@ -197,7 +195,6 @@ vb_list = (
 # %% Data Preparation:
 
 vb_ek_map = {}
-
 for vb_kuerz in vb_list.index:
     vb_ek_map[vb_kuerz] = ek_list.loc[
         (ek_list.HB_APG == vb_kuerz)
