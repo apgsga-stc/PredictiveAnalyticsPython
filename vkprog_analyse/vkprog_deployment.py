@@ -4,7 +4,7 @@
 Für jeden aktiven Verkaufsberater mit mindestens 1 lead, wird ein Excel
 erstellt.
 """
-################################################################################
+########################################################################################
 # make imports from pa_lib possible (parent directory of file's directory)
 import sys
 from pathlib import Path
@@ -13,28 +13,34 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
-################################################################################
+print(f"file_dir: {file_dir}")
+
+########################################################################################
 # %% Load modules
 import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from os import mkdir
 from pa_lib.log import info
 from pa_lib.util import excel_col
 from pa_lib.job import request_job  # lazy recursive job dependency request
 from pa_lib.file import project_dir, load_bin, load_csv
 
-################################################################################
-#%% Define data location and deployment folder
+from smtplib import SMTP
+from email.message import EmailMessage
+from email.headerregistry import Address
 
+########################################################################################
+# Global variables:
+########################################################################################
 # Cutoff for predictions:
 gv_MIN_PROB = 0.01  # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder = "2020_03_09"  # Example: '2019_10_21'
-ek_list_name = "20200309_ek_list.feather"
+name_depl_folder = "2020_03_23"  # Example: '2019_10_21'
+ek_list_name = "20200323_ek_list.feather"
 
+########################################################################################
 #%% Create deployment folder (where all the xlsx-files go!)
 deployment_folder = (
     ## Server or on your machine:
@@ -44,33 +50,28 @@ deployment_folder = (
 )
 
 os.mkdir(deployment_folder)
+info(f"deployment_folder: {deployment_folder}")
 
-################################################################################
+########################################################################################
 ## Recursive Dependency Check:
 request_job(job_name="vkber_prepare.py", current="This Week")
-# output: vkber_data.csv
 
-################################################################################
-# %% Load Data: Active VBs, Complete scoring list
+## Load Data: Active VBs, Complete scoring list
 
 with project_dir("vkprog"):
     vb_list = load_csv("vkber_data.csv", sep=",", encoding="UTF-8")
-
-
 with project_dir("vkprog/predictions"):
     ek_list = load_bin(ek_list_name)
 
-################################################################################
+########################################################################################
 ## Change KAM Thomas Macho (TMA) to None-KAM:
-
 vb_list.loc[vb_list.KURZZEICHEN == "TMA", "KAM"] = False
-################################################################################
-# %% Data Preparation:Complete Scoring Table
 
+########################################################################################
+## Data Preparation:Complete Scoring Table
 
 def select_columns(df, pattern):
     return df.columns.to_series().loc[df.columns.str.match(pattern)].to_list()
-
 
 # Column selection:
 
@@ -94,7 +95,6 @@ _col_selection = (
                      VB_VK_Geb""".split()
     + select_columns(ek_list, pattern="^prob_KW")
 )
-
 
 # Row selection/filter:
 prob_KW = [col for col in ek_list.columns if col.startswith("prob_KW")][0]
@@ -160,30 +160,29 @@ pauschale_filter = (
 # Apply: Row-Selection & Column Selection
 ek_list = ek_list.loc[pauschale_filter, _col_selection]
 
-################################################################################
 # %% Data-Type Clean Up:
-
 ek_list.loc[:, prob_KW] = 100 * ek_list.loc[:, prob_KW]  # shows percentage
-
 
 def parse_ints(df, columns):
     result = df.copy()
     result.loc[:, columns] = result.loc[:, columns].fillna(0).astype("int64")
     return result
 
-
 int_columns = ["PLZ", "Endkunde_NR"] + select_columns(ek_list, pattern="^Net_")
-
 ek_list = ek_list.pipe(parse_ints, int_columns)
 
-################################################################################
+########################################################################################
 # %% Data Preparation: Active VB-list
 # %% Zuteilung und die einzelnen VBs
 
 vb_list = (
     vb_list.assign(
-        Vorname=vb_list["KOMBI_NAME"].apply(lambda x: x.rpartition(" ")[2]),
-        Nachname=vb_list["KOMBI_NAME"].apply(lambda x: x.rpartition(" ")[0]),
+        Vorname=vb_list["KOMBI_NAME"].apply(
+            lambda kombi_name: kombi_name.rpartition(" ")[2]
+        ),
+        Nachname=vb_list["KOMBI_NAME"].apply(
+            lambda kombi_name: kombi_name.rpartition(" ")[0]
+        ),
     )
     .loc[
         vb_list["KAM"] == False,
@@ -192,11 +191,10 @@ vb_list = (
     .set_index("KURZZEICHEN")
 )
 
-################################################################################
+########################################################################################
 # %% Data Preparation:
 
 vb_ek_map = {}
-
 for vb_kuerz in vb_list.index:
     vb_ek_map[vb_kuerz] = ek_list.loc[
         (ek_list.HB_APG == vb_kuerz)
@@ -205,7 +203,7 @@ for vb_kuerz in vb_list.index:
         select_columns(ek_list, pattern="^prob_KW"), ascending=False
     )  # highest probability first.
 
-################################################################################
+########################################################################################
 # %% Create VB overview with number of potential leads
 vb_nleads = pd.DataFrame.from_records(
     columns=["total_leads"],
@@ -215,7 +213,7 @@ vb_nleads = pd.DataFrame.from_records(
 
 vb_list = vb_list.merge(vb_nleads, left_index=True, right_index=True)
 
-################################################################################
+########################################################################################
 # %% Define overview-excel creator
 def overview_xlsx(df, file_name, sheet_name="df"):
     """
@@ -223,7 +221,9 @@ def overview_xlsx(df, file_name, sheet_name="df"):
     """
 
     # column widths as max strlength of column's contents
-    col_width = df.astype("str").apply(lambda col: max(col.str.len())).to_list()
+    col_width = (
+        df.astype("str").apply(lambda column_item: max(column_item.str.len())).to_list()
+    )
 
     title_width = list(map(len, df.columns))
 
@@ -248,8 +248,7 @@ def overview_xlsx(df, file_name, sheet_name="df"):
         worksheet.set_column(col, col, max(col_width[col], title_width[col]) + 1)
     writer.save()
 
-
-################################################################################
+########################################################################################
 # %% Excel column names
 # map all names on itself, then adjust those which need to be adjusted:
 
@@ -273,18 +272,16 @@ for x in xlsx_col_names.keys():
         xlsx_col_names[x] = "Chance"
         break
 
-
-################################################################################
+########################################################################################
 # %% Excel Info text: This will be displayed in every Excel sheet.
 info_text = """Liste von potenziell interessanten Kundenkontakten.
 Die Liste wird alle 2 Wochen bereitgestellt.\n
 Bitte in den letzten 2 Spalten Feedback eintragen, auch Vorschläge für die Verbesserung der Liste sind willkommen. 
 Vielen Dank."""
 
-
-################################################################################
+########################################################################################
 # %% Define Excel Function
-def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
+def vb_sales_xlsx(vb_lists, gv_vb_top_n=20):
     """
     Input: Dictionary mit VBs als Keys und Dataframes (Top20 pro VB) als value.
     Output: Pro VB wird ein formatiertes Excel generiert.
@@ -298,7 +295,7 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
             continue
 
         ## Technical Definitions:
-        df_vb = vb_lists[vb].head(gv_VB_TOP_N)
+        df_vb = vb_lists[vb].head(gv_vb_top_n)
         column_names = df_vb.keys()  # Column names, titles
         feedback_col = excel_col(len(column_names) + 1)  # Feedback-Spalte
         comment_col = excel_col(len(column_names) + 2)  # Kommentar-Spalte
@@ -460,7 +457,7 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
 
         # Info-text box, should be vsible under the list on the left side:
         worksheet.insert_textbox(
-            "B" + str(gv_VB_TOP_N + 2 + 1),
+            "B" + str(gv_vb_top_n + 2 + 1),
             info_text,
             {
                 "width": 480,
@@ -475,24 +472,24 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         worksheet.write(
             feedback_col + "1", "Feedback - bitte auswählen", cell_color_yellow
         )
-        for i in range(2, gv_VB_TOP_N + 2):
+        for i in range(2, gv_vb_top_n + 2):
             worksheet.write(feedback_col + str(i), "", column_format_dropdown)
 
         worksheet.data_validation(
-            feedback_col + "2:" + feedback_col + str(gv_VB_TOP_N + 2), feedback
+            feedback_col + "2:" + feedback_col + str(gv_vb_top_n + 2), feedback
         )
 
         # General feedback, below list, aligned with Feedback-column W:
-        begin_merge_cell = excel_col(len(column_names) - 4) + str(gv_VB_TOP_N + 3)
-        end_merge_cell = excel_col(len(column_names)) + str(gv_VB_TOP_N + 3)
+        begin_merge_cell = excel_col(len(column_names) - 4) + str(gv_vb_top_n + 3)
+        end_merge_cell = excel_col(len(column_names)) + str(gv_vb_top_n + 3)
         worksheet.merge_range(
             begin_merge_cell + ":" + end_merge_cell,
             "hier ein generelles Feedback wählen:",
             cell_color_blue,
         )
-        worksheet.data_validation(feedback_col + str(gv_VB_TOP_N + 3), feedback)
+        worksheet.data_validation(feedback_col + str(gv_vb_top_n + 3), feedback)
 
-        worksheet.write(feedback_col + str(gv_VB_TOP_N + 3), "", column_format_dropdown)
+        worksheet.write(feedback_col + str(gv_vb_top_n + 3), "", column_format_dropdown)
         # => Leave empty cell, so VBs have to fill out.
 
         # Comment column:
@@ -510,20 +507,17 @@ def vb_sales_xlsx(vb_lists, gv_VB_TOP_N=20):
         writer.save()
 
 
-################################################################################
+########################################################################################
 # %% Create Excels
 
-vb_sales_xlsx(vb_lists=vb_ek_map, gv_VB_TOP_N=20)
-
+vb_sales_xlsx(vb_lists=vb_ek_map, gv_vb_top_n=20)
 overview_xlsx(df=vb_list, file_name="vkber_potential.xlsx", sheet_name="VK")
 
-# %% End of file.
-################################################################################
+########################################################################################
 
 #######################
 ## Deployment Email! ##
 #######################
-
 
 ##############
 # Email list #
@@ -537,17 +531,6 @@ notify_emails.at["JCA"] = "jeremy.callner@apgsga.ch"
 notify_emails = notify_emails.reset_index().drop_duplicates()
 
 print(notify_emails.loc[:, "E_MAIL"])
-
-# For maintenance purposes:
-# notify_emails = notify_emails.iloc[-1:,:]
-
-#########
-# libs ##
-#########
-
-from smtplib import SMTP
-from email.message import EmailMessage
-from email.headerregistry import Address
 
 ######################
 # Define letter: msg #
