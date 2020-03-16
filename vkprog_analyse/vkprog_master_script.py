@@ -38,7 +38,6 @@ from vkprog_analyse.vkprog_model_validation import (
     confusion_matrices,
     roc_curve_graph,
 )
-
 from vkprog_analyse.vkprog_dataprep_ek_list import add_ek_info
 
 info("vkprog_master_script.py: START")
@@ -48,10 +47,7 @@ info("vkprog_master_script.py: START")
 ########################################################################################
 info("Recursive Dependency Check")
 
-request_job(
-    job_name="ek_info_prepare.py",
-    current="Today",
-)
+request_job(job_name="ek_info_prepare.py", current="Today")
 
 ########################################################################################
 # Global Variables
@@ -75,12 +71,9 @@ def do_debug() -> bool:
 
 info(f"ek_list_name: {ek_list_name}")
 
-
 ########################################################################################
 # Data Preparation
 ########################################################################################
-info("Data Preparation")
-
 if do_debug():
     print(f"start bd_train_scoring: {day_predict}, {month_predict}, {year_predict}")
 
@@ -145,7 +138,6 @@ info(f"Target columns: {target_columns}")
 ########################################################################################
 # Modeling
 ########################################################################################
-info("Modeling")
 
 df_features = training_all.loc[:, feature_columns].to_numpy()
 df_target = training_all.loc[:, "Target_Res_flg"].to_numpy()
@@ -282,13 +274,12 @@ scoring_all_prob = pd.merge(
 info(f"scoring_all_prob.shape: {scoring_all_prob.shape}")
 
 ########################################################################################
-# Preparation: Deployment
+# Preparation: Deployment Table
 ########################################################################################
 
 ek_list = add_ek_info(scored_dataframe=scoring_all_prob)
-
 info(f"ek_list.shape: {ek_list.shape}")
-
+info(f"ek_list.sample(1,random_state=42).T: {ek_list.sample(1,random_state=42).T}")
 ################################################################################
 # ## Deployment for ``vkprog_deployment.py``
 
