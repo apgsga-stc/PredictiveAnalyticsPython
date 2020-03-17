@@ -64,18 +64,10 @@ year_predict = 2020
 # Year for training the model (Random Forest) on:
 year_training = 2019
 
-
-def do_debug() -> bool:
-    return False
-
-
 info(f"ek_list_name: {ek_list_name}")
-
 ########################################################################################
 # Data Preparation
 ########################################################################################
-if do_debug():
-    print(f"start bd_train_scoring: {day_predict}, {month_predict}, {year_predict}")
 
 ## IT21 Data (booking data):
 

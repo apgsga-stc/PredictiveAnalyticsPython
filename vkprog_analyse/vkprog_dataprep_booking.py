@@ -458,14 +458,14 @@ def remove_list(input_list, to_remove):
 ##
 
 def bd_train_scoring(
-    day,
-    month,
-    year_score,
-    year_train,
-    year_span,
+    day: int,
+    month: int,
+    year_score: int,
+    year_train:int,
+    year_span: int,
     sales_filter=True,
     scale_features=True,
-):
+) -> (pd.DataFrame, pd.DataFrame, list, list, list):
     """
     Creates scoring-dataset, training-dataset, feature columns name lists for bookings and booking-dates
     """
