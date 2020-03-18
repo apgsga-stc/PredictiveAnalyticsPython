@@ -6,14 +6,16 @@
 ## Load Modules ##
 ##################
 
+import datetime as dt
+
 # make imports from pa_lib possible (parent directory of file's directory)
 import sys
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
-import datetime as dt
-
 
 #######################
 ## Datenaufbereitung ##
@@ -25,7 +27,7 @@ sys.path.append(str(parent_dir))
 
 ## Libraries & Settings ##
 from pa_lib.file import load_bin
-from pa_lib.util import cap_words, iso_to_datetime
+from pa_lib.util import cap_words, iso_to_datetime, flat_list
 from pa_lib.log import info, warn
 
 from pa_lib.data import unfactorize, clean_up_categoricals
@@ -301,86 +303,66 @@ def booking_data(yyyykw, year_span):
 
 
 def dates_bd(view_date):
-    sec_kw2_factor = 60 * 60 * 24 * 365
+    """
+    filter bd to campaigns before view_date, calculate deltas
+    """
+    sec_per_year = 60 * 60 * 24 * 365.25
     min_max_erfass_dt = (
         bd.loc[
-            view_date > bd.loc[:, "Kampagne_Erfassungsdatum"],
+            bd["Kampagne_Erfassungsdatum"] < view_date,
             ["Endkunde_NR", "Kampagne_Erfassungsdatum"],
         ]
-        .groupby("Endkunde_NR")
+        .groupby("Endkunde_NR", as_index=False)
         .agg(["min", "max"])
-    ).reset_index()
-
+    )
+    # TODO: redundant??
     min_max_erfass_dt = pd.DataFrame(min_max_erfass_dt.to_records(index=False))
-
     min_max_erfass_dt.columns = [
         "Endkunde_NR",
         "Kampagne_Erfass_Datum_min",
         "Kampagne_Erfass_Datum_max",
     ]
-
-    min_max_erfass_dt.loc[:, "Erste_Buchung_Delta"] = (
-        min_max_erfass_dt.loc[:, "Kampagne_Erfass_Datum_min"].apply(
-            lambda x: ((view_date - x).total_seconds()) // sec_kw2_factor
-        )
-        # .fillna(-1)
-    )
-
-    min_max_erfass_dt.loc[:, "Letzte_Buchung_Delta"] = (
-        min_max_erfass_dt.loc[:, "Kampagne_Erfass_Datum_max"].apply(
-            lambda x: (view_date - x).total_seconds() // sec_kw2_factor
-        )
-        # .fillna(-1)
-    )
+    min_max_erfass_dt.loc[:, "Erste_Buchung_Delta"] = min_max_erfass_dt.loc[
+        :, "Kampagne_Erfass_Datum_min"
+    ].apply(lambda x: ((view_date - x).total_seconds()) // sec_per_year)
+    min_max_erfass_dt.loc[:, "Letzte_Buchung_Delta"] = min_max_erfass_dt[
+        "Kampagne_Erfass_Datum_max"
+    ].apply(lambda x: (view_date - x).total_seconds() // sec_per_year)
 
     min_max_erfass_dt.loc[:, "Erste_Letzte_Buchung_Delta"] = (
         min_max_erfass_dt.loc[:, "Erste_Buchung_Delta"]
         - min_max_erfass_dt.loc[:, "Letzte_Buchung_Delta"]
     )
-    # Kick all customer, who just booked in the last two weeks
-    final_selection = min_max_erfass_dt.loc[
-        min_max_erfass_dt.loc[:, "Kampagne_Erfass_Datum_max"]
-        # .apply(lambda x: x + relativedelta(weeks=2) < view_date),:])
-        .apply(lambda x: x <= view_date),
-        :,
-    ]
-
-    return final_selection
+    return min_max_erfass_dt
 
 
 ##############
 ## Branchen ##
 ##############
-
-
-def branchen_data(date_view):
-    # bd = load_booking_data()
-
+def branchen_data(view_date: date):
+    # Prepare data
     kunden_branchen_df = bd.loc[
         :, ["Endkunde_NR", "Kampagne_Erfassungsdatum", "Endkunde_Branchengruppe_ID"]
     ]
-
     auftrag_branchen_df = bd.loc[
         :, ["Endkunde_NR", "Kampagne_Erfassungsdatum", "Auftrag_Branchengruppe_ID"]
     ]
-
     kunden_branchen_df.columns = [
         "Endkunde_NR",
         "Kampagne_Erfassungsdatum",
         "Branchen_ID",
     ]
-
     auftrag_branchen_df.columns = kunden_branchen_df.columns
-
     branchen_df = (
         kunden_branchen_df.append(auftrag_branchen_df).dropna().drop_duplicates()
     )
 
-    # Define filter (boolean pd.Series) based on view_date
-    filter_boolean = bd.loc[:, "Kampagne_Erfassungsdatum"] < date_view
+    # TODO: (pd.crosstab(index=df.nr, columns=df.br) > 0).astype("int")
 
-    # Span pivot table with filter:
-    branchen_df = branchen_df.loc[filter_boolean, :].pivot_table(
+    # Keep past campaigns only, count Branchen_ID occurrences per customer:
+    branchen_df = branchen_df.loc[
+        bd["Kampagne_Erfassungsdatum"] < view_date
+    ].pivot_table(
         index=["Endkunde_NR"],
         columns=["Branchen_ID"],
         values=["Branchen_ID"],
@@ -396,7 +378,6 @@ def branchen_data(date_view):
         .replace("')", "")
         for x in branchen_df.columns
     ]
-
     branchen_df.columns = new_col_names
 
     # Decode into 0/1:
@@ -450,26 +431,36 @@ def scaling_bd(dataset, col_bookings, col_dates):
 ########################################################################################
 
 
-def remove_list(input_list, to_remove):
-    for x in list(set(to_remove) & set(input_list)):
-        input_list.remove(x)
-    return input_list
+def remove_list(input_list: list, to_remove: Any) -> list:
+    """
+    Remove a list of elements from another list, if present
+
+    :param input_list: source list
+    :param to_remove: element(s) to remove
+    :return: remaining elements, in original order
+    """
+    rest = [x for x in input_list if not x in flat_list(to_remove)]
+    return rest
+
 
 ##
+
 
 def bd_train_scoring(
     day: int,
     month: int,
     year_score: int,
-    year_train:int,
+    year_train: int,
     year_span: int,
-    sales_filter=True,
-    scale_features=True,
-) -> (pd.DataFrame, pd.DataFrame, list, list, list):
+    sales_filter: bool,
+    scale_features: bool,
+):
     """
     Creates scoring-dataset, training-dataset, feature columns name lists for bookings and booking-dates
     """
+    global bd, bd_aggr_2w
 
+    ## Load data, aggregate and filter according to parameters
     date_now = dt.datetime(
         year_score, month, day
     )  # only works for odd calendar weeks!!!
@@ -477,10 +468,6 @@ def bd_train_scoring(
     date_training = iso_to_datetime(year=year_train, kw=kw_now, day=1)
     current_yyyykw = year_score * 100 + kw_now
     training_yyyykw = year_train * 100 + kw_now
-
-    global bd
-    global bd_aggr_2w
-
     bd = load_booking_data()
     if sales_filter:
         bd = filter_dataset(bd)
@@ -488,14 +475,10 @@ def bd_train_scoring(
     else:
         info("False: Filters applied, defined by Sales")
     bd_aggr_2w = aggregate_bookings(bd, "KW_2")
-
     info(f"(current_yyyykw / training_yyyykw): ({current_yyyykw} / {training_yyyykw})")
     info(f"(date_now / date_training): ({date_now} / {date_training})")
-
     scoring_bd = booking_data(current_yyyykw, year_span)
     training_bd = booking_data(training_yyyykw, year_span)
-
-    ##  Store booking-feature names in a list ##
     feature_colnames_bd = remove_list(
         input_list=list(training_bd.columns),
         to_remove=["Endkunde_NR", "Target_Aus_flg", "Target_Res_flg"],
@@ -503,8 +486,6 @@ def bd_train_scoring(
     ## Relative Dates
     training_dates = dates_bd(date_training)
     scoring_dates = dates_bd(date_now)
-
-    ##  Store date-feature names in a list ##
     feature_colnames_dates = remove_list(
         input_list=list(training_dates.columns),
         to_remove=[
@@ -517,8 +498,6 @@ def bd_train_scoring(
     ## Branchen:
     training_branchen = branchen_data(date_training)
     scoring_branchen = branchen_data(date_now)
-
-    ## Store branchen-feature names in a list:
     feature_colnames_branchen = list(
         set(training_branchen.columns) & set(scoring_branchen.columns)
     )
@@ -526,14 +505,14 @@ def bd_train_scoring(
     feature_colnames_branchen.remove("Endkunde_NR")
 
     ## Merge all data
-    training_all = pd.merge(training_dates, training_bd, on="Endkunde_NR", how="inner")
+    training_all = pd.merge(training_dates, training_bd, on="Endkunde_NR")
     training_all = pd.merge(
         training_all, training_branchen, on="Endkunde_NR", how="left"
     )
-
-    scoring_all = pd.merge(scoring_dates, scoring_bd, on="Endkunde_NR", how="inner")
+    scoring_all = pd.merge(scoring_dates, scoring_bd, on="Endkunde_NR")
     scoring_all = pd.merge(scoring_all, scoring_branchen, on="Endkunde_NR", how="left")
 
+    ## Scale features, if requested
     if scale_features:
         info("Scaling features")
         training_all = scaling_bd(
@@ -541,13 +520,11 @@ def bd_train_scoring(
             col_bookings=feature_colnames_bd,
             col_dates=feature_colnames_dates,
         )
-
         scoring_all = scaling_bd(
             scoring_all,
             col_bookings=feature_colnames_bd,
             col_dates=feature_colnames_dates,
         )
-
     else:
         info("Unscaled features")
 

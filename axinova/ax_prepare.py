@@ -146,7 +146,7 @@ def load_ax_var_struct(directory):
 def get_pop_ratios(directory):
     with project_dir(directory):
         pop_data = load_xlsx(
-            file_name="190016Bahnhof_Total_202001.xlsx",
+            file_name="190016Bahnhof_Total_202002.xlsx",
             sheet_name="Basis Struktur",
             usecols=[0, 1, 2, 3],
         ).set_axis(
@@ -162,7 +162,7 @@ def get_pop_ratios(directory):
     )
 
     # clean up data: drop Liechtenstein, non-smartphone owners, non-internet users
-    delete_rows = (pop_data.Variable.isin(["md_region", "md_kanton"])) & (
+    delete_rows = (pop_data.Variable.isin(["md_gebiet", "md_region", "md_kanton"])) & (
         pop_data.Code == "Liechtenstein"
     )
     delete_rows |= (pop_data.Variable == "md_336") & (pop_data.Code == "quoted")
