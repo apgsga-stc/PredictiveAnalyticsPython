@@ -25,7 +25,7 @@ from sklearn.metrics import classification_report, average_precision_score
 # Utilities:
 from pa_lib.file import project_dir, store_bin
 from pa_lib.job import request_job
-from pa_lib.log import info
+from pa_lib.log import info, time_log
 
 # Special libs:
 from vkprog_analyse.vkprog_dataprep_booking import bd_train_scoring
@@ -78,7 +78,6 @@ if do_debug():
     print(f"start bd_train_scoring: {day_predict}, {month_predict}, {year_predict}")
 
 ## IT21 Data (booking data):
-
 (
     training_all,
     scoring_all,
@@ -98,7 +97,6 @@ if do_debug():
 )
 
 ## CRM Data:
-
 (crm_train_df, crm_score_df, feature_colnames_crm) = crm_train_scoring(
     day=day_predict,
     month=month_predict,
@@ -108,27 +106,22 @@ if do_debug():
 )
 
 ## Feature Scaling:
-
 training_all = scaling_crm_add2master(
     master_df=training_all, crm_df=crm_train_df, features_crm=feature_colnames_crm
 )
-
 scoring_all = scaling_crm_add2master(
     master_df=scoring_all, crm_df=crm_score_df, features_crm=feature_colnames_crm
 )
 
 ## Define Columns: Features versus Targets:
-
 features = (
     feature_colnames_bd  # Booking data
     + feature_colnames_dates  # Dates related to bookings
     + feature_colnames_branchen  # Branches
     + feature_colnames_crm  # CRM (customer-vkber interactions)
 )
-
 feature_columns_boolean = pd.Series(features).str.match("^Target")
 feature_columns = pd.Series(features).loc[~feature_columns_boolean]
-
 feature_columns_boolean = pd.Series(training_all.columns).str.match("^Target")
 target_columns = pd.Series(training_all.columns).loc[feature_columns_boolean]
 
@@ -142,7 +135,6 @@ info(f"Target columns: {target_columns}")
 df_features = training_all.loc[:, feature_columns].to_numpy()
 df_target = training_all.loc[:, "Target_Res_flg"].to_numpy()
 df_scoring_features = scoring_all.loc[:, feature_columns].to_numpy()
-
 info(f"df_features.shape: {df_features.shape}")
 info(f"df_target.shape:   {df_target.shape}")
 info(f"df_scoring_features.shape: {df_scoring_features.shape}")
@@ -151,7 +143,6 @@ info(f"df_scoring_features.shape: {df_scoring_features.shape}")
 (X_train, X_test, y_train, y_test) = train_test_split(
     df_features, df_target, train_size=0.75, random_state=42
 )
-
 info(f"X_train.shape: {X_train.shape}")
 info(f"y_train.shape: {y_train.shape}")
 info(f"X_test.shape.: {X_test.shape}")
@@ -164,38 +155,29 @@ info(pd.DataFrame(y_test).groupby(0)[0].count())
 info(list(stats.describe(y_test)))
 
 ## Balance Training Dataset:
-
-info("SMOTE: Synthetic Minority Over-sampling Technique")
-
-sm = SMOTE(random_state=42)
-(X_train_balanced, y_train_balanced) = sm.fit_resample(X_train, y_train)
-
+with time_log("calculating SMOTE"):
+    sm = SMOTE(random_state=42)
+    (X_train_balanced, y_train_balanced) = sm.fit_resample(X_train, y_train)
 info("y_train_balanced:")
 info(pd.DataFrame(y_train_balanced).groupby(0)[0].count())
 info(stats.describe(y_train_balanced))
 
 ## Feature selection:
-
 info("Feature selection")
-
 select = SelectKBest(
     score_func=mutual_info_classif, k=150  # How many features? (currently 219 is max)
 )
-
 select.fit(X_train_balanced, y_train_balanced)
 mask = select.get_support()  # boolean array.
-
 info(f"X_train_balanced.shape: {X_train_balanced.shape}")
 info(f"X_train_balanced[:,mask].shape: {X_train_balanced[:, mask].shape}")
 
-## Reassign variable names due to lazyness:
-
+## Reassign variable names due to laziness:
 feature_columns = feature_columns.loc[mask]
 X_train_balanced = X_train_balanced[:, mask]
 X_train = X_train[:, mask]
 X_test = X_test[:, mask]
 X_scoring = df_scoring_features[:, mask]
-
 info(f"X_scoring.shape:{X_scoring.shape}")
 
 ########################################################################################
