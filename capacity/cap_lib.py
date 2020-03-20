@@ -26,7 +26,7 @@ N_FLAECHEN: int = 1000
 ########################################################################################
 def simulate_cap_data(n_flaechen: int = N_FLAECHEN) -> pd.DataFrame:
     global N_FLAECHEN
-    
+
     if n_flaechen != N_FLAECHEN:
         N_FLAECHEN = n_flaechen
     random.seed(42)
