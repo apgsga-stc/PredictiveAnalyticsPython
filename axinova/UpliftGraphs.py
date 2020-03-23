@@ -54,7 +54,9 @@ def prepare_chart_data(data: DataFrame, selectors: dict) -> DataFrame:
     )
 
 
-def store_charts_to_files(charts: Dict[str, alt.Chart], to_directory: str) -> List[str]:
+def store_charts_to_files(
+    charts: Dict[str, alt.Chart], to_directory: Path
+) -> List[str]:
     chart_files: List[str] = list()
     num_charts = len(charts)
     charts_done = 0
@@ -62,7 +64,7 @@ def store_charts_to_files(charts: Dict[str, alt.Chart], to_directory: str) -> Li
     show_bar = st.progress(0)
     for (label, chart) in charts.items():
         chart_file_name = make_file_name(label) + ".png"
-        chart_file_path = Path(to_directory) / chart_file_name
+        chart_file_path = to_directory / chart_file_name
         chart.properties(background="white").save(str(chart_file_path), format="png")
         charts_done += 1
         show_bar.progress(charts_done / num_charts)
@@ -189,13 +191,15 @@ def barplots(
         )
         return chart_matrix
     elif result_type == "zip":
-        chart_file_names = store_charts_to_files(charts, to_directory=directory)
+        tempdir = Path(directory) / f"temp_{dt.now().strftime('%Y%m%d_%H%M%S')}"
+        chart_file_names = store_charts_to_files(charts, to_directory=tempdir)
         zip_file_name = make_zip_file(
             chart_file_names,
-            from_directory=directory,
+            from_directory=tempdir,
             to_directory=directory,
             archive_name=archive_name,
         )
+        tempdir.rmdir()
         return zip_file_name
     else:
         raise ValueError(
@@ -264,8 +268,8 @@ def station_heatmaps(
             alt.Chart(single_chart_data, title=station)
             .mark_rect()
             .encode(
-                x=alt.X("DayOfWeek:O", sort=all_weekdays),
-                y=alt.Y("Hour:O"),
+                x=alt.X("DayOfWeek:O", title="Wochentag", sort=all_weekdays),
+                y=alt.Y("Hour:O", title="Stunde", axis=alt.Axis(tickOffset=-13)),
                 color=alt.Color(
                     "target_pers:Q",
                     title="Zielpersonen",
@@ -321,13 +325,15 @@ def station_heatmaps(
         )
         return chart_matrix
     elif result_type == "zip":
-        chart_file_names = store_charts_to_files(charts, to_directory=directory)
+        tempdir = Path(directory) / f"temp_{dt.now().strftime('%Y%m%d_%H%M%S')}"
+        chart_file_names = store_charts_to_files(charts, to_directory=tempdir)
         zip_file_name = make_zip_file(
             chart_file_names,
-            from_directory=directory,
+            from_directory=tempdir,
             to_directory=directory,
             archive_name=archive_name,
         )
+        tempdir.rmdir()
         return zip_file_name
     else:
         raise ValueError(

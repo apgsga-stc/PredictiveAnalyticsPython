@@ -13,7 +13,7 @@ from pa_lib.file import file_list
 _QUERY = {}
 
 
-def _init():
+def _init() -> None:
     sql_path = Path.cwd().parent / "pa_lib" / "sql"
     for sql_file in file_list(sql_path, "*.sql").name:
         base_name = sql_file.rsplit(".", maxsplit=1)[0]
@@ -21,7 +21,7 @@ def _init():
             _QUERY[base_name] = query_file.read()
 
 
-def query(tag):
+def query(tag: str) -> str:
     try:
         return _QUERY[tag]
     except KeyError:

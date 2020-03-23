@@ -17,7 +17,9 @@ class Connection:
     Instance will auto-close on going out of scope.
     """
 
-    def __init__(self, instance, user=None, passwd=None, do_open=False):
+    def __init__(
+        self, instance: str, user: str = None, passwd: str = None, do_open: bool = False
+    ):
         """Initializes connection parameters, opens connection if "do_open" is True."""
         self.connection = None
         self.cursor = None
@@ -35,7 +37,7 @@ class Connection:
         self.open()
         return self
 
-    def __exit__(self, exc_ty, exc_val, tb):
+    def __exit__(self, *exception_info):
         self.close()
 
     # --------------------------------------------------------------------------------
@@ -73,7 +75,9 @@ class Connection:
 
     # --------------------------------------------------------------------------------
     # Queries
-    def query(self, sql, squeeze=True, squeeze_axis=None):
+    def query(
+        self, sql: str, squeeze: bool = True, squeeze_axis: str = None
+    ) -> pd.DataFrame:
         """Return query result as dataframe, squeezing it to Series/Scalar if possible (unless parameter "squeeze" is False)"""
         res = pd.read_sql_query(sql, con=self.connection)
         if squeeze:
@@ -110,12 +114,12 @@ class Connection:
 
     def iter_output(self):
         """Iterate over DBMS_OUTPUT"""
-        out_line = self.string_var()
-        out_status = self.number_var()
-        self.exec("dbms_output.get_line", out_line, out_status)
-        while out_line.getvalue() is not None:
-            yield out_line.getvalue()
-            self.exec("dbms_output.get_line", out_line, out_status)
+        output_line = self.string_var()
+        output_status = self.number_var()
+        self.exec("dbms_output.get_line", output_line, output_status)
+        while output_line.getvalue() is not None:
+            yield output_line.getvalue()
+            self.exec("dbms_output.get_line", output_line, output_status)
 
     # --------------------------------------------------------------------------------
     # Private methods
@@ -176,11 +180,7 @@ if __name__ == "__main__":
     print("Non-squeezed query:")
     print(conn.query("select 1 nr, 'abc' txt from dual", squeeze=False))
     print("Squeezed query (by rows):")
-    print(
-        conn.query(
-            "select 1 nr, 'abc' txt from dual", squeeze=True, squeeze_axis="rows"
-        )
-    )
+    print(conn.query("select 1 nr, 'abc' txt from dual", squeeze_axis="rows"))
     print("Scalar query (fully squeezed):")
     print(conn.query("select sysdate from dual"))
     conn.close()

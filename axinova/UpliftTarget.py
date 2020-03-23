@@ -438,7 +438,7 @@ class Target(ABC):
         if plot_properties is None:
             plot_properties = {}
 
-        properties = default_dict(plot_properties, defaults=dict(width=350, height=800))
+        properties = default_dict(plot_properties, defaults=dict(width=250, height=600))
         zip_file_name = station_heatmaps(
             data=self.result,
             selectors=selectors,
