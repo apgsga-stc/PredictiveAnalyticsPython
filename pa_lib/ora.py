@@ -20,6 +20,7 @@ class Connection:
     def __init__(self, instance, user=None, passwd=None, do_open=False):
         """Initializes connection parameters, opens connection if "do_open" is True."""
         self.connection = None
+        self.cursor = None
         if user is None and passwd is None:
             (self.instance, self.user, self.passwd) = PA_ORA_CONN[instance].astuple()
         else:
@@ -109,25 +110,25 @@ class Connection:
 
     def iter_output(self):
         """Iterate over DBMS_OUTPUT"""
-        o_line = self.string_var()
-        o_status = self.number_var()
-        self.exec("dbms_output.get_line", o_line, o_status)
-        while o_line.getvalue() is not None:
-            yield o_line.getvalue()
-            self.exec("dbms_output.get_line", o_line, o_status)
+        out_line = self.string_var()
+        out_status = self.number_var()
+        self.exec("dbms_output.get_line", out_line, out_status)
+        while out_line.getvalue() is not None:
+            yield out_line.getvalue()
+            self.exec("dbms_output.get_line", out_line, out_status)
 
     # --------------------------------------------------------------------------------
     # Private methods
     # --------------------------------------------------------------------------------
-
-    def _connect_str(self, instance):
+    @staticmethod
+    def _connect_str(instance):
         """Build connect string for APG instance"""
         return PA_ORA_DSN_TEMPL.format(instance.lower(), instance.upper())
 
     def _connect(self, instance, user, passwd):
         """Build connection to APG instance. Set encoding to UTF-8, as God intended"""
         try:
-            conn = orcl.connect(
+            connection = orcl.connect(
                 user, passwd, self._connect_str(instance), encoding="UTF-8"
             )
         except orcl.DatabaseError as d:
@@ -138,7 +139,7 @@ class Connection:
         except:
             raise
         else:
-            return conn
+            return connection
 
 
 ###############################################################################

@@ -34,8 +34,8 @@ PA_ORA_DSN_TEMPL = (
 )
 
 PA_ORA_CONN = Record(
-    IT21_PROD=ConnectPar("chpi211", "it21", "it21nurzumlesen12ti"),
-    CRM_PROD=ConnectPar("chpcrm1", "ors_apg", "ors_pwd_apg"),
-    IT21_DEV_VK=ConnectPar("chei211", "vk", "vk_pass"),
-    APC_PROD_VDWH1=ConnectPar("chpapc1", "vdwh1", "vdwh1_pass"),
+    IT21_PROD=ConnectPar(instance="chpi211", user="it21", passwd="it21nurzumlesen12ti"),
+    CRM_PROD=ConnectPar(instance="chpcrm1", user="ors_apg", passwd="ors_pwd_apg"),
+    IT21_DEV_VK=ConnectPar(instance="chei211", user="vk", passwd="vk_pass"),
+    APC_PROD_VDWH1=ConnectPar(instance="chpapc1", user="vdwh1", passwd="vdwh1_pass"),
 )
