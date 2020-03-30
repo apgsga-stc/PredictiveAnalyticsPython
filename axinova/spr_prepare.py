@@ -10,7 +10,7 @@ import pandas as pd
 from collections import namedtuple
 from typing import Dict
 
-from pa_lib.file import project_dir, load_xlsx, store_pickle, cleanup_df
+from pa_lib.file import project_dir, load_xlsx, store_pickle, optimize_df
 from pa_lib.log import info
 from pa_lib.data import as_dtype, dtFactor, cut_categorical, merge_categories
 from pa_lib.util import cap_words, value
@@ -192,5 +192,5 @@ with value(spr_data.loc[spr_data["Station"].isnull()]) as unmatched:
 # Store results
 ########################################################################################
 with project_dir("axinova"):
-    store_pickle(cleanup_df(spr_data), "spr_data.pkl")
-    store_pickle(cleanup_df(spr_data_complete), "spr_data_complete.pkl")
+    store_pickle(optimize_df(spr_data), "spr_data.pkl")
+    store_pickle(optimize_df(spr_data_complete), "spr_data_complete.pkl")
