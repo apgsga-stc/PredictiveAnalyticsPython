@@ -174,4 +174,10 @@ def master_intervista_loader():
 
 
 ########################################################################################
-# dist_cat_df, dist_mean_med = master_intervista_loader()
+def self_isolation_mapper(x: str) -> str:
+    if x in ["weniger als 500 Meter"]:
+        return "a. staying home (<500m)"
+    elif x in ["weniger als 2 Km", "500 Meter - 2 Kilometer"]:
+        return "b. leaving home only for necessity (0.5 - 2.0 km)"
+    else:
+        return "c. leaving home (> 2km)"
