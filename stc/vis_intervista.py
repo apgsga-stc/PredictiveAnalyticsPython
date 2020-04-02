@@ -46,7 +46,16 @@ subset_df2 = (
     .reset_index()
     .copy()
 )
+
+#subset_df2.to_feather("mobility_radius_percent.feather")
+
 # Drawing lines:
+
+def visibility(x:str):
+    if x == "C. Leaving home (>2km)":
+        return True
+    else:
+        return "legendonly"
 
 fig = go.Figure()
 for (quarantine_x, plot_data) in subset_df2.groupby("quarantine"):
@@ -54,9 +63,10 @@ for (quarantine_x, plot_data) in subset_df2.groupby("quarantine"):
         go.Scatter(
             x=plot_data.Datum,
             y=plot_data.percent,
+            visible=visibility(quarantine_x),
             name=quarantine_x,
             mode="lines+markers",
-            line_shape="spline",  #'linear'
+            line_shape='linear',#"spline",  #'linear'
             hovertemplate=f"<b>{quarantine_x}</b><br>"
             + "<br><b>Prozent:</b> %{y:.2f}%"
             + "<br><b>Datum:</b> %{text}<br>"
@@ -66,7 +76,7 @@ for (quarantine_x, plot_data) in subset_df2.groupby("quarantine"):
     )
 fig.update_layout(
     yaxis=dict(range=[-5, 100],),
-    title="Mobility-Radius: Wieviel Prozent der Bevölkerung bleibt zuhaus? (Intervista)",
+    title="Mobility-Radius: Wieviel Prozent der Bevölkerung ist unterwegs? (Intervista)",
     xaxis_title="Datum",  # "Zeit",
     yaxis_title="Prozent",
     #plot_bgcolor= 'rgba(0,0,0,0)',
