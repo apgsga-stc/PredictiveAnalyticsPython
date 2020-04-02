@@ -69,9 +69,20 @@ fig.update_layout(
     title="Mobility-Radius: Wieviel Prozent der Bevölkerung bleibt zuhaus? (Intervista)",
     xaxis_title="Datum",  # "Zeit",
     yaxis_title="Prozent",
-    hovermode='x unified',
+    #plot_bgcolor= 'rgba(0,0,0,0)',
+    shapes=[
+        dict(
+            type="line",
+            yref="paper",
+            y0=0,
+            y1=1,
+            xref="x",
+            x0=pd.to_datetime("13.03.2020", format="%d.%m.%Y"),
+            x1=pd.to_datetime("13.03.2020", format="%d.%m.%Y"),
+            opacity=0.2
+        )
+    ],
 )
-
 fig.show(renderer="browser")
 
 # Second drawing
@@ -129,6 +140,7 @@ for (median_mean_typ, plot_data) in subset_df.groupby("Typ"):
             x=plot_data.Datum,
             y=plot_data.kilometer,
             name=median_mean_typ,
+            mode="lines+markers",
             line_shape="spline",
         )
     )

@@ -176,8 +176,9 @@ def master_intervista_loader():
 ########################################################################################
 def self_isolation_mapper(x: str) -> str:
     if x in ["weniger als 500 Meter"]:
-        return "a. staying home (<500m)"
+        return "A. Staying home (< 500m)"
     elif x in ["weniger als 2 Km", "500 Meter - 2 Kilometer"]:
-        return "b. leaving home only for necessity (0.5 - 2.0 km)"
+        return "B. Leaving home for short distances, (500m - 2km)"
     else:
-        return "c. leaving home (> 2km)"
+        return "C. Leaving home (>2km)"
+########################################################################################
