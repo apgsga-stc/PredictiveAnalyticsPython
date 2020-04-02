@@ -46,6 +46,7 @@ subset_df2 = (
     .reset_index()
     .copy()
 )
+# Drawing lines:
 
 fig = go.Figure()
 for (quarantine_x, plot_data) in subset_df2.groupby("quarantine"):
@@ -54,7 +55,13 @@ for (quarantine_x, plot_data) in subset_df2.groupby("quarantine"):
             x=plot_data.Datum,
             y=plot_data.percent,
             name=quarantine_x,
-            line_shape="spline",
+            mode="lines+markers",
+            line_shape="spline",  #'linear'
+            hovertemplate=f"<b>{quarantine_x}</b><br>"
+            + "<br><b>Prozent:</b> %{y:.2f}%"
+            + "<br><b>Datum:</b> %{text}<br>"
+            + "<extra></extra>",
+            text=plot_data.Datum.dt.strftime("%A, %d. %B"),
         )
     )
 fig.update_layout(
@@ -62,19 +69,22 @@ fig.update_layout(
     title="Mobility-Radius: Wieviel Prozent der Bevölkerung bleibt zuhaus? (Intervista)",
     xaxis_title="Datum",  # "Zeit",
     yaxis_title="Prozent",
+    hovermode='x unified',
 )
+
 fig.show(renderer="browser")
 
-# fig = px.scatter(
-#     subset_df2,
-#     x="Datum",
-#     y="percent",
-#     facet_col="social_demographic",
-#     facet_row="Beschreibung",
-#     color="quarantine",
-# )
-# fig.update_layout(barmode="stack")
-# fig.show(renderer="browser")
+# Second drawing
+fig = px.bar(
+    subset_df,
+    x="Datum",
+    y="percent",
+    facet_col="social_demographic",
+    facet_row="Beschreibung",
+    color="Ausprägung",
+)
+fig.update_layout(barmode="stack")
+fig.show(renderer="browser")
 
 del subset_df2, subset_df
 
@@ -107,26 +117,22 @@ fig.show(renderer="browser")
 
 ########################################################################################
 
-
 subset_df = mobility_dist_mean_med_stacked[
     mobility_dist_mean_med_stacked.social_demographic.isin(["Total"])
     & mobility_dist_mean_med_stacked.Beschreibung.isin(["Distanz"])
 ]
+fig = go.Figure()
 
-fig2 = px.scatter(
-    subset_df,
-    x="dayofyear",  # "Datum",
-    y="kilometer",
-    # facet_col="social_demographic",
-    # facet_row="Beschreibung",
-    color="Typ",
-    # mode='lines+markers',
-    # trendline="lowess",
-    # range_x=[47,85],
-)
-
-fig2.show(renderer="browser")
-del subset_df
+for (median_mean_typ, plot_data) in subset_df.groupby("Typ"):
+    fig.add_trace(
+        go.Scatter(
+            x=plot_data.Datum,
+            y=plot_data.kilometer,
+            name=median_mean_typ,
+            line_shape="spline",
+        )
+    )
+fig.show(renderer="browser")
 
 
 ########################################################################################
