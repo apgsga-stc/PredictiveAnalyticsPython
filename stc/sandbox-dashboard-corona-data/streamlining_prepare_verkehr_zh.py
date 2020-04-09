@@ -125,7 +125,7 @@ def trend_data(current_year: int, compare_with_year: int, data_set) -> pd.DataFr
         how="left",
     ).loc[
         ~pivottable.trend_factor.isna(),
-        ["MessungDatZeit", "hourofyear_iso", "trend_factor"],
+        ["MessungDatZeit", "KW_iso", "hourofyear_iso", "trend_factor"],
     ]
 
     return test
@@ -156,7 +156,8 @@ def prepare_verkehrsdaten():
             ).copy()
 
     verkehrsdaten_lowess = (
-        verkehrsdaten_container.sort_values("MessungDatZeit")
+        verkehrsdaten_container[verkehrsdaten_container.year_iso > 2016]
+        .sort_values("MessungDatZeit")
         .reset_index()
         .drop(columns=["index"])
     )
