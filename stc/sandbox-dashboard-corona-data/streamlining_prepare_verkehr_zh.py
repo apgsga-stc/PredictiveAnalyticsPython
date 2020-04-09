@@ -61,15 +61,17 @@ def load_verkehr_data(url_verkehr) -> pd.DataFrame:
     lowess_anzfahrzeuge = lowess(
         exog=zh_raw_df.MessungDatZeit,
         endog=zh_raw_df.AnzFahrzeuge,
-        frac=9 * (msid_count * 24) / number_rows,  # 0.0075 * 3.25,
+        frac=14 * (msid_count * 24) / number_rows,  # 0.0075 * 3.25,
         return_sorted=False,
         missing="drop",
     )
     zh_raw_df.loc[:, "anzfahrzeuge_lowess"] = lowess_anzfahrzeuge
     zh_verkehr = (
-        zh_raw_df.loc[:, ["MessungDatZeit", "anzfahrzeuge_lowess",],]
-        .drop_duplicates()
-        .interpolate(method="linear", axis=0)
+        zh_raw_df.loc[
+            ~zh_raw_df.anzfahrzeuge_lowess.isna(),
+            ["MessungDatZeit", "anzfahrzeuge_lowess",],
+        ].drop_duplicates()
+        # .interpolate(method="linear", axis=0)
     )
 
     messdates_isocal = zh_verkehr.MessungDatZeit.apply(
@@ -90,7 +92,43 @@ def load_verkehr_data(url_verkehr) -> pd.DataFrame:
 
 
 ########################################################################################
+def trend_data(current_year: int, compare_with_year: int, data_set) -> pd.DataFrame:
+    temp_copy_df = (
+        (
+            data_set.loc[
+                data_set.year_iso.isin([current_year, compare_with_year]),
+                ["year_iso", "hourofyear_iso", "anzfahrzeuge_lowess"],
+            ]
+        )
+        .sort_values("hourofyear_iso")
+        .copy()
+    )
 
+    pivottable = pd.pivot_table(
+        temp_copy_df,
+        index="hourofyear_iso",
+        values="anzfahrzeuge_lowess",
+        columns=["year_iso"],
+        # aggfunc=np.sum,
+    ).reset_index()
+
+    trend_values = (
+        pivottable.loc[:, current_year] / pivottable.loc[:, compare_with_year] * 100
+    ).copy()
+
+    pivottable.loc[:, "trend_factor"] = trend_values
+    test = pd.merge(
+        pivottable,
+        data_set[data_set.year_iso.isin([current_year])],
+        left_on="hourofyear_iso",
+        right_on="hourofyear_iso",
+        how="left",
+    ).loc[~pivottable.trend_factor.isna(), ["MessungDatZeit", "trend_factor"]]
+
+    return test
+
+
+########################################################################################
 
 def prepare_verkehrsdaten():
     verkehrsdaten_container = pd.DataFrame()
@@ -101,32 +139,33 @@ def prepare_verkehrsdaten():
         if (os.path.exists(data_dir / file_name)) and (year != year_now):
             print(f"{file_name} already exists.")
             stored_data = pd.read_feather(data_dir / file_name)
-            verkehrsdaten_container = pd.concat([verkehrsdaten_container, stored_data])
+            print(f"{year}: {stored_data.shape}")
+            verkehrsdaten_container = pd.concat(
+                [verkehrsdaten_container, stored_data]
+            ).copy()
         else:
             comput_data = load_verkehr_data(url_verkehr=url_year)
+            print(f"{year}: {comput_data.shape}")
             comput_data.to_feather(str(data_dir / file_name))
-            verkehrsdaten_container = pd.concat([verkehrsdaten_container, comput_data])
+            verkehrsdaten_container = pd.concat(
+                [verkehrsdaten_container, comput_data]
+            ).copy()
 
     verkehrsdaten_lowess = (
         verkehrsdaten_container.sort_values("MessungDatZeit")
         .reset_index()
         .drop(columns=["index"])
     )
+
+    verkehrsdaten_trend = trend_data(
+        current_year=year_now,
+        compare_with_year=year_now - 1,
+        data_set=verkehrsdaten_lowess,
+    ).reset_index().drop(columns=["index"])
+
     verkehrsdaten_lowess.to_feather(str(data_dir / "verkehrsdaten_lowess.feather"))
+    verkehrsdaten_trend.to_feather(str(data_dir / "verkehrsdaten_trend.feather"))
 
-    return verkehrsdaten_lowess
-
-
-test = prepare_verkehrsdaten()
 ########################################################################################
 
-
-import seaborn as sns
-
-sns.lineplot(
-    y="anzfahrzeuge_lowess",
-    x="hourofyear_iso",
-    hue="year_iso",
-    estimator=None,
-    data=test,
-)
+prepare_verkehrsdaten()
