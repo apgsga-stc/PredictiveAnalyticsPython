@@ -7,14 +7,13 @@ print(file_dir)
 parent_dir = file_dir.parent
 print(parent_dir)
 sys.path.append(str(parent_dir))
+import os.path
 
-
-from datetime import timedelta
+from datetime import timedelta, date
 import pandas as pd
 import statsmodels.api as sm
 
 data_dir = Path.home() / "data" / "dashboard-corona"
-exit(0)
 
 ########################################################################################
 url_root = (
@@ -45,143 +44,89 @@ url_verkehr = [url_2020, url_2019, url_2018, url_2017]
 
 
 ########################################################################################
-def load_verkehr_data(url_list):
-    zh_raw_df = pd.concat([pd.read_csv(url, low_memory=False) for url in url_list])
+def load_verkehr_data(url_verkehr) -> pd.DataFrame:
+    zh_raw_df = pd.read_csv(url_verkehr, low_memory=False)
     zh_raw_df = zh_raw_df.astype(
         {"MessungDatZeit": "datetime64[ns]", "LieferDat": "datetime64[ns]"}
     )
-    zh_raw_df.loc[:, "hour"] = zh_raw_df.MessungDatZeit.dt.hour
-    zh_raw_df.loc[:, "dayofweek"] = zh_raw_df.MessungDatZeit.dt.dayofweek
-    zh_raw_df.loc[:, "month_name"] = zh_raw_df.MessungDatZeit.dt.month_name()
-    zh_raw_df.loc[:, "year"] = zh_raw_df.MessungDatZeit.dt.year
-    zh_raw_df.loc[:, "dayofyear"] = zh_raw_df.MessungDatZeit.dt.dayofyear
-    zh_raw_df.loc[:, "hourofyear"] = zh_raw_df.hour + (zh_raw_df.dayofyear - 1) * 24
+    msid_count = len(list(set(zh_raw_df.MSID)))
+    number_rows = zh_raw_df.shape[0]
 
-    print(zh_raw_df.LieferDat.max())
+    print(f"LieferDat:{zh_raw_df.LieferDat.max()}")
+    print(f"MessungDatZeit:{zh_raw_df.MessungDatZeit.min()}")
+    print(f"MessungDatZeit:{zh_raw_df.MessungDatZeit.max()}")
+    print(f"No. of MSID: {msid_count}")
 
-    return zh_raw_df
-
-
-########################################################################################
-# Remove all MSID-machines with a siginificant downtime:
-
-
-def msid_uptime_okay(zh_verkehr_all: pd.DataFrame) -> pd.DataFrame:
-    msid_uptime_hrs_per_year = pd.pivot_table(
-        zh_verkehr_all[~zh_verkehr_all.AnzFahrzeuge.isna()],
-        index="MSID",
-        columns="year",
-        values="AnzFahrzeuge",
-        aggfunc="count",
-    ).reset_index(inplace=False)
-
-    quantiles_uptime_count = msid_uptime_hrs_per_year.quantile(0.90, axis=0) * 0.95
-
-    year_list = list(msid_uptime_hrs_per_year.columns)
-    year_list.remove("MSID")
-    is_above_quantile = pd.Series(msid_uptime_hrs_per_year.shape[0] * [True])
-
-    for year in year_list:
-        is_above_quantile = (
-            msid_uptime_hrs_per_year.loc[:, year] >= quantiles_uptime_count[year]
-        ) & is_above_quantile
-
-    print(is_above_quantile.value_counts())
-    working_msid = list(set(msid_uptime_hrs_per_year.loc[is_above_quantile, "MSID"]))
-    return zh_verkehr_all.loc[zh_verkehr_all.MSID.isin(working_msid), :]
-
-
-########################################################################################
-def trend_data(current_year: int, compare_with_year: int, data_set) -> pd.DataFrame:
-    temp_copy_df = (
-        (
-            data_set.loc[
-                data_set.Jahr.isin([current_year, compare_with_year]),
-                ["Jahr", "Datum_Stunde", "AnzFahrzeuge"],
-            ]
-        )
-        .sort_values("Datum_Stunde")
-        .copy()
+    lowess = sm.nonparametric.lowess
+    lowess_anzfahrzeuge = lowess(
+        exog=zh_raw_df.MessungDatZeit,
+        endog=zh_raw_df.AnzFahrzeuge,
+        frac=9 * (msid_count * 24) / number_rows,  # 0.0075 * 3.25,
+        return_sorted=False,
+        missing="drop",
+    )
+    zh_raw_df.loc[:, "anzfahrzeuge_lowess"] = lowess_anzfahrzeuge
+    zh_verkehr = (
+        zh_raw_df.loc[:, ["MessungDatZeit", "anzfahrzeuge_lowess",],]
+        .drop_duplicates()
+        .interpolate(method="linear", axis=0)
     )
 
-    pivottable = pd.pivot_table(
-        temp_copy_df,
-        index="Datum_Stunde",
-        values="AnzFahrzeuge",
-        columns=["Jahr"],
-        # aggfunc=np.sum,
-    ).reset_index()
-
-    trend_values = (
-        pivottable.loc[:, current_year] / pivottable.loc[:, compare_with_year] * 100
+    messdates_isocal = zh_verkehr.MessungDatZeit.apply(
+        lambda mess_date: mess_date.isocalendar()
     ).copy()
+    zh_verkehr.loc[:, "year_iso"] = messdates_isocal.map(
+        lambda x: x[0]
+    )  # for separating the years in plotly
+    zh_verkehr.loc[:, "KW_iso"] = messdates_isocal.map(
+        lambda x: x[1]
+    )  # for labeling in plotly
+    zh_verkehr.loc[:, "hourofyear_iso"] = (
+        messdates_isocal.map(lambda x: (x[1] - 1) * 7 * 24 + (x[2] - 1) * 24)
+        + zh_verkehr.MessungDatZeit.dt.hour
+    )  ## for technical x-axis in plotly.
 
-    pivottable.loc[:, "trend_factor"] = trend_values
+    return zh_verkehr.reset_index().drop(columns=["index"])
 
-    return pivottable.loc[:, ["Datum_Stunde", "trend_factor"]]
-
-
-########################################################################################
-
-zh_verkehr = load_verkehr_data(url_list=url_verkehr)
-zh_verkehr_cleaned = msid_uptime_okay(zh_verkehr_all=zh_verkehr)
-
-########################################################################################
-lowess = sm.nonparametric.lowess
-lowess_anzfahrzeuge = lowess(
-    exog=zh_verkehr_cleaned.MessungDatZeit,
-    endog=zh_verkehr_cleaned.AnzFahrzeuge,
-    frac=0.0075,  # 0.01,
-    return_sorted=False,
-    missing="drop",
-)
-zh_verkehr_cleaned.loc[:, "anzfahrzeuge_lowess"] = lowess_anzfahrzeuge
-########################################################################################
-
-prep_01 = zh_verkehr_cleaned.loc[
-    :, ["hour", "year", "dayofyear", "anzfahrzeuge_lowess"],
-].drop_duplicates()
-
-prep_01.loc[:, "hourofyear"] = prep_01.hour + (prep_01.dayofyear - 1) * 24
-
-prep_02 = pd.pivot_table(
-    prep_01, index="hourofyear", columns="year", values="anzfahrzeuge_lowess"
-).reset_index()
 
 ########################################################################################
-datum_referenz = pd.DataFrame(
-    [
-        (x, pd.to_datetime("01.01.2020", format="%d.%m.%Y") + timedelta(hours=x))
-        for x in range(0, 370 * 24)
-    ],
-    columns=["hourofyear", "Datum_Stunde"],
-)
 
-prep_03 = prep_02.merge(
-    datum_referenz, how="left", left_on="hourofyear", right_on="hourofyear"
-)
-########################################################################################
 
-kilometer_columns = [2017, 2018, 2019, 2020]
+def prepare_verkehrsdaten():
+    verkehrsdaten_container = pd.DataFrame()
+    year_now = date.today().year
+    for url_year in url_verkehr:
+        year = int(url_year[-8:-4])
+        file_name = f"verkehrsdaten_lowess_{year}.feather"
+        if (os.path.exists(data_dir / file_name)) and (year != year_now):
+            print(f"{file_name} already exists.")
+            stored_data = pd.read_feather(data_dir / file_name)
+            verkehrsdaten_container = pd.concat([verkehrsdaten_container, stored_data])
+        else:
+            comput_data = load_verkehr_data(url_verkehr=url_year)
+            comput_data.to_feather(str(data_dir / file_name))
+            verkehrsdaten_container = pd.concat([verkehrsdaten_container, comput_data])
 
-prep_04 = pd.DataFrame()
-for data_column in kilometer_columns:
-    temp_df = prep_03.loc[:, ["hourofyear", "Datum_Stunde", data_column]].rename(
-        columns={data_column: "AnzFahrzeuge"}
+    verkehrsdaten_lowess = (
+        verkehrsdaten_container.sort_values("MessungDatZeit")
+        .reset_index()
+        .drop(columns=["index"])
     )
-    temp_df.loc[:, "Jahr"] = data_column
-    prep_04 = pd.concat([prep_04, temp_df])
+    verkehrsdaten_lowess.to_feather(str(data_dir / "verkehrsdaten_lowess.feather"))
 
-verkehrsdaten_lowess = prep_04.reset_index().drop(columns="index")
-
-verkehrsdaten_lowess.to_feather(str(data_dir / "verkehrsdaten_lowess.feather"))
+    return verkehrsdaten_lowess
 
 
-########################################################################################
+test = prepare_verkehrsdaten()
 ########################################################################################
 
-verkehrsdaten_trend = trend_data(
-    current_year=2020, compare_with_year=2019, data_set=verkehrsdaten_lowess
+
+import seaborn as sns
+
+sns.lineplot(
+    y="anzfahrzeuge_lowess",
+    x="hourofyear_iso",
+    hue="year_iso",
+    estimator=None,
+    data=test,
 )
-
-verkehrsdaten_trend.to_feather(str(data_dir / "verkehrsdaten_trend.feather"))
