@@ -123,12 +123,16 @@ def trend_data(current_year: int, compare_with_year: int, data_set) -> pd.DataFr
         left_on="hourofyear_iso",
         right_on="hourofyear_iso",
         how="left",
-    ).loc[~pivottable.trend_factor.isna(), ["MessungDatZeit", "trend_factor"]]
+    ).loc[
+        ~pivottable.trend_factor.isna(),
+        ["MessungDatZeit", "hourofyear_iso", "trend_factor"],
+    ]
 
     return test
 
 
 ########################################################################################
+
 
 def prepare_verkehrsdaten():
     verkehrsdaten_container = pd.DataFrame()
@@ -157,14 +161,19 @@ def prepare_verkehrsdaten():
         .drop(columns=["index"])
     )
 
-    verkehrsdaten_trend = trend_data(
-        current_year=year_now,
-        compare_with_year=year_now - 1,
-        data_set=verkehrsdaten_lowess,
-    ).reset_index().drop(columns=["index"])
+    verkehrsdaten_trend = (
+        trend_data(
+            current_year=year_now,
+            compare_with_year=year_now - 1,
+            data_set=verkehrsdaten_lowess,
+        )
+        .reset_index()
+        .drop(columns=["index"])
+    )
 
     verkehrsdaten_lowess.to_feather(str(data_dir / "verkehrsdaten_lowess.feather"))
     verkehrsdaten_trend.to_feather(str(data_dir / "verkehrsdaten_trend.feather"))
+
 
 ########################################################################################
 
