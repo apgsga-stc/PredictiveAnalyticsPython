@@ -14,15 +14,14 @@ parent_dir = file_dir.parent
 print(parent_dir)
 sys.path.append(str(parent_dir))
 
-import seaborn as sns
+data_dir = Path.home() / "data" / "dashboard-corona"
 
-sns.set_style("darkgrid")
 
 import plotly.io as pio
 
 pio.renderers.default = "browser"
 
-import datetime
+from datetime import datetime
 import pandas as pd
 import plotly.graph_objs as go
 
@@ -32,7 +31,6 @@ import plotly.graph_objs as go
 
 
 ########################################################################################
-data_dir = Path.home() / "data" / "dashboard-corona"
 link_apple = data_dir / "applemobilitytrends-2020-04-13.csv"
 apple_mobility = pd.read_csv(link_apple, low_memory=False)
 apple_mobility.loc[:, "data_prep_date"] = datetime.now()  # Technical Timestamp
@@ -46,13 +44,11 @@ apple_mobility_melted = pd.melt(
     var_name="date",
 ).astype({"date": "datetime64[ns]"})
 ########################################################################################
-apple_mobility_melted.loc[
-    :, "dayofyear"
-] = apple_mobility_melted.date.dt.dayofyear.copy()
-########################################################################################
 apple_mobility_ch = apple_mobility_melted[
     apple_mobility_melted.region.isin(["Zurich", "Switzerland"])
-]
+].reset_index().drop(columns=["index"])
+########################################################################################
+apple_mobility_ch.to_feather(str(data_dir / "apple_mobility.feather"))
 ########################################################################################
 
 
