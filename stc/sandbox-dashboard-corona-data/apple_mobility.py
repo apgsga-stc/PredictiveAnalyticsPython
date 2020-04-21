@@ -51,8 +51,9 @@ apple_mobility_ch = apple_mobility_melted[
 apple_mobility_ch.to_feather(str(data_dir / "apple_mobility.feather"))
 ########################################################################################
 
+apple_mobility_data = pd.read_feather(data_dir / "apple_mobility_data.feather")
 
-plot_data = apple_mobility_ch[apple_mobility_ch.region.isin(["Switzerland"])]
+plot_data = apple_mobility_data[apple_mobility_data.region == "Switzerland"]
 
 
 fig = go.Figure()
@@ -69,7 +70,7 @@ for (transportation_type, subset_df) in plot_data.groupby("transportation_type")
     fig.add_trace(
         go.Scatter(
             x=subset_df.date,
-            y=subset_df.value,
+            y=subset_df.percent,
             name=transportation_type,
             mode="lines",
             line_shape="spline",  # linear",
@@ -83,7 +84,7 @@ for (transportation_type, subset_df) in plot_data.groupby("transportation_type")
     fig.add_trace(
         go.Scatter(
             x=subset_df.date,
-            y=subset_df.value,
+            y=subset_df.percent,
             name=transportation_type,
             mode="markers",
             line_shape="spline",  # linear",
