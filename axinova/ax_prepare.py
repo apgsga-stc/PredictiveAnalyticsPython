@@ -503,6 +503,11 @@ def enrich_ax_data(data):
     ] = "Italienisch"
     enriched_data.loc[data["Station"].isin(stations_d), "StationSprache"] = "Deutsch"
 
+    # combine year and month into one column
+    enriched_data["YearMonth"] = enriched_data["Year"].str.cat(
+        enriched_data["Month"], sep="_"
+    )
+
     # clean up data types
     enriched_data = as_dtype(enriched_data, dtFactor, incl_dtype=["bool", "object"])
 
