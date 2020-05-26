@@ -122,7 +122,7 @@ def aggregate_bookings(df, period):
             }
         )
         .drop(["Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}"], axis="columns")
-        .astype({"Jahr": "int16"})
+        .astype({"Jahr": "float"})
         .astype({period: "int8"})
         .sort_values(["Jahr", "Endkunde_NR", period])
         .reset_index(drop=True)
@@ -130,7 +130,6 @@ def aggregate_bookings(df, period):
 
     # Needed for data preparation
     df_aggr.eval("YYYYKW_2 = Jahr * 100 + KW_2", inplace=True)
-
     return df_aggr
 
 
@@ -225,7 +224,6 @@ def booking_data(yyyykw, year_span):
     row_select = (bd_aggr_2w.loc[:, "YYYYKW_2"] <= yyyykw) & (
         bd_aggr_2w.loc[:, "YYYYKW_2"] >= yyyykw - year_span * 100
     )
-
     bd_filtered = bd_aggr_2w.loc[row_select, :].copy()
 
     # Create new column containing names of the relative years:
@@ -238,6 +236,7 @@ def booking_data(yyyykw, year_span):
 
     # Computing Sums for each kw and customer
     # info("Computing: Pivot Table")
+
     bd_pivot = bd_filtered.pivot_table(
         index=["Endkunde_NR"],
         columns=["Jahr_relative", "KW_2"],
