@@ -230,13 +230,17 @@ def booking_data(yyyykw, year_span):
     # pd.options.mode.chained_assignment = None  # default='warn'
     max_jahr = yyyykw // 100
     bd_filtered.loc[:, "Jahr_relative"] = (
-        "_RY_" + (max_jahr - bd_filtered.loc[:, "Jahr"]).astype("str") + "_KW_"
+        "_RY_"
+        + (max_jahr - bd_filtered.loc[:, "Jahr"]).astype("int8").astype("str")
+        + "_KW_"
     )
     # pd.options.mode.chained_assignment = 'warn'  # default='warn'
 
     # Computing Sums for each kw and customer
     # info("Computing: Pivot Table")
-
+    print(f"[ERROR] bd_filtered: {bd_filtered.shape}")
+    print(f"[ERROR] bd_filtered: {bd_filtered.columns}")
+    print(f"[ERROR] bd_filtered: {bd_filtered.head()}")
     bd_pivot = bd_filtered.pivot_table(
         index=["Endkunde_NR"],
         columns=["Jahr_relative", "KW_2"],
@@ -248,6 +252,7 @@ def booking_data(yyyykw, year_span):
         fill_value=0,
         # There's a difference between 0 and NaN. Consider 0 only when the customer has had a real booking or reservation prior.
     )
+
     # Flatten down dataframe
     bd_flattened = pd.DataFrame(bd_pivot.to_records(index=False))
 
@@ -269,16 +274,20 @@ def booking_data(yyyykw, year_span):
         },
         inplace=True,
     )
+
     bd_flattened.loc[:, "Target_Res_flg"] = bd_flattened.loc[
         :, "Target_Sum_Res_RY_0_" + kw
     ].astype(
         "bool"
     )  # Reservation?: Yes/No - True/False
+
     bd_flattened.loc[:, "Target_Aus_flg"] = bd_flattened.loc[
         :, "Target_Sum_Aus_RY_0_" + kw
     ].astype(
         "bool"
     )  # Aushang?: Yes/No - True/False
+
+    print(f"[ERROR ERROR] bd_flattened: {bd_flattened.shape}")
 
     # Sort index
     bd_flattened.sort_index(axis=1, inplace=True)
