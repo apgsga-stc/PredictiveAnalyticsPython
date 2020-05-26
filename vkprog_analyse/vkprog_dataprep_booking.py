@@ -238,9 +238,6 @@ def booking_data(yyyykw, year_span):
 
     # Computing Sums for each kw and customer
     # info("Computing: Pivot Table")
-    print(f"[ERROR] bd_filtered: {bd_filtered.shape}")
-    print(f"[ERROR] bd_filtered: {bd_filtered.columns}")
-    print(f"[ERROR] bd_filtered: {bd_filtered.head()}")
     bd_pivot = bd_filtered.pivot_table(
         index=["Endkunde_NR"],
         columns=["Jahr_relative", "KW_2"],
@@ -256,7 +253,7 @@ def booking_data(yyyykw, year_span):
     # Flatten down dataframe
     bd_flattened = pd.DataFrame(bd_pivot.to_records(index=False))
 
-    # Read column with Endkunde
+   # Read column with Endkunde
     bd_flattened.loc[:, "Endkunde_NR"] = pd.Series(bd_pivot.index)
 
     # Renaming column names:
@@ -286,8 +283,6 @@ def booking_data(yyyykw, year_span):
     ].astype(
         "bool"
     )  # Aushang?: Yes/No - True/False
-
-    print(f"[ERROR ERROR] bd_flattened: {bd_flattened.shape}")
 
     # Sort index
     bd_flattened.sort_index(axis=1, inplace=True)
@@ -322,8 +317,7 @@ def dates_bd(view_date):
         ]
         .groupby("Endkunde_NR", as_index=False)
         .agg(["min", "max"])
-    )
-    # TODO: redundant??
+    ).reset_index()
     min_max_erfass_dt = pd.DataFrame(min_max_erfass_dt.to_records(index=False))
     min_max_erfass_dt.columns = [
         "Endkunde_NR",
