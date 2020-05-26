@@ -37,8 +37,8 @@ from email.headerregistry import Address
 gv_MIN_PROB = 0.01  # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder = "2020_03_23"  # Example: '2019_10_21'
-ek_list_name = "20200323_ek_list.feather"
+name_depl_folder = "2020_05_01"  # Example: '2019_10_21'
+ek_list_name = "20200518_ek_list.feather"
 
 ########################################################################################
 #%% Create deployment folder (where all the xlsx-files go!)
@@ -529,6 +529,9 @@ notify_emails.at["KPF"] = "kaspar.pflugshaupt@apgsga.ch"
 notify_emails.at["STC"] = "sam.truong@apgsga.ch"
 notify_emails.at["JCA"] = "jeremy.callner@apgsga.ch"
 notify_emails = notify_emails.reset_index().drop_duplicates()
+
+
+#notify_emails = notify_emails.loc[notify_emails.E_MAIL == "sam.truong@apgsga.ch"]
 
 print(notify_emails.loc[:, "E_MAIL"])
 
