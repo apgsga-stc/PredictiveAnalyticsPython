@@ -6,7 +6,7 @@ file_dir = Path.cwd()
 parent_dir = file_dir.parent
 sys.path.append(str(parent_dir))
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, field
 
 from pa_lib.file import project_dir, load_bin, load_pickle
 from pa_lib.util import list_items
@@ -35,17 +35,18 @@ class UpliftData:
     population_codes: DataFrame = None
     global_codes: DataFrame = None
     station_codes: DataFrame = None
-    all_stations: StringList = None
-    all_weekdays: StringList = None
-    all_timescales: StringList = None
-    var_info: VarDict = None
+    all_stations: StringList = field(default_factory=list)
+    all_weekdays: StringList = field(default_factory=list)
+    all_timescales: StringList = field(default_factory=list)
+    var_info: VarDict = field(default_factory=dict)
+    combi_var: dict = field(default_factory=dict)
 
     def __post_init__(self):
         """Link to source data in global object (which gets populated on import)."""
         # Only do this if source_data already exists (not during its own initialization)
         if "SOURCE_DATA" in globals():
-            for field in fields(self):
-                setattr(self, field.name, getattr(SOURCE_DATA, field.name))
+            for data_field in fields(self):
+                setattr(self, data_field.name, getattr(SOURCE_DATA, data_field.name))
 
     def __str__(self):
         description = "\n".join(

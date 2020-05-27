@@ -168,7 +168,6 @@ def download_timeslot_plots(target: Target, station_list: list) -> None:
     if station_list == list():
         st.warning("Choose at least one station!")
         return
-    st.warning("This will take ca. 15 sec per station!")
     if st.button("Create ZIP file with all plots"):
         host_name, host_port, export_dir = get_run_environment()
         plot_file_name = target.store_timeslot_plots(

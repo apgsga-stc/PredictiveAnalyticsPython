@@ -65,6 +65,9 @@ def store_charts_to_files(
     for (label, chart) in charts.items():
         chart_file_name = make_file_name(label) + ".png"
         chart_file_path = to_directory / chart_file_name
+        assert (
+            to_directory.exists()
+        ), f"Target directory {str(to_directory)} does not exist"
         chart.properties(background="white").save(str(chart_file_path), format="png")
         charts_done += 1
         show_bar.progress(charts_done / num_charts)
@@ -192,6 +195,8 @@ def barplots(
         return chart_matrix
     elif result_type == "zip":
         tempdir = Path(directory) / f"temp_{dt.now().strftime('%Y%m%d_%H%M%S')}"
+        tempdir.mkdir(exist_ok=True, parents=True)
+        assert tempdir.exists(), f"Failed to create temp dir {str(tempdir)}"
         chart_file_names = store_charts_to_files(charts, to_directory=tempdir)
         zip_file_name = make_zip_file(
             chart_file_names,
@@ -326,6 +331,8 @@ def station_heatmaps(
         return chart_matrix
     elif result_type == "zip":
         tempdir = Path(directory) / f"temp_{dt.now().strftime('%Y%m%d_%H%M%S')}"
+        tempdir.mkdir(exist_ok=True, parents=True)
+        assert tempdir.exists(), f"Failed to create temp dir {str(tempdir)}"
         chart_file_names = store_charts_to_files(charts, to_directory=tempdir)
         zip_file_name = make_zip_file(
             chart_file_names,
