@@ -122,7 +122,7 @@ def aggregate_bookings(df, period):
             }
         )
         .drop(["Kamp_Beginn_Jahr", f"Kamp_Beginn_{period}"], axis="columns")
-        .astype({"Jahr": "float"})
+        .astype({"Jahr": "int64"})  # .astype({"Jahr": "float"})
         .astype({period: "int8"})
         .sort_values(["Jahr", "Endkunde_NR", period])
         .reset_index(drop=True)
@@ -253,7 +253,7 @@ def booking_data(yyyykw, year_span):
     # Flatten down dataframe
     bd_flattened = pd.DataFrame(bd_pivot.to_records(index=False))
 
-   # Read column with Endkunde
+    # Read column with Endkunde
     bd_flattened.loc[:, "Endkunde_NR"] = pd.Series(bd_pivot.index)
 
     # Renaming column names:
