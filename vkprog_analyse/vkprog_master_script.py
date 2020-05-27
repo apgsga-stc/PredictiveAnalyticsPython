@@ -54,11 +54,11 @@ request_job(job_name="ek_info_prepare.py", current="Today")
 ########################################################################################
 
 # Output: Name of scored list (saved in data/vkprog/predictions)
-ek_list_name = "20200518_ek_list.feather"
+ek_list_name = "20200601_ek_list.feather"
 
 # date for prediction:
-day_predict = 18  # Make sure it's a Monday
-month_predict = 5
+day_predict = 1  # Make sure it's a Monday
+month_predict = 6
 year_predict = 2020
 
 # Year for training the model (Random Forest) on:
