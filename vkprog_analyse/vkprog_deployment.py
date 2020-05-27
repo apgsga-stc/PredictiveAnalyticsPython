@@ -37,8 +37,8 @@ from email.headerregistry import Address
 gv_MIN_PROB = 0.01  # I don't know. Has been defined back in the days.
 
 # please adjust accordingly:
-name_depl_folder = "2020_03_23"  # Example: '2019_10_21'
-ek_list_name = "20200323_ek_list.feather"
+name_depl_folder = "2020_06_01"  # Example: '2019_10_21'
+ek_list_name = "20200601_ek_list.feather"
 
 ########################################################################################
 #%% Create deployment folder (where all the xlsx-files go!)
@@ -70,8 +70,10 @@ vb_list.loc[vb_list.KURZZEICHEN == "TMA", "KAM"] = False
 ########################################################################################
 ## Data Preparation:Complete Scoring Table
 
+
 def select_columns(df, pattern):
     return df.columns.to_series().loc[df.columns.str.match(pattern)].to_list()
+
 
 # Column selection:
 
@@ -163,10 +165,12 @@ ek_list = ek_list.loc[pauschale_filter, _col_selection]
 # %% Data-Type Clean Up:
 ek_list.loc[:, prob_KW] = 100 * ek_list.loc[:, prob_KW]  # shows percentage
 
+
 def parse_ints(df, columns):
     result = df.copy()
     result.loc[:, columns] = result.loc[:, columns].fillna(0).astype("int64")
     return result
+
 
 int_columns = ["PLZ", "Endkunde_NR"] + select_columns(ek_list, pattern="^Net_")
 ek_list = ek_list.pipe(parse_ints, int_columns)
@@ -247,6 +251,7 @@ def overview_xlsx(df, file_name, sheet_name="df"):
     for col in range(ncols):
         worksheet.set_column(col, col, max(col_width[col], title_width[col]) + 1)
     writer.save()
+
 
 ########################################################################################
 # %% Excel column names
@@ -529,6 +534,8 @@ notify_emails.at["KPF"] = "kaspar.pflugshaupt@apgsga.ch"
 notify_emails.at["STC"] = "sam.truong@apgsga.ch"
 notify_emails.at["JCA"] = "jeremy.callner@apgsga.ch"
 notify_emails = notify_emails.reset_index().drop_duplicates()
+
+# notify_emails = notify_emails.loc[notify_emails.E_MAIL == "sam.truong@apgsga.ch"]
 
 print(notify_emails.loc[:, "E_MAIL"])
 

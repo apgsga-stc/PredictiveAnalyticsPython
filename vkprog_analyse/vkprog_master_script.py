@@ -54,28 +54,20 @@ request_job(job_name="ek_info_prepare.py", current="Today")
 ########################################################################################
 
 # Output: Name of scored list (saved in data/vkprog/predictions)
-ek_list_name = "20200323_ek_list.feather"
+ek_list_name = "20200601_ek_list.feather"
 
 # date for prediction:
-day_predict = 23  # Make sure it's a Monday
-month_predict = 3
+day_predict = 1  # Make sure it's a Monday
+month_predict = 6
 year_predict = 2020
 
 # Year for training the model (Random Forest) on:
 year_training = 2019
 
-
-def do_debug() -> bool:
-    return False
-
-
 info(f"ek_list_name: {ek_list_name}")
-
 ########################################################################################
 # Data Preparation
 ########################################################################################
-if do_debug():
-    print(f"start bd_train_scoring: {day_predict}, {month_predict}, {year_predict}")
 
 ## IT21 Data (booking data):
 (
@@ -227,8 +219,8 @@ print(
 )
 
 ## Precision-Recall Curve:
+#prec_rec_curve(x_train=X_test, y_train=y_test, model=forest_01)
 
-prec_rec_curve(x_train=X_test, y_train=y_test, model=forest_01)
 
 ## Average Precision:
 
@@ -261,7 +253,7 @@ info(f"scoring_all_prob.shape: {scoring_all_prob.shape}")
 
 ek_list = add_ek_info(scored_dataframe=scoring_all_prob)
 info(f"ek_list.shape: {ek_list.shape}")
-info(f"ek_list.sample(1,random_state=42).T: {ek_list.sample(1,random_state=42).T}")
+info(f"ek_list.sample(1,random_state=42).T:\n {ek_list.sample(1,random_state=42).T}")
 ################################################################################
 # ## Deployment for ``vkprog_deployment.py``
 
